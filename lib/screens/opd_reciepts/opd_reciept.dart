@@ -1,12 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
 import '../../providers/opd/opd_reciepts/opd_reciepts.dart';
-// import 'opd_provider.dart'; // adjust import path as needed
 
-// ════════════════════════════════════════════════════════
-//  OPD RECEIPT SCREEN
-// ════════════════════════════════════════════════════════
 class OpdReceiptScreen extends StatefulWidget {
   const OpdReceiptScreen({super.key});
 
@@ -14,39 +9,46 @@ class OpdReceiptScreen extends StatefulWidget {
   State<OpdReceiptScreen> createState() => _OpdReceiptScreenState();
 }
 
-class _OpdReceiptScreenState extends State<OpdReceiptScreen>
-    with SingleTickerProviderStateMixin {
+class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
   static const Color primary = Color(0xFF00B5AD);
   static const Color bgColor = Color(0xFFF0F4F8);
+  static const Color cardBg  = Colors.white;
 
-  late TabController _tabController;
-
-  // Patient form
-  final _mrNoCtrl        = TextEditingController();
-  final _nameCtrl        = TextEditingController();
-  final _phoneCtrl       = TextEditingController();
-  final _ageCtrl         = TextEditingController();
-  final _genderCtrl      = TextEditingController();
-  final _addressCtrl     = TextEditingController();
-  final _cityCtrl        = TextEditingController();
-  final _discountCtrl    = TextEditingController(text: '0');
-  final _amountPaidCtrl  = TextEditingController(text: '0');
+  // ── controllers ──
+  final _mrNoCtrl       = TextEditingController();
+  final _nameCtrl       = TextEditingController();
+  final _phoneCtrl      = TextEditingController();
+  final _ageCtrl        = TextEditingController();
+  final _genderCtrl     = TextEditingController();
+  final _addressCtrl    = TextEditingController();
+  final _cityCtrl       = TextEditingController();
+  final _discountCtrl   = TextEditingController(text: '0');
+  final _amountPaidCtrl = TextEditingController(text: '0');
 
   String? _selectedPanel;
   String? _selectedReference;
-  bool _patientFound = false;
+  bool _patientFound    = false;
   bool _patientNotFound = false;
 
-  // Service section
-  String _activeCategoryId = 'opd';
-  String _serviceSearch = '';
-  int _summaryTab = 0; // 0=Summary, 1=Selected Services
+  // services state
+  String _activeCat  = 'opd';
+  String _svcSearch  = '';
+  int    _billingTab = 0; // 0=Summary 1=Selected Services
+
+  // MediaQuery values — set every build
+  late double _sw, _sh, _tp, _bp;
+  late bool   _isWide;    // >= 720
+  late bool   _isMedium;  // >= 480
+
+  double get _fs  => _sw < 360 ? 11.5 : 13.0;
+  double get _fsS => _sw < 360 ? 10.0 : 11.5;
+  double get _fsL => _sw < 360 ? 13.5 : 15.5;
+  double get _pad => _sw * 0.04;
+  double get _sp  => _sw * 0.025;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    // Pre-fill next MR No on open
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final prov = Provider.of<OpdProvider>(context, listen: false);
       _mrNoCtrl.text = prov.nextMrNo;
@@ -55,38 +57,28 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen>
 
   @override
   void dispose() {
-    _tabController.dispose();
     _mrNoCtrl.dispose(); _nameCtrl.dispose(); _phoneCtrl.dispose();
-    _ageCtrl.dispose(); _genderCtrl.dispose(); _addressCtrl.dispose();
+    _ageCtrl.dispose();  _genderCtrl.dispose(); _addressCtrl.dispose();
     _cityCtrl.dispose(); _discountCtrl.dispose(); _amountPaidCtrl.dispose();
     super.dispose();
   }
 
-  // ── MR No lookup ──
-  void _onMrNoChanged(String raw) {
-    final digits = raw.replaceAll(RegExp(r'[^0-9]'), '');
-    final formatted = digits.isEmpty
-        ? ''
-        : int.parse(digits).toString().padLeft(6, '0');
-
+  // ─── MR lookup ───
+  void _onMrChanged(String raw) {
+    final digits    = raw.replaceAll(RegExp(r'[^0-9]'), '');
+    final formatted = digits.isEmpty ? '' : int.parse(digits).toString().padLeft(6, '0');
     if (_mrNoCtrl.text != formatted) {
       _mrNoCtrl.value = TextEditingValue(
         text: formatted,
         selection: TextSelection.collapsed(offset: formatted.length),
       );
     }
-
-    if (formatted.isEmpty) {
-      _clearPatient();
-      return;
-    }
-
-    final prov = Provider.of<OpdProvider>(context, listen: false);
+    if (formatted.isEmpty) { _clearPatient(); return; }
+    final prov    = Provider.of<OpdProvider>(context, listen: false);
     final patient = prov.lookupPatient(formatted);
     if (patient != null) {
       setState(() {
-        _patientFound    = true;
-        _patientNotFound = false;
+        _patientFound = true; _patientNotFound = false;
         _nameCtrl.text    = patient.fullName;
         _phoneCtrl.text   = patient.phone;
         _ageCtrl.text     = patient.age;
@@ -100,17 +92,17 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen>
       setState(() {
         _patientFound    = false;
         _patientNotFound = formatted.length >= 3;
-        if (!_patientNotFound) _clearPatientFields();
+        if (!_patientNotFound) _clearFields();
       });
     }
   }
 
   void _clearPatient() {
     setState(() { _patientFound = false; _patientNotFound = false; });
-    _clearPatientFields();
+    _clearFields();
   }
 
-  void _clearPatientFields() {
+  void _clearFields() {
     _nameCtrl.clear(); _phoneCtrl.clear(); _ageCtrl.clear();
     _genderCtrl.clear(); _addressCtrl.clear(); _cityCtrl.clear();
     _selectedPanel = null; _selectedReference = null;
@@ -119,933 +111,757 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen>
   void _clearAll() {
     final prov = Provider.of<OpdProvider>(context, listen: false);
     _clearPatient();
-    _mrNoCtrl.text = prov.nextMrNo;
-    _discountCtrl.text = '0';
+    _mrNoCtrl.text       = prov.nextMrNo;
+    _discountCtrl.text   = '0';
     _amountPaidCtrl.text = '0';
     prov.clearServices();
-    setState(() { _activeCategoryId = 'opd'; _serviceSearch = ''; });
+    setState(() { _activeCat = 'opd'; _svcSearch = ''; _billingTab = 0; });
   }
 
-  // ── Summary helpers ──
-  double get _discount => double.tryParse(_discountCtrl.text) ?? 0;
-  double get _amountPaid => double.tryParse(_amountPaidCtrl.text) ?? 0;
-
-  void _rebuild() => setState(() {});
+  double get _discountVal   => double.tryParse(_discountCtrl.text)   ?? 0;
+  double get _amountPaidVal => double.tryParse(_amountPaidCtrl.text) ?? 0;
 
   void _saveAndExit() {
     final prov = Provider.of<OpdProvider>(context, listen: false);
-    if (_nameCtrl.text.trim().isEmpty) {
-      _snack('Please fill patient name', isError: true);
-      return;
-    }
-    if (prov.selectedServices.isEmpty) {
-      _snack('Please select at least one service', isError: true);
-      return;
-    }
+    if (_nameCtrl.text.trim().isEmpty) { _snack('Please fill patient name',           err: true); return; }
+    if (prov.selectedServices.isEmpty) { _snack('Please select at least one service', err: true); return; }
     final patient = OpdPatient(
-      mrNo: _mrNoCtrl.text,
-      fullName: _nameCtrl.text.trim(),
-      phone: _phoneCtrl.text.trim(),
-      age: _ageCtrl.text.trim(),
-      gender: _genderCtrl.text.trim(),
-      address: _addressCtrl.text.trim(),
-      city: _cityCtrl.text.trim(),
-      panel: _selectedPanel ?? 'None',
+      mrNo: _mrNoCtrl.text, fullName: _nameCtrl.text.trim(),
+      phone: _phoneCtrl.text.trim(), age: _ageCtrl.text.trim(),
+      gender: _genderCtrl.text.trim(), address: _addressCtrl.text.trim(),
+      city: _cityCtrl.text.trim(), panel: _selectedPanel ?? 'None',
       reference: _selectedReference ?? 'General Physician',
     );
-    prov.saveReceipt(
-      patient: patient,
-      services: prov.selectedServices.toList(),
-      discount: _discount,
-      amountPaid: _amountPaid,
-    );
-    _snack('Receipt saved!', isError: false);
-    _mrNoCtrl.text = prov.nextMrNo;
+    prov.saveReceipt(patient: patient, services: prov.selectedServices.toList(),
+        discount: _discountVal, amountPaid: _amountPaidVal);
+    _snack('Receipt saved!', err: false);
     _clearAll();
   }
 
-  void _snack(String msg, {required bool isError}) {
+  void _snack(String msg, {required bool err}) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg),
-      backgroundColor: isError ? Colors.red.shade400 : primary,
+      content: Text(msg, style: const TextStyle(color: Colors.white)),
+      backgroundColor: err ? Colors.red.shade400 : primary,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: EdgeInsets.all(_pad),
     ));
   }
 
+  // ════════════════════════════════════════════
+  //  BUILD
+  // ════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
-    final mq  = MediaQuery.of(context);
-    final sw  = mq.size.width;
-    final sh  = mq.size.height;
-    final tp  = mq.padding.top;
+    final mq = MediaQuery.of(context);
+    _sw = mq.size.width;
+    _sh = mq.size.height;
+    _tp = mq.padding.top;
+    _bp = mq.padding.bottom;
+    _isWide   = _sw >= 720;
+    _isMedium = _sw >= 480;
 
     return Scaffold(
       backgroundColor: bgColor,
-      body: Column(children: [
-        _Header(sw: sw, sh: sh, tp: tp, primary: primary),
-        Expanded(
-          child: Consumer<OpdProvider>(
-            builder: (_, prov, __) => _isWide(sw)
-                ? _WideLayout(
-              sw: sw, sh: sh, primary: primary, prov: prov,
-              state: this,
-            )
-                : _NarrowLayout(
-              sw: sw, sh: sh, primary: primary, prov: prov,
-              state: this,
-            ),
+      body: Consumer<OpdProvider>(
+        builder: (_, prov, __) => Column(children: [
+          _buildHeader(),
+          Expanded(
+            child: _isWide ? _wideBody(prov) : _narrowBody(prov),
           ),
-        ),
-      ]),
+        ]),
+      ),
     );
   }
 
-  bool _isWide(double sw) => sw > 720;
-}
-
-// ════════════════════════════════════════════════════════
-//  HEADER
-// ════════════════════════════════════════════════════════
-class _Header extends StatelessWidget {
-  final double sw, sh, tp;
-  final Color primary;
-  const _Header({required this.sw, required this.sh, required this.tp, required this.primary});
-
-  @override
-  Widget build(BuildContext context) {
+  // ════════════════════════════════════════════
+  //  HEADER
+  // ════════════════════════════════════════════
+  Widget _buildHeader() {
     final now = DateTime.now();
-    final timeStr = '${now.hour.toString().padLeft(2,'0')}:${now.minute.toString().padLeft(2,'0')} ${now.hour < 12 ? 'AM' : 'PM'}';
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-    final dateStr = '${days[now.weekday-1]}, ${months[now.month-1]} ${now.day}, ${now.year}';
+    const wdays  = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    final h       = now.hour;
+    final timeStr = '${h.toString().padLeft(2,'0')}:${now.minute.toString().padLeft(2,'0')} ${h < 12 ? 'AM' : 'PM'}';
+    final dateStr = '${wdays[now.weekday-1]}, ${months[now.month-1]} ${now.day}, ${now.year}';
 
     return Container(
-      color: Colors.white,
-      padding: EdgeInsets.only(top: tp + sh * 0.012, bottom: sh * 0.014,
-          left: sw * 0.04, right: sw * 0.04),
+      color: cardBg,
+      padding: EdgeInsets.only(
+        top: _tp + _sh * 0.012, bottom: _sh * 0.014, left: _pad, right: _pad,
+      ),
       child: Row(children: [
+        // Back
         GestureDetector(
           onTap: () => Navigator.maybePop(context),
           child: Container(
-            padding: EdgeInsets.all(sw * 0.02),
+            padding: EdgeInsets.all(_sw * 0.022),
             decoration: BoxDecoration(
-              color: const Color(0xFF00B5AD).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(sw * 0.02),
+              color: primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(_sw * 0.022),
             ),
-            child: Icon(Icons.arrow_back_ios_new_rounded,
-                color: const Color(0xFF00B5AD), size: sw * 0.04),
+            child: Icon(Icons.arrow_back_ios_new_rounded, color: primary, size: _sw * 0.04),
           ),
         ),
-        SizedBox(width: sw * 0.025),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('OPD RECEIPT — COUNTER 01',
-                style: TextStyle(fontSize: sw * 0.038, fontWeight: FontWeight.bold,
-                    color: Colors.black87, letterSpacing: 0.3)),
-            Text('New Patient Registration & Billing',
-                style: TextStyle(fontSize: sw * 0.028, color: Colors.grey.shade500)),
+        SizedBox(width: _sp),
+        // Title
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('OPD RECEIPT — COUNTER 01',
+              style: TextStyle(fontSize: _fsL, fontWeight: FontWeight.bold,
+                  color: Colors.black87, letterSpacing: 0.2),
+              maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text('New Patient Registration & Billing',
+              style: TextStyle(fontSize: _fsS, color: Colors.grey.shade500)),
+        ])),
+        // MR Data pill
+        Container(
+          margin: EdgeInsets.only(right: _sw * 0.02),
+          padding: EdgeInsets.symmetric(horizontal: _sw * 0.022, vertical: _sh * 0.006),
+          decoration: BoxDecoration(
+            color: primary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(_sw * 0.025),
+            border: Border.all(color: primary.withOpacity(0.3)),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.manage_accounts_rounded, color: primary, size: _sw * 0.036),
+            SizedBox(width: _sw * 0.01),
+            Text('MR Data',
+                style: TextStyle(fontSize: _fsS, color: primary, fontWeight: FontWeight.w700)),
           ]),
         ),
+        // Date pill
         Container(
-          padding: EdgeInsets.symmetric(horizontal: sw * 0.025, vertical: sh * 0.007),
+          padding: EdgeInsets.symmetric(horizontal: _sw * 0.022, vertical: _sh * 0.007),
           decoration: BoxDecoration(
-            color: const Color(0xFF00B5AD).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(sw * 0.025),
-            border: Border.all(color: const Color(0xFF00B5AD).withOpacity(0.3)),
+            color: primary.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(_sw * 0.025),
+            border: Border.all(color: primary.withOpacity(0.25)),
           ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text(dateStr, style: TextStyle(fontSize: sw * 0.026,
-                color: const Color(0xFF00B5AD), fontWeight: FontWeight.w600)),
-            Text(timeStr, style: TextStyle(fontSize: sw * 0.026,
-                color: Colors.grey.shade600)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.calendar_today_rounded, color: primary, size: _sw * 0.033),
+            SizedBox(width: _sw * 0.012),
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(dateStr,
+                  style: TextStyle(fontSize: _fsS, color: primary, fontWeight: FontWeight.w600)),
+              Text(timeStr,
+                  style: TextStyle(fontSize: _fsS * 0.88, color: Colors.grey.shade600)),
+            ]),
           ]),
         ),
       ]),
     );
   }
-}
 
-// ════════════════════════════════════════════════════════
-//  NARROW LAYOUT (Mobile) — TabBar for Patient / Services / Billing
-// ════════════════════════════════════════════════════════
-class _NarrowLayout extends StatefulWidget {
-  final double sw, sh;
-  final Color primary;
-  final OpdProvider prov;
-  final _OpdReceiptScreenState state;
-  const _NarrowLayout({required this.sw, required this.sh, required this.primary,
-    required this.prov, required this.state});
-
-  @override
-  State<_NarrowLayout> createState() => _NarrowLayoutState();
-}
-
-class _NarrowLayoutState extends State<_NarrowLayout>
-    with SingleTickerProviderStateMixin {
-  late TabController _tc;
-
-  @override
-  void initState() {
-    super.initState();
-    _tc = TabController(length: 3, vsync: this);
-  }
-
-  @override
-  void dispose() { _tc.dispose(); super.dispose(); }
-
-  @override
-  Widget build(BuildContext context) {
-    final s = widget.state;
-    final sw = widget.sw; final sh = widget.sh;
-
-    return Column(children: [
-      // Tab bar
-      Container(
-        color: Colors.white,
-        child: TabBar(
-          controller: _tc,
-          labelColor: widget.primary,
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: widget.primary,
-          indicatorWeight: 3,
-          labelStyle: TextStyle(fontSize: sw * 0.03, fontWeight: FontWeight.bold),
-          tabs: [
-            Tab(icon: Icon(Icons.person_rounded, size: sw * 0.045), text: 'Patient'),
-            Tab(icon: Icon(Icons.medical_services_rounded, size: sw * 0.045), text: 'Services'),
-            Tab(icon: Icon(Icons.receipt_long_rounded, size: sw * 0.045), text: 'Billing'),
-          ],
-        ),
-      ),
-      Expanded(
-        child: TabBarView(
-          controller: _tc,
-          children: [
-            // Tab 1: Patient
-            SingleChildScrollView(
-              padding: EdgeInsets.all(sw * 0.04),
-              physics: const BouncingScrollPhysics(),
-              child: _PatientForm(sw: sw, sh: sh, primary: widget.primary, state: s),
-            ),
-            // Tab 2: Services
-            _ServicesTab(sw: sw, sh: sh, primary: widget.primary, prov: widget.prov, state: s),
-            // Tab 3: Billing
-            SingleChildScrollView(
-              padding: EdgeInsets.all(sw * 0.04),
-              physics: const BouncingScrollPhysics(),
-              child: _BillingPanel(sw: sw, sh: sh, primary: widget.primary, prov: widget.prov, state: s),
-            ),
-          ],
-        ),
-      ),
-    ]);
-  }
-}
-
-// ════════════════════════════════════════════════════════
-//  WIDE LAYOUT (Tablet/Desktop) — side-by-side
-// ════════════════════════════════════════════════════════
-class _WideLayout extends StatelessWidget {
-  final double sw, sh;
-  final Color primary;
-  final OpdProvider prov;
-  final _OpdReceiptScreenState state;
-  const _WideLayout({required this.sw, required this.sh, required this.primary,
-    required this.prov, required this.state});
-
-  @override
-  Widget build(BuildContext context) {
+  // ════════════════════════════════════════════
+  //  WIDE BODY  (>= 720px) — 2 columns
+  // ════════════════════════════════════════════
+  Widget _wideBody(OpdProvider prov) {
     return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
       // Left: Patient + Services
       Expanded(
-        flex: 60,
-        child: Column(children: [
-          Expanded(
-            flex: 40,
-            child: SingleChildScrollView(
-              padding: EdgeInsets.all(sw * 0.02),
-              child: _PatientForm(sw: sw, sh: sh, primary: primary, state: state),
+        flex: 63,
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(_pad, _pad, _pad * 0.5, _pad + _bp),
+              sliver: SliverList(delegate: SliverChildListDelegate([
+                _patientCard(prov),
+                SizedBox(height: _pad),
+                _servicesSection(prov),
+              ])),
             ),
-          ),
-          Expanded(
-            flex: 60,
-            child: _ServicesTab(sw: sw, sh: sh, primary: primary, prov: prov, state: state),
-          ),
-        ]),
+          ],
+        ),
       ),
       // Right: Billing panel
       SizedBox(
-        width: sw * 0.32,
-        child: SingleChildScrollView(
-          padding: EdgeInsets.all(sw * 0.018),
-          child: _BillingPanel(sw: sw, sh: sh, primary: primary, prov: prov, state: state),
+        width: _sw * 0.34,
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(_pad * 0.5, _pad, _pad, _pad + _bp),
+              sliver: SliverList(delegate: SliverChildListDelegate([
+                _billingCard(prov),
+              ])),
+            ),
+          ],
         ),
       ),
     ]);
   }
-}
 
-// ════════════════════════════════════════════════════════
-//  PATIENT FORM
-// ════════════════════════════════════════════════════════
-class _PatientForm extends StatelessWidget {
-  final double sw, sh;
-  final Color primary;
-  final _OpdReceiptScreenState state;
-  const _PatientForm({required this.sw, required this.sh, required this.primary, required this.state});
+  // ════════════════════════════════════════════
+  //  NARROW BODY  (< 720px) — single column scroll
+  // ════════════════════════════════════════════
+  Widget _narrowBody(OpdProvider prov) {
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(_pad, _pad, _pad, _pad + _bp),
+          sliver: SliverList(delegate: SliverChildListDelegate([
+            _patientCard(prov),
+            SizedBox(height: _pad),
+            _servicesSection(prov),
+            SizedBox(height: _pad),
+            _billingCard(prov),
+          ])),
+        ),
+      ],
+    );
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    final s = state;
-    final fs  = sw < 360 ? 11.0 : 13.0;
-    final fsS = sw < 360 ? 10.0 : 11.5;
+  // ════════════════════════════════════════════
+  //  PATIENT CARD
+  // ════════════════════════════════════════════
+  Widget _patientCard(OpdProvider prov) {
+    return _SectionCard(
+      sw: _sw, icon: Icons.person_pin_rounded, title: 'Patient Information',
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-    return _Card(
-      sw: sw,
-      icon: Icons.person_pin_rounded,
-      title: 'Patient Information',
-      child: Column(children: [
-        // MR No field
-        _LabelField(
-          label: 'MR No',
-          required: true,
-          fsS: fsS,
-          sh: sh,
+        // MR No — full width
+        _FieldLabel(label: 'MR No', req: true, fsS: _fsS, sh: _sh,
           child: TextField(
-            controller: s._mrNoCtrl,
+            controller: _mrNoCtrl,
             keyboardType: TextInputType.number,
-            style: TextStyle(fontSize: fs, fontWeight: FontWeight.bold, color: Colors.black87),
-            decoration: _decor(sw, sh, 'e.g. 000001').copyWith(
-              suffixIcon: s._patientFound
-                  ? const Icon(Icons.check_circle_rounded, color: Colors.green, size: 18)
-                  : s._patientNotFound
-                  ? Icon(Icons.search_off_rounded, color: Colors.orange.shade400, size: 18)
-                  : Icon(Icons.badge_rounded, color: Colors.grey.shade400, size: 18),
+            style: TextStyle(fontSize: _fs, fontWeight: FontWeight.bold, color: Colors.black87),
+            decoration: _decor('e.g. 000001').copyWith(
+              suffixIcon: _patientFound
+                  ? const Icon(Icons.check_circle_rounded, color: Colors.green, size: 20)
+                  : _patientNotFound
+                  ? Icon(Icons.search_off_rounded, color: Colors.orange.shade400, size: 20)
+                  : Icon(Icons.badge_rounded, color: Colors.grey.shade400, size: 20),
               filled: true,
-              fillColor: s._patientFound ? Colors.green.withOpacity(0.04) : Colors.white,
+              fillColor: _patientFound ? Colors.green.withOpacity(0.04) : Colors.white,
             ),
-            onChanged: s._onMrNoChanged,
+            onChanged: _onMrChanged,
           ),
         ),
-        if (s._patientFound)
-          _StatusChip(icon: Icons.check_circle_rounded, label: 'Patient found — fields auto-filled',
-              color: Colors.green, sw: sw, sh: sh),
-        if (s._patientNotFound)
-          _StatusChip(icon: Icons.info_rounded, label: 'Not found — enter manually',
-              color: Colors.orange, sw: sw, sh: sh),
-        SizedBox(height: sh * 0.012),
+        if (_patientFound)
+          _statusChip(Icons.check_circle_rounded, 'Patient found — fields auto-filled', Colors.green),
+        if (_patientNotFound)
+          _statusChip(Icons.info_rounded, 'Not found — fill manually', Colors.orange),
+        SizedBox(height: _sh * 0.014),
 
-        // Name + Phone
-        Row(children: [
-          Expanded(child: _LabelField(label: 'Full Name', required: true, fsS: fsS, sh: sh,
-              child: _tf(sw, sh, s._nameCtrl, 'Enter Full Name', fs, s._patientFound))),
-          SizedBox(width: sw * 0.025),
-          Expanded(child: _LabelField(label: 'Phone', required: true, fsS: fsS, sh: sh,
-              child: _tf(sw, sh, s._phoneCtrl, 'Enter Phone', fs, s._patientFound,
-                  type: TextInputType.phone))),
-        ]),
-        SizedBox(height: sh * 0.012),
+        // Full Name + Phone
+        _row2(
+          _FieldLabel(label: 'Full Name', req: true, fsS: _fsS, sh: _sh,
+              child: _tf(_nameCtrl, 'Enter Full Name')),
+          _FieldLabel(label: 'Phone', req: true, fsS: _fsS, sh: _sh,
+              child: _tf(_phoneCtrl, 'Enter Phone', type: TextInputType.phone)),
+        ),
+        SizedBox(height: _sh * 0.013),
 
         // Age + Gender
-        Row(children: [
-          Expanded(child: _LabelField(label: 'Age', required: true, fsS: fsS, sh: sh,
-              child: _tf(sw, sh, s._ageCtrl, 'Age', fs, s._patientFound,
-                  type: TextInputType.number))),
-          SizedBox(width: sw * 0.025),
-          Expanded(child: _LabelField(label: 'Gender', required: true, fsS: fsS, sh: sh,
-              child: _tf(sw, sh, s._genderCtrl, 'Male/Female', fs, s._patientFound))),
-        ]),
-        SizedBox(height: sh * 0.012),
+        _row2(
+          _FieldLabel(label: 'Age', req: true, fsS: _fsS, sh: _sh,
+              child: _tf(_ageCtrl, 'Age', type: TextInputType.number)),
+          _FieldLabel(label: 'Gender', req: true, fsS: _fsS, sh: _sh,
+              child: _tf(_genderCtrl, 'Male / Female')),
+        ),
+        SizedBox(height: _sh * 0.013),
 
         // Address + City
-        Row(children: [
-          Expanded(child: _LabelField(label: 'Address', required: true, fsS: fsS, sh: sh,
-              child: _tf(sw, sh, s._addressCtrl, 'Address', fs, s._patientFound))),
-          SizedBox(width: sw * 0.025),
-          Expanded(child: _LabelField(label: 'City', fsS: fsS, sh: sh,
-              child: _tf(sw, sh, s._cityCtrl, 'City', fs, s._patientFound))),
-        ]),
-        SizedBox(height: sh * 0.012),
+        _row2(
+          _FieldLabel(label: 'Address', req: true, fsS: _fsS, sh: _sh,
+              child: _tf(_addressCtrl, 'Address')),
+          _FieldLabel(label: 'City', fsS: _fsS, sh: _sh,
+              child: _tf(_cityCtrl, 'City')),
+        ),
+        SizedBox(height: _sh * 0.013),
 
         // Panel + Reference
-        Consumer<OpdProvider>(builder: (_, prov, __) => Row(children: [
-          Expanded(child: _LabelField(label: 'Panel', fsS: fsS, sh: sh,
-              child: _DropdownField(
-                sw: sw, sh: sh, fs: fs,
-                value: s._selectedPanel,
-                hint: 'Select Panel',
-                items: prov.panels,
-                onChanged: (v) { s._selectedPanel = v; s._rebuild(); },
-              ))),
-          SizedBox(width: sw * 0.025),
-          Expanded(child: _LabelField(label: 'Reference', required: true, fsS: fsS, sh: sh,
-              child: _DropdownField(
-                sw: sw, sh: sh, fs: fs,
-                value: s._selectedReference,
-                hint: 'Select Reference',
-                items: prov.references,
-                onChanged: (v) { s._selectedReference = v; s._rebuild(); },
-              ))),
-        ])),
+        _row2(
+          _FieldLabel(label: 'Panel', fsS: _fsS, sh: _sh,
+            child: _DropDown(sw: _sw, fs: _fs, value: _selectedPanel,
+                hint: 'Select Panel', items: prov.panels,
+                onChanged: (v) => setState(() => _selectedPanel = v)),
+          ),
+          _FieldLabel(label: 'Reference', req: true, fsS: _fsS, sh: _sh,
+            child: _DropDown(sw: _sw, fs: _fs, value: _selectedReference,
+                hint: 'General Physician', items: prov.references,
+                onChanged: (v) => setState(() => _selectedReference = v)),
+          ),
+        ),
       ]),
     );
   }
 
-  static Widget _tf(double sw, double sh, TextEditingController ctrl,
-      String hint, double fs, bool found,
-      {TextInputType type = TextInputType.text}) {
-    return TextField(
-      controller: ctrl,
-      keyboardType: type,
-      style: TextStyle(fontSize: fs, color: Colors.black87),
-      decoration: _decor(sw, sh, hint).copyWith(
-        filled: true,
-        fillColor: found ? Colors.green.withOpacity(0.04) : Colors.white,
-      ),
-    );
-  }
+  // ════════════════════════════════════════════
+  //  SERVICES SECTION
+  // ════════════════════════════════════════════
+  Widget _servicesSection(OpdProvider prov) {
+    final cats    = prov.serviceCategories;
+    final svcList = (prov.services[_activeCat] ?? []).where((s) =>
+    _svcSearch.isEmpty ||
+        s.name.toLowerCase().contains(_svcSearch.toLowerCase())).toList();
 
-  static InputDecoration _decor(double sw, double sh, String hint) => InputDecoration(
-    hintText: hint,
-    hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: sw < 360 ? 11.0 : 13.0),
-    filled: true, fillColor: Colors.white,
-    contentPadding: EdgeInsets.symmetric(horizontal: sw * 0.03, vertical: sh * 0.013),
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(sw * 0.022),
-        borderSide: BorderSide(color: Colors.grey.shade300)),
-    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(sw * 0.022),
-        borderSide: BorderSide(color: Colors.grey.shade300)),
-    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(sw * 0.022),
-        borderSide: const BorderSide(color: Color(0xFF00B5AD), width: 1.5)),
-  );
-}
+    // category tile width
+    final catW = _isWide ? _sw * 0.095 : _sw * 0.185;
 
-// ════════════════════════════════════════════════════════
-//  SERVICES TAB
-// ════════════════════════════════════════════════════════
-class _ServicesTab extends StatefulWidget {
-  final double sw, sh;
-  final Color primary;
-  final OpdProvider prov;
-  final _OpdReceiptScreenState state;
-  const _ServicesTab({required this.sw, required this.sh, required this.primary,
-    required this.prov, required this.state});
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      // ── Section header ──
+      Row(children: [
+        Icon(Icons.medical_services_rounded, color: primary, size: _sw * 0.048),
+        SizedBox(width: _sw * 0.02),
+        Text('OPD Services',
+            style: TextStyle(fontSize: _fsL, fontWeight: FontWeight.bold, color: Colors.black87)),
+        const Spacer(),
+        Consumer<OpdProvider>(builder: (_, p, __) => AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: EdgeInsets.symmetric(horizontal: _sw * 0.028, vertical: _sh * 0.005),
+          decoration: BoxDecoration(
+            color: p.selectedServices.isEmpty
+                ? Colors.grey.shade200
+                : primary.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(_sw * 0.05),
+          ),
+          child: Text('${p.selectedServices.length} selected',
+              style: TextStyle(fontSize: _fsS, fontWeight: FontWeight.w700,
+                  color: p.selectedServices.isEmpty ? Colors.grey.shade500 : primary)),
+        )),
+      ]),
+      SizedBox(height: _sh * 0.013),
 
-  @override
-  State<_ServicesTab> createState() => _ServicesTabState();
-}
-
-class _ServicesTabState extends State<_ServicesTab> {
-  String _activeCat = 'opd';
-  String _search = '';
-
-  @override
-  Widget build(BuildContext context) {
-    final sw = widget.sw; final sh = widget.sh;
-    final prov = widget.prov;
-    final fs = sw < 360 ? 11.0 : 13.0;
-
-    final cats = prov.serviceCategories;
-    final allServicesInCat = prov.services[_activeCat] ?? [];
-    final filtered = _search.isEmpty
-        ? allServicesInCat
-        : allServicesInCat.where((s) =>
-        s.name.toLowerCase().contains(_search.toLowerCase())).toList();
-
-    return Column(children: [
-      // Header row
-      Padding(
-        padding: EdgeInsets.symmetric(horizontal: sw * 0.04, vertical: sh * 0.012),
-        child: Row(children: [
-          Icon(Icons.medical_services_rounded, color: widget.primary, size: sw * 0.045),
-          SizedBox(width: sw * 0.02),
-          Text('OPD Services',
-              style: TextStyle(fontSize: sw * 0.038, fontWeight: FontWeight.bold,
-                  color: Colors.black87)),
-          const Spacer(),
-          Consumer<OpdProvider>(builder: (_, p, __) => Container(
-            padding: EdgeInsets.symmetric(horizontal: sw * 0.025, vertical: sh * 0.005),
-            decoration: BoxDecoration(
-              color: p.selectedServices.isEmpty ? Colors.grey.shade200 : widget.primary.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(sw * 0.05),
-            ),
-            child: Text('${p.selectedServices.length} selected',
-                style: TextStyle(fontSize: sw * 0.028, fontWeight: FontWeight.w700,
-                    color: p.selectedServices.isEmpty ? Colors.grey : widget.primary)),
-          )),
-        ]),
-      ),
-
-      // Search bar
-      Padding(
-        padding: EdgeInsets.symmetric(horizontal: sw * 0.04),
+      // ── Search bar ──
+      Container(
+        decoration: BoxDecoration(
+          color: cardBg, borderRadius: BorderRadius.circular(_sw * 0.025),
+          border: Border.all(color: Colors.grey.shade200),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6)],
+        ),
         child: TextField(
-          onChanged: (v) => setState(() => _search = v),
-          style: TextStyle(fontSize: fs),
+          onChanged: (v) => setState(() => _svcSearch = v),
+          style: TextStyle(fontSize: _fs),
           decoration: InputDecoration(
             hintText: 'Search services by name or description...',
-            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: fs * 0.95),
-            prefixIcon: Icon(Icons.search_rounded, color: Colors.grey.shade400, size: sw * 0.045),
-            filled: true, fillColor: Colors.white,
-            contentPadding: EdgeInsets.symmetric(horizontal: sw * 0.03, vertical: sh * 0.012),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(sw * 0.025),
-                borderSide: BorderSide(color: Colors.grey.shade200)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(sw * 0.025),
-                borderSide: BorderSide(color: Colors.grey.shade200)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(sw * 0.025),
-                borderSide: BorderSide(color: widget.primary, width: 1.5)),
+            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: _fs * 0.93),
+            prefixIcon: Icon(Icons.search_rounded, color: Colors.grey.shade400, size: _sw * 0.05),
+            border: InputBorder.none,
+            contentPadding: EdgeInsets.symmetric(vertical: _sh * 0.013),
           ),
         ),
       ),
-      SizedBox(height: sh * 0.012),
+      SizedBox(height: _sh * 0.013),
 
-      // Category horizontal scroll
+      // ── Category horizontal strip ──
       SizedBox(
-        height: sh * 0.115,
+        height: _sh * (_isWide ? 0.095 : 0.108),
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
-          padding: EdgeInsets.symmetric(horizontal: sw * 0.04),
-          separatorBuilder: (_, __) => SizedBox(width: sw * 0.025),
+          physics: const BouncingScrollPhysics(),
+          separatorBuilder: (_, __) => SizedBox(width: _sw * 0.022),
           itemCount: cats.length,
           itemBuilder: (_, i) {
-            final cat = cats[i];
-            final id = cat['id'] as String;
+            final cat      = cats[i];
+            final id       = cat['id'] as String;
             final isActive = id == _activeCat;
-            final color = cat['color'] as Color;
+            final color    = cat['color'] as Color;
             return GestureDetector(
-              onTap: () => setState(() { _activeCat = id; _search = ''; }),
+              onTap: () => setState(() { _activeCat = id; _svcSearch = ''; }),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
-                width: sw * 0.2,
+                width: catW,
                 decoration: BoxDecoration(
-                  color: isActive ? color : Colors.white,
-                  borderRadius: BorderRadius.circular(sw * 0.03),
-                  border: Border.all(color: isActive ? color : Colors.grey.shade200, width: 2),
-                  boxShadow: isActive ? [BoxShadow(color: color.withOpacity(0.35),
-                      blurRadius: 8, offset: const Offset(0, 3))] : null,
+                  color: isActive ? color : cardBg,
+                  borderRadius: BorderRadius.circular(_sw * 0.03),
+                  border: Border.all(
+                      color: isActive ? color : Colors.grey.shade200, width: 2),
+                  boxShadow: isActive
+                      ? [BoxShadow(
+                      color: color.withOpacity(0.38),
+                      blurRadius: 8, offset: const Offset(0, 3))]
+                      : [BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 5)],
                 ),
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                   Icon(cat['icon'] as IconData,
-                      color: isActive ? Colors.white : color, size: sw * 0.07),
-                  SizedBox(height: sh * 0.005),
+                      color: isActive ? Colors.white : color,
+                      size: _sw * (_isWide ? 0.032 : 0.062)),
+                  SizedBox(height: _sh * 0.004),
                   Text(cat['label'] as String,
-                      style: TextStyle(fontSize: sw * 0.025, fontWeight: FontWeight.w700,
-                          color: isActive ? Colors.white : Colors.black87),
-                      textAlign: TextAlign.center),
+                      style: TextStyle(
+                        fontSize: _sw * (_isWide ? 0.017 : 0.023),
+                        fontWeight: FontWeight.w700,
+                        color: isActive ? Colors.white : Colors.black87,
+                      ),
+                      textAlign: TextAlign.center, maxLines: 2,
+                      overflow: TextOverflow.ellipsis),
                 ]),
               ),
             );
           },
         ),
       ),
-      SizedBox(height: sh * 0.01),
+      SizedBox(height: _sh * 0.013),
 
-      // Services list + selected panel side by side
-      Expanded(
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          // Service list
-          Expanded(
-            child: filtered.isEmpty
-                ? Center(child: Text('No services found',
-                style: TextStyle(color: Colors.grey.shade400, fontSize: fs)))
-                : ListView.builder(
-              padding: EdgeInsets.symmetric(horizontal: sw * 0.04, vertical: sh * 0.005),
-              itemCount: filtered.length,
-              itemBuilder: (_, i) {
-                final svc = filtered[i];
-                final isSel = prov.isSelected(svc.id);
-                return GestureDetector(
-                  onTap: () {
-                    if (isSel) prov.removeService(svc.id);
-                    else prov.addService(svc);
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    margin: EdgeInsets.only(bottom: sh * 0.008),
-                    padding: EdgeInsets.symmetric(
-                        horizontal: sw * 0.035, vertical: sh * 0.012),
-                    decoration: BoxDecoration(
-                      color: isSel ? svc.color.withOpacity(0.08) : Colors.white,
-                      borderRadius: BorderRadius.circular(sw * 0.025),
-                      border: Border.all(
-                        color: isSel ? svc.color : Colors.grey.shade200,
-                        width: isSel ? 1.5 : 1,
-                      ),
-                    ),
-                    child: Row(children: [
-                      Container(
-                        padding: EdgeInsets.all(sw * 0.018),
-                        decoration: BoxDecoration(
-                          color: svc.color.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(sw * 0.02),
-                        ),
-                        child: Icon(svc.icon, color: svc.color, size: sw * 0.045),
-                      ),
-                      SizedBox(width: sw * 0.025),
-                      Expanded(child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(svc.name, style: TextStyle(fontSize: fs,
-                              fontWeight: FontWeight.w600, color: Colors.black87)),
-                          Text('PKR ${svc.price.toStringAsFixed(0)}',
-                              style: TextStyle(fontSize: sw * 0.028,
-                                  color: Colors.grey.shade500)),
-                        ],
-                      )),
-                      Icon(isSel ? Icons.check_circle_rounded : Icons.add_circle_outline_rounded,
-                          color: isSel ? svc.color : Colors.grey.shade400,
-                          size: sw * 0.055),
-                    ]),
-                  ),
-                );
-              },
-            ),
+      // ── Service items ──
+      if (svcList.isEmpty)
+        Container(
+          height: _sh * 0.09,
+          alignment: Alignment.center,
+          child: Text('No services found',
+              style: TextStyle(color: Colors.grey.shade400, fontSize: _fs)),
+        )
+      else if (_isMedium)
+      // Grid on medium+
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: _isWide ? 3 : 2,
+            mainAxisSpacing: _sh * 0.009,
+            crossAxisSpacing: _sw * 0.025,
+            childAspectRatio: _isWide ? 3.3 : 2.8,
           ),
+          itemCount: svcList.length,
+          itemBuilder: (_, i) => _svcTile(svcList[i], prov),
+        )
+      else
+      // List on small
+        Column(children: svcList.map((s) => Padding(
+          padding: EdgeInsets.only(bottom: _sh * 0.009),
+          child: _svcTile(s, prov),
+        )).toList()),
+    ]);
+  }
 
-          // Selected services mini panel
-          Consumer<OpdProvider>(builder: (_, p, __) {
-            if (p.selectedServices.isEmpty) return const SizedBox.shrink();
-            return Container(
-              width: sw * 0.38,
-              margin: EdgeInsets.only(right: sw * 0.03, bottom: sh * 0.01),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(sw * 0.03),
-                border: Border.all(color: Colors.grey.shade200),
+  Widget _svcTile(OpdService svc, OpdProvider prov) {
+    final isSel = prov.isSelected(svc.id);
+    return GestureDetector(
+      onTap: () { if (isSel) prov.removeService(svc.id); else prov.addService(svc); },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: EdgeInsets.symmetric(horizontal: _sw * 0.03, vertical: _sh * 0.011),
+        decoration: BoxDecoration(
+          color: isSel ? svc.color.withOpacity(0.07) : cardBg,
+          borderRadius: BorderRadius.circular(_sw * 0.025),
+          border: Border.all(
+              color: isSel ? svc.color : Colors.grey.shade200,
+              width: isSel ? 1.5 : 1),
+          boxShadow: [BoxShadow(
+              color: Colors.black.withOpacity(isSel ? 0.05 : 0.03),
+              blurRadius: 6)],
+        ),
+        child: Row(children: [
+          Container(
+            padding: EdgeInsets.all(_sw * 0.018),
+            decoration: BoxDecoration(
+              color: svc.color.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(_sw * 0.018),
+            ),
+            child: Icon(svc.icon, color: svc.color, size: _sw * 0.042),
+          ),
+          SizedBox(width: _sw * 0.022),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(svc.name,
+                style: TextStyle(fontSize: _fs * 0.93, fontWeight: FontWeight.w600,
+                    color: Colors.black87),
+                maxLines: 2, overflow: TextOverflow.ellipsis),
+            Text('PKR ${svc.price.toStringAsFixed(0)}',
+                style: TextStyle(fontSize: _fsS, color: Colors.grey.shade500)),
+          ])),
+          Icon(isSel ? Icons.check_circle_rounded : Icons.add_circle_outline_rounded,
+              color: isSel ? svc.color : Colors.grey.shade400,
+              size: _sw * 0.052),
+        ]),
+      ),
+    );
+  }
+
+  // ════════════════════════════════════════════
+  //  BILLING CARD
+  // ════════════════════════════════════════════
+  Widget _billingCard(OpdProvider prov) {
+    final discount     = _discountVal;
+    final totalPayable = (prov.servicesTotal - discount).clamp(0, double.infinity);
+    final amountPaid   = _amountPaidVal;
+    final balance      = amountPaid - totalPayable;
+
+    return _SectionCard(
+      sw: _sw, icon: Icons.receipt_long_rounded, title: 'Billing',
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+        // ── Sub-tab toggle ──
+        Container(
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(_sw * 0.025),
+          ),
+          padding: EdgeInsets.all(_sw * 0.008),
+          child: Row(children: [
+            _subTabBtn('Summary',           0),
+            SizedBox(width: _sw * 0.008),
+            _subTabBtn('Selected Services', 1),
+          ]),
+        ),
+        SizedBox(height: _sh * 0.018),
+
+        // ── Summary ──
+        if (_billingTab == 0) ...[
+          _BillRow(label: 'Services Total',
+              value: 'PKR ${prov.servicesTotal.toStringAsFixed(2)}',
+              sw: _sw, sh: _sh, fs: _fs),
+          SizedBox(height: _sh * 0.012),
+
+          // Discount row
+          Row(children: [
+            Expanded(child: Text('Discount',
+                style: TextStyle(fontSize: _fs, color: Colors.black54))),
+            SizedBox(width: _sw * 0.34, child: _amountInput(_discountCtrl)),
+          ]),
+          Divider(height: _sh * 0.03, color: Colors.grey.shade200),
+
+          _BillRow(label: 'Total Payable',
+              value: 'PKR ${totalPayable.toStringAsFixed(2)}',
+              sw: _sw, sh: _sh, fs: _fs, bold: true, valueColor: primary),
+          SizedBox(height: _sh * 0.012),
+
+          // Amount Paid row
+          Row(children: [
+            Expanded(child: Text('Amount Paid',
+                style: TextStyle(fontSize: _fs, color: Colors.black54))),
+            SizedBox(width: _sw * 0.34, child: _amountInput(_amountPaidCtrl)),
+          ]),
+          SizedBox(height: _sh * 0.01),
+
+          _BillRow(
+            label: 'Balance',
+            value: 'PKR ${balance.abs().toStringAsFixed(2)}'
+                '${balance < 0 ? ' (Due)' : ''}',
+            sw: _sw, sh: _sh, fs: _fs, bold: true,
+            valueColor: balance < 0 ? Colors.red : Colors.green,
+          ),
+          SizedBox(height: _sh * 0.022),
+
+          // Action buttons
+          Row(children: [
+            Expanded(child: OutlinedButton.icon(
+              onPressed: _clearAll,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.grey.shade600,
+                side: BorderSide(color: Colors.grey.shade300),
+                padding: EdgeInsets.symmetric(vertical: _sh * 0.014),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(_sw * 0.025)),
               ),
-              child: Column(children: [
+              icon: Icon(Icons.close_rounded, size: _sw * 0.042),
+              label: Text('Save & Exit',
+                  style: TextStyle(fontSize: _fs, fontWeight: FontWeight.w600)),
+            )),
+            SizedBox(width: _sp),
+            Expanded(flex: 2, child: ElevatedButton.icon(
+              onPressed: _saveAndExit,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primary,
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(vertical: _sh * 0.014),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(_sw * 0.025)),
+              ),
+              icon: Icon(Icons.print_rounded, size: _sw * 0.042),
+              label: Text('Print Receipt',
+                  style: TextStyle(fontSize: _fs, fontWeight: FontWeight.bold)),
+            )),
+          ]),
+        ],
+
+        // ── Selected Services list ──
+        if (_billingTab == 1) ...[
+          if (prov.selectedServices.isEmpty)
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: _sh * 0.045),
+              child: Center(child: Column(children: [
+                Icon(Icons.inbox_rounded,
+                    color: Colors.grey.shade300, size: _sw * 0.14),
+                SizedBox(height: _sh * 0.01),
+                Text('No services selected',
+                    style: TextStyle(color: Colors.grey.shade400, fontSize: _fs)),
+              ])),
+            )
+          else
+            ...prov.selectedServices.map((sel) => Container(
+              margin: EdgeInsets.only(bottom: _sh * 0.009),
+              padding: EdgeInsets.symmetric(
+                  horizontal: _sw * 0.03, vertical: _sh * 0.011),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(_sw * 0.025),
+                border: Border.all(color: sel.service.color.withOpacity(0.3)),
+                boxShadow: [BoxShadow(
+                    color: Colors.black.withOpacity(0.03), blurRadius: 5)],
+              ),
+              child: Row(children: [
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: sw * 0.03, vertical: sh * 0.01),
+                  padding: EdgeInsets.all(_sw * 0.018),
                   decoration: BoxDecoration(
-                    color: widget.primary.withOpacity(0.08),
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(sw * 0.03),
-                      topRight: Radius.circular(sw * 0.03),
-                    ),
+                    color: sel.service.color.withOpacity(0.12),
+                    shape: BoxShape.circle,
                   ),
-                  child: Row(children: [
-                    Icon(Icons.check_circle_rounded, color: widget.primary, size: sw * 0.035),
-                    SizedBox(width: sw * 0.01),
-                    Text('Selected', style: TextStyle(fontSize: sw * 0.028,
-                        fontWeight: FontWeight.bold, color: widget.primary)),
-                  ]),
+                  child: Icon(sel.service.icon,
+                      color: sel.service.color, size: _sw * 0.046),
                 ),
-                Expanded(
-                  child: ListView.builder(
-                    padding: EdgeInsets.all(sw * 0.02),
-                    itemCount: p.selectedServices.length,
-                    itemBuilder: (_, i) {
-                      final sel = p.selectedServices[i];
-                      return Container(
-                        margin: EdgeInsets.only(bottom: sh * 0.007),
-                        padding: EdgeInsets.symmetric(
-                            horizontal: sw * 0.025, vertical: sh * 0.008),
-                        decoration: BoxDecoration(
-                          color: sel.service.color.withOpacity(0.06),
-                          borderRadius: BorderRadius.circular(sw * 0.02),
-                        ),
-                        child: Row(children: [
-                          Icon(sel.service.icon, color: sel.service.color, size: sw * 0.035),
-                          SizedBox(width: sw * 0.015),
-                          Expanded(child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(sel.service.name,
-                                  style: TextStyle(fontSize: sw * 0.026,
-                                      fontWeight: FontWeight.w600, color: Colors.black87),
-                                  maxLines: 2, overflow: TextOverflow.ellipsis),
-                              Text('PKR ${sel.service.price.toStringAsFixed(0)}',
-                                  style: TextStyle(fontSize: sw * 0.024,
-                                      color: Colors.grey.shade500)),
-                            ],
-                          )),
-                          GestureDetector(
-                            onTap: () => p.removeService(sel.service.id),
-                            child: Icon(Icons.close_rounded,
-                                color: Colors.red.shade300, size: sw * 0.038),
-                          ),
-                        ]),
-                      );
-                    },
+                SizedBox(width: _sp),
+                Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(sel.service.name,
+                      style: TextStyle(fontSize: _fs,
+                          fontWeight: FontWeight.w600, color: Colors.black87)),
+                  Text('PKR ${sel.service.price.toStringAsFixed(2)}',
+                      style: TextStyle(fontSize: _fsS, color: Colors.grey.shade500)),
+                ])),
+                GestureDetector(
+                  onTap: () => prov.removeService(sel.service.id),
+                  child: Container(
+                    padding: EdgeInsets.all(_sw * 0.015),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(_sw * 0.018),
+                    ),
+                    child: Icon(Icons.delete_outline_rounded,
+                        color: Colors.red.shade400, size: _sw * 0.042),
                   ),
                 ),
               ]),
-            );
-          }),
-        ]),
-      ),
-    ]);
+            )).toList(),
+        ],
+      ]),
+    );
   }
-}
 
-// ════════════════════════════════════════════════════════
-//  BILLING PANEL
-// ════════════════════════════════════════════════════════
-class _BillingPanel extends StatefulWidget {
-  final double sw, sh;
-  final Color primary;
-  final OpdProvider prov;
-  final _OpdReceiptScreenState state;
-  const _BillingPanel({required this.sw, required this.sh, required this.primary,
-    required this.prov, required this.state});
-
-  @override
-  State<_BillingPanel> createState() => _BillingPanelState();
-}
-
-class _BillingPanelState extends State<_BillingPanel> {
-  int _subTab = 0; // 0=Summary, 1=Selected
-
-  @override
-  Widget build(BuildContext context) {
-    final sw = widget.sw; final sh = widget.sh;
-    final prov = widget.prov;
-    final s = widget.state;
-    final fs = sw < 360 ? 11.0 : 13.0;
-
-    final discount   = double.tryParse(s._discountCtrl.text) ?? 0;
-    final totalPayable = (prov.servicesTotal - discount).clamp(0, double.infinity);
-    final amountPaid = double.tryParse(s._amountPaidCtrl.text) ?? 0;
-    final balance    = amountPaid - totalPayable;
-
-    return Column(children: [
-      // Sub-tabs: Summary | Selected Services
-      Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(sw * 0.03),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04),
-              blurRadius: 8, offset: const Offset(0, 2))],
-        ),
-        child: Row(children: [
-          Expanded(child: GestureDetector(
-            onTap: () => setState(() => _subTab = 0),
-            child: Container(
-              padding: EdgeInsets.symmetric(vertical: sh * 0.013),
-              decoration: BoxDecoration(
-                color: _subTab == 0 ? widget.primary : Colors.transparent,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(sw * 0.03),
-                  bottomLeft: Radius.circular(sw * 0.03),
-                ),
-              ),
-              child: Center(child: Text('Summary',
-                  style: TextStyle(fontSize: fs * 0.95, fontWeight: FontWeight.w600,
-                      color: _subTab == 0 ? Colors.white : Colors.grey.shade600))),
-            ),
-          )),
-          Expanded(child: GestureDetector(
-            onTap: () => setState(() => _subTab = 1),
-            child: Container(
-              padding: EdgeInsets.symmetric(vertical: sh * 0.013),
-              decoration: BoxDecoration(
-                color: _subTab == 1 ? widget.primary : Colors.transparent,
-                borderRadius: BorderRadius.only(
-                  topRight: Radius.circular(sw * 0.03),
-                  bottomRight: Radius.circular(sw * 0.03),
-                ),
-              ),
-              child: Center(child: Text('Selected Services',
-                  style: TextStyle(fontSize: fs * 0.95, fontWeight: FontWeight.w600,
-                      color: _subTab == 1 ? Colors.white : Colors.grey.shade600))),
-            ),
-          )),
-        ]),
-      ),
-      SizedBox(height: sh * 0.015),
-
-      if (_subTab == 0) ...[
-        // Summary section
-        _Card(sw: sw, icon: Icons.receipt_long_rounded, title: 'Billing Summary', child: Column(children: [
-          _BillRow(label: 'Services Total', value: 'PKR ${prov.servicesTotal.toStringAsFixed(2)}',
-              sw: sw, sh: sh, fs: fs),
-          SizedBox(height: sh * 0.012),
-          // Discount input
-          Row(children: [
-            Expanded(child: Text('Discount', style: TextStyle(fontSize: fs, color: Colors.black54))),
-            SizedBox(
-              width: sw * 0.35,
-              child: TextField(
-                controller: s._discountCtrl,
-                keyboardType: TextInputType.number,
-                textAlign: TextAlign.right,
-                style: TextStyle(fontSize: fs, fontWeight: FontWeight.w600),
-                onChanged: (_) => setState((){}),
-                decoration: InputDecoration(
-                  prefixText: 'PKR ',
-                  prefixStyle: TextStyle(fontSize: fs, color: Colors.grey.shade500),
-                  contentPadding: EdgeInsets.symmetric(horizontal: sw * 0.025, vertical: sh * 0.009),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(sw * 0.02),
-                      borderSide: BorderSide(color: Colors.grey.shade300)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(sw * 0.02),
-                      borderSide: BorderSide(color: Colors.grey.shade300)),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(sw * 0.02),
-                      borderSide: BorderSide(color: widget.primary, width: 1.5)),
-                ),
-              ),
-            ),
-          ]),
-          Divider(height: sh * 0.03, color: Colors.grey.shade200),
-          _BillRow(label: 'Total Payable', value: 'PKR ${totalPayable.toStringAsFixed(2)}',
-              sw: sw, sh: sh, fs: fs, bold: true, valueColor: widget.primary),
-          SizedBox(height: sh * 0.012),
-          // Amount Paid input
-          Row(children: [
-            Expanded(child: Text('Amount Paid', style: TextStyle(fontSize: fs, color: Colors.black54))),
-            SizedBox(
-              width: sw * 0.35,
-              child: TextField(
-                controller: s._amountPaidCtrl,
-                keyboardType: TextInputType.number,
-                textAlign: TextAlign.right,
-                style: TextStyle(fontSize: fs, fontWeight: FontWeight.w600),
-                onChanged: (_) => setState((){}),
-                decoration: InputDecoration(
-                  prefixText: 'PKR ',
-                  prefixStyle: TextStyle(fontSize: fs, color: Colors.grey.shade500),
-                  contentPadding: EdgeInsets.symmetric(horizontal: sw * 0.025, vertical: sh * 0.009),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(sw * 0.02),
-                      borderSide: BorderSide(color: Colors.grey.shade300)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(sw * 0.02),
-                      borderSide: BorderSide(color: Colors.grey.shade300)),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(sw * 0.02),
-                      borderSide: BorderSide(color: widget.primary, width: 1.5)),
-                ),
-              ),
-            ),
-          ]),
-          SizedBox(height: sh * 0.01),
-          _BillRow(
-            label: 'Balance',
-            value: 'PKR ${balance.abs().toStringAsFixed(2)}${balance < 0 ? ' (Due)' : ''}',
-            sw: sw, sh: sh, fs: fs, bold: true,
-            valueColor: balance < 0 ? Colors.red : Colors.green,
+  // ════════════════════════════════════════════
+  //  SMALL HELPERS
+  // ════════════════════════════════════════════
+  Widget _subTabBtn(String label, int index) {
+    final active = _billingTab == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _billingTab = index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: EdgeInsets.symmetric(vertical: _sh * 0.012),
+          decoration: BoxDecoration(
+            color: active ? primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(_sw * 0.02),
           ),
-        ])),
-        SizedBox(height: sh * 0.018),
-
-        // Action buttons
-        Row(children: [
-          Expanded(child: OutlinedButton.icon(
-            onPressed: s._clearAll,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.grey.shade600,
-              side: BorderSide(color: Colors.grey.shade300),
-              padding: EdgeInsets.symmetric(vertical: sh * 0.015),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(sw * 0.025)),
-            ),
-            icon: Icon(Icons.close_rounded, size: sw * 0.04),
-            label: Text('Clear', style: TextStyle(fontSize: fs, fontWeight: FontWeight.w600)),
-          )),
-          SizedBox(width: sw * 0.025),
-          Expanded(flex: 2, child: ElevatedButton.icon(
-            onPressed: s._saveAndExit,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: widget.primary,
-              foregroundColor: Colors.white,
-              padding: EdgeInsets.symmetric(vertical: sh * 0.015),
-              elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(sw * 0.025)),
-            ),
-            icon: Icon(Icons.print_rounded, size: sw * 0.04),
-            label: Text('Print Receipt', style: TextStyle(fontSize: fs, fontWeight: FontWeight.bold)),
-          )),
-        ]),
-      ] else ...[
-        // Selected Services list
-        if (prov.selectedServices.isEmpty)
-          Padding(
-            padding: EdgeInsets.symmetric(vertical: sh * 0.06),
-            child: Column(children: [
-              Icon(Icons.inbox_rounded, color: Colors.grey.shade300, size: sw * 0.15),
-              SizedBox(height: sh * 0.01),
-              Text('No services selected', style: TextStyle(color: Colors.grey.shade400, fontSize: fs)),
-            ]),
-          )
-        else
-          ...prov.selectedServices.map((sel) => Container(
-            margin: EdgeInsets.only(bottom: sh * 0.01),
-            padding: EdgeInsets.all(sw * 0.035),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(sw * 0.025),
-              border: Border.all(color: sel.service.color.withOpacity(0.3)),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03),
-                  blurRadius: 6, offset: const Offset(0, 2))],
-            ),
-            child: Row(children: [
-              Container(
-                padding: EdgeInsets.all(sw * 0.02),
-                decoration: BoxDecoration(
-                  color: sel.service.color.withOpacity(0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(sel.service.icon, color: sel.service.color, size: sw * 0.05),
-              ),
-              SizedBox(width: sw * 0.025),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(sel.service.name,
-                    style: TextStyle(fontSize: fs, fontWeight: FontWeight.w600,
-                        color: Colors.black87)),
-                Text('PKR ${sel.service.price.toStringAsFixed(2)}',
-                    style: TextStyle(fontSize: sw * 0.028, color: Colors.grey.shade500)),
-              ])),
-              GestureDetector(
-                onTap: () => prov.removeService(sel.service.id),
-                child: Container(
-                  padding: EdgeInsets.all(sw * 0.015),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(sw * 0.02),
-                  ),
-                  child: Icon(Icons.delete_outline_rounded,
-                      color: Colors.red.shade400, size: sw * 0.04),
-                ),
-              ),
-            ]),
-          )).toList(),
-      ],
-    ]);
+          child: Center(child: Text(label,
+              style: TextStyle(
+                  fontSize: _fsS, fontWeight: FontWeight.w700,
+                  color: active ? Colors.white : Colors.grey.shade500))),
+        ),
+      ),
+    );
   }
+
+  Widget _amountInput(TextEditingController ctrl) => TextField(
+    controller: ctrl,
+    keyboardType: TextInputType.number,
+    textAlign: TextAlign.right,
+    style: TextStyle(fontSize: _fs, fontWeight: FontWeight.w600),
+    onChanged: (_) => setState(() {}),
+    decoration: InputDecoration(
+      prefixText: 'PKR ',
+      prefixStyle: TextStyle(fontSize: _fs * 0.9, color: Colors.grey.shade500),
+      contentPadding: EdgeInsets.symmetric(
+          horizontal: _sw * 0.025, vertical: _sh * 0.01),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(_sw * 0.02),
+          borderSide: BorderSide(color: Colors.grey.shade300)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(_sw * 0.02),
+          borderSide: BorderSide(color: Colors.grey.shade300)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(_sw * 0.02),
+          borderSide: const BorderSide(color: primary, width: 1.5)),
+    ),
+  );
+
+  Widget _row2(Widget a, Widget b) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [Expanded(child: a), SizedBox(width: _sp), Expanded(child: b)],
+  );
+
+  Widget _tf(TextEditingController ctrl, String hint,
+      {TextInputType type = TextInputType.text}) =>
+      TextField(
+        controller: ctrl, keyboardType: type,
+        style: TextStyle(fontSize: _fs, color: Colors.black87),
+        decoration: _decor(hint).copyWith(
+          filled: true,
+          fillColor: _patientFound ? Colors.green.withOpacity(0.04) : Colors.white,
+        ),
+      );
+
+  InputDecoration _decor(String hint) => InputDecoration(
+    hintText: hint,
+    hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: _fs * 0.95),
+    filled: true, fillColor: Colors.white,
+    contentPadding: EdgeInsets.symmetric(
+        horizontal: _sw * 0.03, vertical: _sh * 0.013),
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(_sw * 0.022),
+        borderSide: BorderSide(color: Colors.grey.shade300)),
+    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(_sw * 0.022),
+        borderSide: BorderSide(color: Colors.grey.shade300)),
+    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(_sw * 0.022),
+        borderSide: const BorderSide(color: primary, width: 1.5)),
+  );
+
+  Widget _statusChip(IconData icon, String label, Color color) =>
+      Padding(
+        padding: EdgeInsets.only(top: _sh * 0.005),
+        child: Row(children: [
+          Icon(icon, color: color, size: 13),
+          SizedBox(width: _sw * 0.01),
+          Flexible(child: Text(label,
+              style: TextStyle(fontSize: _fsS, color: color, fontWeight: FontWeight.w600))),
+        ]),
+      );
 }
 
-// ════════════════════════════════════════════════════════
-//  SHARED SMALL WIDGETS
-// ════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════
+//  SHARED STATELESS WIDGETS
+// ════════════════════════════════════════════════
 
-class _Card extends StatelessWidget {
-  final double sw;
+class _SectionCard extends StatelessWidget {
+  final double   sw;
   final IconData icon;
-  final String title;
-  final Widget child;
-  const _Card({required this.sw, required this.icon, required this.title, required this.child});
+  final String   title;
+  final Widget   child;
+  const _SectionCard({
+    required this.sw, required this.icon,
+    required this.title, required this.child,
+  });
+
+  static const Color _p = Color(0xFF00B5AD);
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(sw * 0.04),
-        border: const Border(left: BorderSide(color: Color(0xFF00B5AD), width: 4)),
+        borderRadius: BorderRadius.circular(sw * 0.042),
+        border: const Border(left: BorderSide(color: _p, width: 4)),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05),
-            blurRadius: 10, offset: const Offset(0, 3))],
+            blurRadius: 12, offset: const Offset(0, 4))],
       ),
-      padding: EdgeInsets.all(sw * 0.04),
+      padding: EdgeInsets.all(sw * 0.042),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Container(
             padding: EdgeInsets.all(sw * 0.02),
             decoration: BoxDecoration(
-              color: const Color(0xFF00B5AD).withOpacity(0.1),
+              color: _p.withOpacity(0.1),
               borderRadius: BorderRadius.circular(sw * 0.02),
             ),
-            child: Icon(icon, color: const Color(0xFF00B5AD), size: sw * 0.045),
+            child: Icon(icon, color: _p, size: sw * 0.046),
           ),
-          SizedBox(width: sw * 0.02),
-          Text(title, style: TextStyle(fontSize: sw * 0.038,
+          SizedBox(width: sw * 0.022),
+          Text(title, style: TextStyle(fontSize: sw * 0.04,
               fontWeight: FontWeight.bold, color: Colors.black87)),
         ]),
         SizedBox(height: sw * 0.035),
-        const Divider(height: 1),
+        const Divider(height: 1, color: Color(0xFFEEEEEE)),
         SizedBox(height: sw * 0.035),
         child,
       ]),
@@ -1053,13 +869,15 @@ class _Card extends StatelessWidget {
   }
 }
 
-class _LabelField extends StatelessWidget {
+class _FieldLabel extends StatelessWidget {
   final String label;
-  final bool required;
+  final bool   req;
   final double fsS, sh;
   final Widget child;
-  const _LabelField({required this.label, this.required = false,
-    required this.fsS, required this.sh, required this.child});
+  const _FieldLabel({
+    required this.label, this.req = false,
+    required this.fsS, required this.sh, required this.child,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1067,7 +885,9 @@ class _LabelField extends StatelessWidget {
       RichText(text: TextSpan(
         text: label,
         style: TextStyle(fontSize: fsS, fontWeight: FontWeight.w600, color: Colors.black54),
-        children: required ? [TextSpan(text: ' *', style: TextStyle(color: Colors.red, fontSize: fsS))] : [],
+        children: req
+            ? [TextSpan(text: ' *', style: TextStyle(color: Colors.red, fontSize: fsS))]
+            : [],
       )),
       SizedBox(height: sh * 0.005),
       child,
@@ -1075,14 +895,17 @@ class _LabelField extends StatelessWidget {
   }
 }
 
-class _DropdownField extends StatelessWidget {
-  final double sw, sh, fs;
-  final String? value;
-  final String hint;
+class _DropDown extends StatelessWidget {
+  final double   sw, fs;
+  final String?  value;
+  final String   hint;
   final List<String> items;
   final ValueChanged<String?> onChanged;
-  const _DropdownField({required this.sw, required this.sh, required this.fs,
-    required this.value, required this.hint, required this.items, required this.onChanged});
+  const _DropDown({
+    required this.sw, required this.fs,
+    required this.value, required this.hint,
+    required this.items, required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1095,12 +918,13 @@ class _DropdownField extends StatelessWidget {
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
-          value: value,
-          isExpanded: true,
+          value: value, isExpanded: true,
           hint: Text(hint, style: TextStyle(color: Colors.grey.shade400, fontSize: fs)),
           style: TextStyle(fontSize: fs, color: Colors.black87),
-          icon: Icon(Icons.keyboard_arrow_down_rounded, color: Colors.grey, size: sw * 0.045),
-          items: items.map((i) => DropdownMenuItem(value: i, child: Text(i))).toList(),
+          icon: Icon(Icons.keyboard_arrow_down_rounded,
+              color: Colors.grey, size: sw * 0.046),
+          items: items.map((i) =>
+              DropdownMenuItem(value: i, child: Text(i))).toList(),
           onChanged: onChanged,
         ),
       ),
@@ -1108,51 +932,28 @@ class _DropdownField extends StatelessWidget {
   }
 }
 
-class _StatusChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final double sw, sh;
-  const _StatusChip({required this.icon, required this.label,
-    required this.color, required this.sw, required this.sh});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(top: sh * 0.005),
-      child: Row(children: [
-        Icon(icon, color: color, size: 13),
-        SizedBox(width: sw * 0.01),
-        Text(label, style: TextStyle(fontSize: sw < 360 ? 10.0 : 11.5,
-            color: color, fontWeight: FontWeight.w600)),
-      ]),
-    );
-  }
-}
-
 class _BillRow extends StatelessWidget {
-  final String label, value;
-  final double sw, sh, fs;
-  final bool bold;
-  final Color? valueColor;
-  const _BillRow({required this.label, required this.value, required this.sw,
-    required this.sh, required this.fs, this.bold = false, this.valueColor});
+  final String   label, value;
+  final double   sw, sh, fs;
+  final bool     bold;
+  final Color?   valueColor;
+  const _BillRow({
+    required this.label, required this.value,
+    required this.sw, required this.sh, required this.fs,
+    this.bold = false, this.valueColor,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Row(children: [
-      Expanded(child: Text(label, style: TextStyle(fontSize: fs,
+      Expanded(child: Text(label, style: TextStyle(
+          fontSize: fs,
           color: bold ? Colors.black87 : Colors.black54,
           fontWeight: bold ? FontWeight.w700 : FontWeight.normal))),
-      Text(value, style: TextStyle(fontSize: fs,
+      Text(value, style: TextStyle(
+          fontSize: fs,
           fontWeight: bold ? FontWeight.bold : FontWeight.w500,
           color: valueColor ?? Colors.black87)),
     ]);
   }
 }
-
-// ════════════════════════════════════════════════════════
-//  STUB CLASSES (copy from your opd_provider.dart)
-//  Remove these if you import the actual provider file
-// ════════════════════════════════════════════════════════
-// (All provider classes are in opd_provider.dart)
