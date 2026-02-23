@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hims_app/providers/emergency_treatment_provider/emergency_provider.dart';
 import 'package:hims_app/providers/opd/consultation_provider/cunsultation_provider.dart';
 import 'package:hims_app/providers/opd/opd_reciepts/opd_reciepts.dart';
 import 'package:hims_app/screens/splash%20screens/splash.dart';
@@ -7,7 +8,8 @@ import 'package:provider/provider.dart';
 void main() {
   runApp(const MyApp());
 }
-
+// In your main.dart or a separate file
+final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -18,8 +20,8 @@ class MyApp extends StatelessWidget {
         // ✅ ConsultationProvider is above ALL routes,
         //    so every screen can access it
         ChangeNotifierProvider(create: (_) => ConsultationProvider()),
-        // Add more providers here as your app grows
         ChangeNotifierProvider(create: (_) => OpdProvider()),
+        ChangeNotifierProvider(create: (_)=> EmergencyProvider()),
       ],
       child: MaterialApp(
         title: 'HIMS',

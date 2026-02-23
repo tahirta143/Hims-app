@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../custum widgets/drawer/drawer.dart';
+import '../../custum widgets/drawer/base_scaffold.dart';
 import '../../providers/opd/consultation_provider/cunsultation_provider.dart';
 import '../dashboard/dashboard.dart';
+import '../opd_reciepts/opd_reciept.dart';
 import 'new_cunsultation_create.dart';
 
 class ConsultationScreen extends StatefulWidget {
@@ -19,9 +20,11 @@ class _ConsultationScreenState extends State<ConsultationScreen>
 
   late TabController _tabController;
   int _selectedFilter = 0;
-  int _drawerIndex = 1;
+  int _selectedIndex = 0;
 
+  // Add this GlobalKey to access the Scaffold state
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
   final List<String> filters = ['All', 'Upcoming', 'Completed', 'Cancelled'];
 
   List<Map<String, dynamic>> _filteredList(
@@ -57,18 +60,6 @@ class _ConsultationScreenState extends State<ConsultationScreen>
     }
   }
 
-  void _onDrawerItemTap(int index) {
-    setState(() => _drawerIndex = index);
-    Navigator.pop(context);
-    if (index == 0) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
-    }
-  }
-
-  // ── Delete confirmation dialog ──
   void _confirmDelete(BuildContext context, String id, String doctorName) {
     showDialog(
       context: context,
@@ -79,7 +70,6 @@ class _ConsultationScreenState extends State<ConsultationScreen>
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Icon
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -106,7 +96,6 @@ class _ConsultationScreenState extends State<ConsultationScreen>
             const SizedBox(height: 20),
             Row(
               children: [
-                // Cancel
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(context),
@@ -122,7 +111,6 @@ class _ConsultationScreenState extends State<ConsultationScreen>
                   ),
                 ),
                 const SizedBox(width: 12),
-                // Delete
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
@@ -185,22 +173,73 @@ class _ConsultationScreenState extends State<ConsultationScreen>
     final allMaps = provider.appointmentsAsMaps;
     final filtered = _filteredList(allMaps);
 
-    final double topPadding = MediaQuery.of(context).padding.top;
     final double screenWidth = MediaQuery.of(context).size.width;
     final double screenHeight = MediaQuery.of(context).size.height;
 
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: const Color(0xFFF5F7FA),
-
-      drawer: CustomDrawer(
-        selectedIndex: _drawerIndex,
-        onMenuItemTap: _onDrawerItemTap,
+    return BaseScaffold(
+      scaffoldKey: _scaffoldKey, // Pass the key to BaseScaffold
+      title: 'Consultations',
+      drawerIndex: 1,
+      showAppBar: false,
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 20,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _selectedIndex,
+          onTap: (index) => setState(() => _selectedIndex = index),
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: Colors.white,
+          selectedItemColor: primaryColor,
+          unselectedItemColor: Colors.grey.shade400,
+          showSelectedLabels: false,
+          showUnselectedLabels: false,
+          elevation: 0,
+          items: const [
+            BottomNavigationBarItem(
+                icon: Icon(Icons.home_rounded), label: ''),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.search), label: ''),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.chat_bubble_outline), label: ''),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.calendar_today_outlined), label: ''),
+          ],
+        ),
       ),
-
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ChangeNotifierProvider.value(
+                value: Provider.of<ConsultationProvider>(context,
+                    listen: false),
+                child: const NewConsultationScreen(),
+              ),
+            ),
+          );
+        },
+        backgroundColor: primaryColor,
+        elevation: 4,
+        icon: const Icon(Icons.add_rounded, color: Colors.white),
+        label: const Text('New Consultation',
+            style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 13)),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       body: Column(
         children: [
-          // ── AppBar Header ──
+          // ── Custom Header with MENU BUTTON ──
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -210,7 +249,7 @@ class _ConsultationScreenState extends State<ConsultationScreen>
               ),
             ),
             padding: EdgeInsets.only(
-              top: topPadding + 14,
+              top: MediaQuery.of(context).padding.top + 14,
               left: 16,
               right: 16,
               bottom: 20,
@@ -220,16 +259,20 @@ class _ConsultationScreenState extends State<ConsultationScreen>
               children: [
                 Row(
                   children: [
+                    // MENU BUTTON - This opens the drawer
                     GestureDetector(
-                      onTap: () => _scaffoldKey.currentState?.openDrawer(),
+                      onTap: () {
+                        // Open the drawer using the scaffold key
+                        _scaffoldKey.currentState?.openDrawer();
+                      },
                       child: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(Icons.menu_rounded,
-                            color: Colors.white, size: 22),
+                        child: const Icon(Icons.menu_rounded, // Changed to menu icon
+                            size: 22, color: Colors.white),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -390,7 +433,6 @@ class _ConsultationScreenState extends State<ConsultationScreen>
                 final id = item['id'] as String;
                 final doctorName = item['doctor'] as String;
 
-                // ── Swipe to delete ──
                 return Dismissible(
                   key: Key(id),
                   direction: DismissDirection.endToStart,
@@ -512,7 +554,6 @@ class _ConsultationScreenState extends State<ConsultationScreen>
                       ),
                     );
                   },
-                  // ── Red delete background shown while swiping ──
                   background: Container(
                     margin: const EdgeInsets.only(bottom: 14),
                     decoration: BoxDecoration(
@@ -548,30 +589,6 @@ class _ConsultationScreenState extends State<ConsultationScreen>
             ),
           ),
         ],
-      ),
-
-      // ── FAB ──
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ChangeNotifierProvider.value(
-                value: Provider.of<ConsultationProvider>(context,
-                    listen: false),
-                child: const NewConsultationScreen(),
-              ),
-            ),
-          );
-        },
-        backgroundColor: primaryColor,
-        elevation: 4,
-        icon: const Icon(Icons.add_rounded, color: Colors.white),
-        label: const Text('New Consultation',
-            style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 13)),
       ),
     );
   }

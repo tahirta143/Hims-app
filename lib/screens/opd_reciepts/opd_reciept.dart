@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../custum widgets/drawer/base_scaffold.dart'; // Add this import
 import '../../providers/opd/opd_reciepts/opd_reciepts.dart';
 
 class OpdReceiptScreen extends StatefulWidget {
@@ -13,6 +14,9 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
   static const Color primary = Color(0xFF00B5AD);
   static const Color bgColor = Color(0xFFF0F4F8);
   static const Color cardBg  = Colors.white;
+
+  // Add GlobalKey for drawer access
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   // ── controllers ──
   final _mrNoCtrl       = TextEditingController();
@@ -161,8 +165,11 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
     _isWide   = _sw >= 720;
     _isMedium = _sw >= 480;
 
-    return Scaffold(
-      backgroundColor: bgColor,
+    return BaseScaffold(
+      scaffoldKey: _scaffoldKey,
+      title: 'OPD Receipt',
+      drawerIndex: 3, // Index for OPD Receipt screen
+      showAppBar: false, // We'll use custom header
       body: Consumer<OpdProvider>(
         builder: (_, prov, __) => Column(children: [
           _buildHeader(),
@@ -175,7 +182,7 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
   }
 
   // ════════════════════════════════════════════
-  //  HEADER
+  //  HEADER - Modified to include menu button
   // ════════════════════════════════════════════
   Widget _buildHeader() {
     final now = DateTime.now();
@@ -191,16 +198,18 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
         top: _tp + _sh * 0.012, bottom: _sh * 0.014, left: _pad, right: _pad,
       ),
       child: Row(children: [
-        // Back
+        // Menu button - opens drawer
         GestureDetector(
-          onTap: () => Navigator.maybePop(context),
+          onTap: () {
+            _scaffoldKey.currentState?.openDrawer();
+          },
           child: Container(
             padding: EdgeInsets.all(_sw * 0.022),
             decoration: BoxDecoration(
               color: primary.withOpacity(0.1),
               borderRadius: BorderRadius.circular(_sw * 0.022),
             ),
-            child: Icon(Icons.arrow_back_ios_new_rounded, color: primary, size: _sw * 0.04),
+            child: Icon(Icons.menu_rounded, color: primary, size: _sw * 0.04),
           ),
         ),
         SizedBox(width: _sp),
@@ -392,9 +401,44 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
   // ════════════════════════════════════════════
   //  SERVICES SECTION
   // ════════════════════════════════════════════
+  // ════════════════════════════════════════════
+//  SERVICES SECTION - Updated with debug and fallback
+// ════════════════════════════════════════════
   Widget _servicesSection(OpdProvider prov) {
-    final cats    = prov.serviceCategories;
-    final svcList = (prov.services[_activeCat] ?? []).where((s) =>
+    // Debug prints to check what's in the provider
+    print('=== DEBUG: Services Section ===');
+    print('Service categories count: ${prov.serviceCategories.length}');
+    for (var cat in prov.serviceCategories) {
+      print('Category: ${cat['label']}, ID: ${cat['id']}');
+    }
+    print('Active category: $_activeCat');
+    print('Services in active category: ${prov.services[_activeCat]?.length ?? 0}');
+
+    // Use provider categories with a fallback
+    final List<Map<String, dynamic>> cats = prov.serviceCategories.isNotEmpty
+        ? prov.serviceCategories
+        : const [
+      {'id': 'opd', 'label': 'OPD', 'icon': Icons.local_hospital_rounded, 'color': Color(0xFFE53935)},
+      {'id': 'consultation', 'label': 'Consultation', 'icon': Icons.medical_information_rounded, 'color': Color(0xFF00B5AD)},
+      {'id': 'xray', 'label': 'X-Ray', 'icon': Icons.radio_rounded, 'color': Color(0xFF1E88E5)},
+      {'id': 'ctscan', 'label': 'CT-Scan', 'icon': Icons.document_scanner_rounded, 'color': Color(0xFF8E24AA)},
+      {'id': 'mri', 'label': 'MRI', 'icon': Icons.blur_circular_rounded, 'color': Color(0xFF00ACC1)},
+      {'id': 'ultrasound', 'label': 'Ultrasound', 'icon': Icons.sensors_rounded, 'color': Color(0xFF43A047)},
+      {'id': 'laboratory', 'label': 'Laboratory', 'icon': Icons.biotech_rounded, 'color': Color(0xFFF4511E)},
+      {'id': 'emergency', 'label': 'Emergency', 'icon': Icons.emergency_rounded, 'color': Color(0xFFE53935)},
+    ];
+
+    // Get services for active category with fallback
+    List<OpdService> categoryServices = [];
+    if (prov.services.containsKey(_activeCat)) {
+      categoryServices = prov.services[_activeCat] ?? [];
+    } else if (cats.isNotEmpty) {
+      // If active category doesn't exist, default to first category
+      _activeCat = cats.first['id'] as String;
+      categoryServices = prov.services[_activeCat] ?? [];
+    }
+
+    final svcList = categoryServices.where((s) =>
     _svcSearch.isEmpty ||
         s.name.toLowerCase().contains(_svcSearch.toLowerCase())).toList();
 
@@ -447,55 +491,70 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
       SizedBox(height: _sh * 0.013),
 
       // ── Category horizontal strip ──
-      SizedBox(
-        height: _sh * (_isWide ? 0.095 : 0.108),
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
-          separatorBuilder: (_, __) => SizedBox(width: _sw * 0.022),
-          itemCount: cats.length,
-          itemBuilder: (_, i) {
-            final cat      = cats[i];
-            final id       = cat['id'] as String;
-            final isActive = id == _activeCat;
-            final color    = cat['color'] as Color;
-            return GestureDetector(
-              onTap: () => setState(() { _activeCat = id; _svcSearch = ''; }),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                width: catW,
-                decoration: BoxDecoration(
-                  color: isActive ? color : cardBg,
-                  borderRadius: BorderRadius.circular(_sw * 0.03),
-                  border: Border.all(
-                      color: isActive ? color : Colors.grey.shade200, width: 2),
-                  boxShadow: isActive
-                      ? [BoxShadow(
-                      color: color.withOpacity(0.38),
-                      blurRadius: 8, offset: const Offset(0, 3))]
-                      : [BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 5)],
+      if (cats.isEmpty)
+        Center(
+          child: Padding(
+            padding: EdgeInsets.all(_pad),
+            child: Text('No service categories available',
+                style: TextStyle(color: Colors.grey.shade400, fontSize: _fs)),
+          ),
+        )
+      else
+        SizedBox(
+          height: _sh * (_isWide ? 0.095 : 0.108),
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            separatorBuilder: (_, __) => SizedBox(width: _sw * 0.022),
+            itemCount: cats.length,
+            itemBuilder: (_, i) {
+              final cat      = cats[i];
+              final id       = cat['id'] as String;
+              final isActive = id == _activeCat;
+              final color    = cat['color'] as Color;
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _activeCat = id;
+                    _svcSearch = '';
+                  });
+                  print('Switched to category: $id');
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  width: catW,
+                  decoration: BoxDecoration(
+                    color: isActive ? color : cardBg,
+                    borderRadius: BorderRadius.circular(_sw * 0.03),
+                    border: Border.all(
+                        color: isActive ? color : Colors.grey.shade200, width: 2),
+                    boxShadow: isActive
+                        ? [BoxShadow(
+                        color: color.withOpacity(0.38),
+                        blurRadius: 8, offset: const Offset(0, 3))]
+                        : [BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 5)],
+                  ),
+                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(cat['icon'] as IconData,
+                        color: isActive ? Colors.white : color,
+                        size: _sw * (_isWide ? 0.032 : 0.062)),
+                    SizedBox(height: _sh * 0.004),
+                    Text(cat['label'] as String,
+                        style: TextStyle(
+                          fontSize: _sw * (_isWide ? 0.017 : 0.023),
+                          fontWeight: FontWeight.w700,
+                          color: isActive ? Colors.white : Colors.black87,
+                        ),
+                        textAlign: TextAlign.center, maxLines: 2,
+                        overflow: TextOverflow.ellipsis),
+                  ]),
                 ),
-                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Icon(cat['icon'] as IconData,
-                      color: isActive ? Colors.white : color,
-                      size: _sw * (_isWide ? 0.032 : 0.062)),
-                  SizedBox(height: _sh * 0.004),
-                  Text(cat['label'] as String,
-                      style: TextStyle(
-                        fontSize: _sw * (_isWide ? 0.017 : 0.023),
-                        fontWeight: FontWeight.w700,
-                        color: isActive ? Colors.white : Colors.black87,
-                      ),
-                      textAlign: TextAlign.center, maxLines: 2,
-                      overflow: TextOverflow.ellipsis),
-                ]),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
-      ),
       SizedBox(height: _sh * 0.013),
 
       // ── Service items ──
@@ -503,8 +562,15 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
         Container(
           height: _sh * 0.09,
           alignment: Alignment.center,
-          child: Text('No services found',
-              style: TextStyle(color: Colors.grey.shade400, fontSize: _fs)),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.inbox_rounded, color: Colors.grey.shade300, size: _sw * 0.08),
+              SizedBox(height: _sh * 0.01),
+              Text('No services found in this category',
+                  style: TextStyle(color: Colors.grey.shade400, fontSize: _fs)),
+            ],
+          ),
         )
       else if (_isMedium)
       // Grid on medium+
@@ -532,7 +598,13 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
   Widget _svcTile(OpdService svc, OpdProvider prov) {
     final isSel = prov.isSelected(svc.id);
     return GestureDetector(
-      onTap: () { if (isSel) prov.removeService(svc.id); else prov.addService(svc); },
+      onTap: () {
+        if (isSel) {
+          prov.removeService(svc.id);
+        } else {
+          prov.addService(svc);
+        }
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         padding: EdgeInsets.symmetric(horizontal: _sw * 0.03, vertical: _sh * 0.011),
@@ -556,14 +628,18 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
             child: Icon(svc.icon, color: svc.color, size: _sw * 0.042),
           ),
           SizedBox(width: _sw * 0.022),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(svc.name,
-                style: TextStyle(fontSize: _fs * 0.93, fontWeight: FontWeight.w600,
-                    color: Colors.black87),
-                maxLines: 2, overflow: TextOverflow.ellipsis),
-            Text('PKR ${svc.price.toStringAsFixed(0)}',
-                style: TextStyle(fontSize: _fsS, color: Colors.grey.shade500)),
-          ])),
+          Expanded(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(svc.name,
+                  style: TextStyle(fontSize: _fs * 0.93, fontWeight: FontWeight.w600,
+                      color: Colors.black87),
+                  maxLines: 2, overflow: TextOverflow.ellipsis),
+              Text('PKR ${svc.price.toStringAsFixed(0)}',
+                  style: TextStyle(fontSize: _fsS, color: Colors.grey.shade500)),
+            ],
+          )),
           Icon(isSel ? Icons.check_circle_rounded : Icons.add_circle_outline_rounded,
               color: isSel ? svc.color : Colors.grey.shade400,
               size: _sw * 0.052),
@@ -571,7 +647,6 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
       ),
     );
   }
-
   // ════════════════════════════════════════════
   //  BILLING CARD
   // ════════════════════════════════════════════
@@ -820,7 +895,7 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
 }
 
 // ════════════════════════════════════════════════
-//  SHARED STATELESS WIDGETS
+//  SHARED STATELESS WIDGETS (Keep these exactly as they were)
 // ════════════════════════════════════════════════
 
 class _SectionCard extends StatelessWidget {

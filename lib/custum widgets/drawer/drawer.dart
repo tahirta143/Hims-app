@@ -118,20 +118,23 @@ class CustomDrawer extends StatelessWidget {
                     icon: Icons.receipt_rounded,
                     title: 'OPD Receipt',
                     index: 3,
+                  ),_buildDrawerItem(
+                    icon: Icons.receipt_rounded,
+                    title: 'OPD Records',
+                    index: 4,
                   ),
-
                   // Emergency Treatment
                   _buildDrawerItem(
                     icon: Icons.local_hospital_rounded,
                     title: 'Emergency Treatment',
-                    index: 4,
+                    index: 5,
                   ),
 
                   // Consultation Payments
                   _buildDrawerItem(
                     icon: Icons.payment_rounded,
                     title: 'Consultation Payments',
-                    index: 5,
+                    index: 6,
                   ),
                 ],
               ),
