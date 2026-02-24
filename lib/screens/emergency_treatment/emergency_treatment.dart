@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../../custum widgets/drawer/base_scaffold.dart'; // Add this import
+import '../../custum widgets/drawer/base_scaffold.dart';
 import '../../providers/emergency_treatment_provider/emergency_provider.dart';
+import '../../providers/opd/opd_reciepts/opd_reciepts.dart'; // Import OpdProvider
 
 class EmergencyTreatmentScreen extends StatefulWidget {
   const EmergencyTreatmentScreen({super.key});
@@ -13,16 +14,13 @@ class EmergencyTreatmentScreen extends StatefulWidget {
 class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
     with SingleTickerProviderStateMixin {
 
-  // Add GlobalKey for drawer access
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  // ── Colors (matching screenshot) ──
-  static const Color primary   = Color(0xFF00B5AD);   // teal
-  static const Color danger    = Color(0xFFE53935);   // red
-  static const Color bgColor   = Color(0xFFF5F6FA);   // light grey bg
+  static const Color primary   = Color(0xFF00B5AD);
+  static const Color danger    = Color(0xFFE53935);
+  static const Color bgColor   = Color(0xFFF5F6FA);
   static const Color cardColor = Colors.white;
 
-  // ── MediaQuery (updated every build) ──
   late double _sw, _sh, _tp, _bp;
   bool get _wide => _sw >= 720;
 
@@ -34,7 +32,6 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
   double get _sp   => _sw * 0.025;
   double get _r    => _sw * 0.028;
 
-  // ── Form controllers ──
   final _mrCtrl       = TextEditingController();
   final _nameCtrl     = TextEditingController();
   final _ageCtrl      = TextEditingController();
@@ -56,18 +53,33 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
 
   bool _patientFound = false;
 
-  // ── Right-panel state ──
-  late TabController _rightTab; // 0 = Investigations, 1 = Medicines
-  String _invType = 'X-Rays';   // Lab | Ultra Sound | X-Rays
+  late TabController _rightTab;
+  String _invType = 'X-Rays';
 
-  // ── Discharge ──
   String _disOpt     = 'After Treatment';
   bool   _discharged = false;
+
+  // ── Dropdown service state ──
+  EmergencyService? _selectedDropdownService;
 
   @override
   void initState() {
     super.initState();
     _rightTab = TabController(length: 2, vsync: this);
+
+    // Sync OPD admitted patients to Emergency queue
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncOpdPatients();
+    });
+  }
+
+  /// Sync newly admitted OPD patients into the emergency queue
+  void _syncOpdPatients() {
+    final opdProv = Provider.of<OpdProvider>(context, listen: false);
+    final emProv  = Provider.of<EmergencyProvider>(context, listen: false);
+    for (final p in opdProv.admittedEmergencyPatients) {
+      emProv.addPatientFromOpd(p);
+    }
   }
 
   @override
@@ -81,23 +93,16 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
     super.dispose();
   }
 
-  // ────────────────────────────────────────
-  //  MR AUTO-FORMAT + LOOKUP
-  //  User types "1" → field shows "000001" → auto-fills patient info
-  // ────────────────────────────────────────
+  // ── MR AUTO-FORMAT + LOOKUP ──
   void _onMrTyped(String raw, EmergencyProvider prov) {
     final formatted = EmergencyProvider.formatMr(raw);
-
-    // Rewrite field to formatted value (only if different to avoid loop)
     if (_mrCtrl.text != formatted) {
       _mrCtrl.value = TextEditingValue(
         text: formatted,
         selection: TextSelection.collapsed(offset: formatted.length),
       );
     }
-
     if (formatted.isEmpty) { _resetPatient(); return; }
-
     final p = prov.lookupPatient(formatted);
     if (p != null) {
       _fillPatient(p);
@@ -117,6 +122,25 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
       _addressCtrl.text = p.address;
       _admCtrl.text     = _fmtDt(p.admittedSince);
     });
+
+    // Auto-select emergency services from the patient's admission
+    if (p.emergencyServices.isNotEmpty) {
+      final emProv = Provider.of<EmergencyProvider>(context, listen: false);
+      // Clear existing selections
+      emProv.clearAll();
+      // Auto-add services that match
+      for (final svcName in p.emergencyServices) {
+        final match = emProv.emergencyServices.where(
+              (s) => s.name.toLowerCase().contains(svcName.toLowerCase()) ||
+              svcName.toLowerCase().contains(s.name.toLowerCase()),
+        ).toList();
+        for (final m in match) {
+          if (!emProv.isServiceSelected(m.id)) {
+            emProv.toggleService(m);
+          }
+        }
+      }
+    }
   }
 
   void _resetPatient() {
@@ -131,9 +155,6 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
 
   String _d2(int n) => n.toString().padLeft(2, '0');
 
-  // ────────────────────────────────────────
-  //  CLEAR / SAVE
-  // ────────────────────────────────────────
   void _clearAll(EmergencyProvider prov) {
     for (final c in [
       _mrCtrl,_nameCtrl,_ageCtrl,_genderCtrl,_phoneCtrl,_addressCtrl,
@@ -141,7 +162,12 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
       _spo2Ctrl,_weightCtrl,_heightCtrl,_complainCtrl,_notesCtrl,
     ]) c.clear();
     _admCtrl.text = 'Auto-filled from Emergency Receipt';
-    setState(() { _patientFound = false; _disOpt = 'After Treatment'; _discharged = false; });
+    setState(() {
+      _patientFound = false;
+      _disOpt = 'After Treatment';
+      _discharged = false;
+      _selectedDropdownService = null;
+    });
     prov.clearAll();
   }
 
@@ -180,12 +206,15 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
     _sw = mq.size.width; _sh = mq.size.height;
     _tp = mq.padding.top; _bp = mq.padding.bottom;
 
+    // Sync OPD patients every build (catches new admissions)
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncOpdPatients());
+
     return Consumer<EmergencyProvider>(
       builder: (_, prov, __) => BaseScaffold(
         scaffoldKey: _scaffoldKey,
         title: 'Emergency Treatment',
-        drawerIndex: 5, // Index for Emergency Treatment screen
-        showAppBar: false, // We'll use custom header
+        drawerIndex: 5,
+        showAppBar: false,
         body: Column(children: [
           _header(prov),
           Expanded(child: _wide ? _wideLayout(prov) : _narrowLayout(prov)),
@@ -195,7 +224,7 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
   }
 
   // ════════════════════════════════════════
-  //  HEADER — Modified to include menu button
+  //  HEADER
   // ════════════════════════════════════════
   Widget _header(EmergencyProvider prov) {
     final now = DateTime.now();
@@ -212,23 +241,18 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
           top: _tp + _sh * 0.013, bottom: _sh * 0.013,
           left: _pad, right: _pad),
       child: Row(children: [
-        // Menu button to open drawer (replaced hospital icon)
         GestureDetector(
-          onTap: () {
-            _scaffoldKey.currentState?.openDrawer();
-          },
+          onTap: () { _scaffoldKey.currentState?.openDrawer(); },
           child: Container(
             padding: EdgeInsets.all(_sw * 0.022),
             decoration: BoxDecoration(
               color: danger.withOpacity(0.12),
               borderRadius: BorderRadius.circular(_sw * 0.022),
             ),
-            child: Icon(Icons.menu_rounded, // Changed to menu icon
-                color: danger, size: _sw * 0.048),
+            child: Icon(Icons.menu_rounded, color: danger, size: _sw * 0.048),
           ),
         ),
         SizedBox(width: _sp * 0.7),
-        // Title
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Emergency Treatment',
               style: TextStyle(fontSize: _fsL, fontWeight: FontWeight.bold, color: Colors.black87),
@@ -236,7 +260,6 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
           Text('Manage emergency patient treatments',
               style: TextStyle(fontSize: _fsS, color: Colors.grey.shade500)),
         ])),
-        // Queue badge (narrow only)
         if (!_wide) ...[
           GestureDetector(
             onTap: () => _openSheet(prov),
@@ -263,7 +286,6 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
             ),
           ),
         ],
-        // Date-time badge
         Container(
           padding: EdgeInsets.symmetric(horizontal: _sw * 0.022, vertical: _sh * 0.007),
           decoration: BoxDecoration(
@@ -288,10 +310,7 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Expanded(flex: 64, child: _leftForm(prov)),
-      SizedBox(
-        width: _sw * 0.33,
-        child: _rightPanel(prov),
-      ),
+      SizedBox(width: _sw * 0.33, child: _rightPanel(prov)),
     ],
   );
 
@@ -334,17 +353,14 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
   // ──────────────────────────────────────
   Widget _patientInfoCard(EmergencyProvider prov) {
     return _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      // ── Header row ──
       Row(children: [
         Icon(Icons.person_rounded, color: danger, size: _sw * 0.042),
         SizedBox(width: _sw * 0.018),
         Text('Patient Information',
             style: TextStyle(fontSize: _fs, fontWeight: FontWeight.bold, color: danger)),
         const Spacer(),
-        // MR # label
         Text('MR #', style: TextStyle(fontSize: _fsS, color: Colors.black54, fontWeight: FontWeight.w600)),
         SizedBox(width: _sw * 0.012),
-        // MR input — auto-formats on every keystroke
         SizedBox(width: _sw * 0.26,
           child: TextField(
             controller: _mrCtrl,
@@ -360,7 +376,6 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
           ),
         ),
         SizedBox(width: _sw * 0.012),
-        // Search icon button
         GestureDetector(
           onTap: () => _onMrTyped(_mrCtrl.text, prov),
           child: Container(
@@ -378,11 +393,76 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
       Divider(height: _sh * 0.001, color: const Color(0xFFEEEEEE)),
       SizedBox(height: _sh * 0.012),
 
-      // Name
+      // ── Emergency Queue patient selector dropdown ──
+      Consumer<EmergencyProvider>(builder: (_, p, __) {
+        if (p.queue.isEmpty) return const SizedBox.shrink();
+        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(Icons.people_alt_rounded, color: danger, size: _sw * 0.036),
+            SizedBox(width: _sw * 0.012),
+            Text('Select from Emergency Queue',
+                style: TextStyle(fontSize: _fsS, fontWeight: FontWeight.w700, color: danger)),
+          ]),
+          SizedBox(height: _sh * 0.007),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: _sw * 0.025),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFEBEE),
+              borderRadius: BorderRadius.circular(_sw * 0.022),
+              border: Border.all(color: danger.withOpacity(0.35)),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                isExpanded: true,
+                hint: Text('-- Select Emergency Patient --',
+                    style: TextStyle(color: Colors.red.shade400, fontSize: _fs)),
+                value: _patientFound ? _mrCtrl.text : null,
+                style: TextStyle(fontSize: _fs, color: Colors.black87),
+                icon: Icon(Icons.keyboard_arrow_down_rounded, color: danger, size: _sw * 0.048),
+                dropdownColor: Colors.white,
+                items: p.queue.map((patient) {
+                  final diff = DateTime.now().difference(patient.admittedSince);
+                  final since = diff.inMinutes < 60
+                      ? '${diff.inMinutes}m ago'
+                      : '${diff.inHours}h ${diff.inMinutes.remainder(60)}m';
+                  return DropdownMenuItem<String>(
+                    value: patient.mrNo,
+                    child: Row(children: [
+                      Container(
+                        padding: EdgeInsets.all(_sw * 0.015),
+                        decoration: BoxDecoration(
+                          color: danger.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.emergency_rounded, color: danger, size: _sw * 0.032),
+                      ),
+                      SizedBox(width: _sw * 0.018),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(patient.name,
+                            style: TextStyle(fontSize: _fs, fontWeight: FontWeight.w700, color: Colors.black87),
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                        Text('MR: ${patient.mrNo}  •  $since  •  Age: ${patient.age}',
+                            style: TextStyle(fontSize: _fsXS, color: Colors.grey.shade500)),
+                      ])),
+                    ]),
+                  );
+                }).toList(),
+                onChanged: (mrNo) {
+                  if (mrNo == null) return;
+                  final patient = p.lookupPatient(mrNo);
+                  if (patient != null) _fillPatient(patient);
+                },
+              ),
+            ),
+          ),
+          SizedBox(height: _sh * 0.013),
+          Divider(height: _sh * 0.001, color: const Color(0xFFEEEEEE)),
+          SizedBox(height: _sh * 0.012),
+        ]);
+      }),
+
       _lbl('Name'), _tf(_nameCtrl, filled: _patientFound),
       SizedBox(height: _sh * 0.01),
-
-      // Age + Gender
       Row(children: [
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           _lbl('Age'), _tf(_ageCtrl, type: TextInputType.number, filled: _patientFound),
@@ -393,8 +473,6 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
         ])),
       ]),
       SizedBox(height: _sh * 0.01),
-
-      // Phone + Address
       if (_wide)
         Row(children: [
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -410,8 +488,6 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
         SizedBox(height: _sh * 0.01),
         _lbl('Address'), _tf(_addressCtrl, filled: _patientFound),
       ],
-
-      // Found indicator
       if (_patientFound) ...[
         SizedBox(height: _sh * 0.009),
         Row(children: [
@@ -510,19 +586,17 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
   }
 
   // ──────────────────────────────────────
-  //  4. EMERGENCY SERVICES
+  //  4. EMERGENCY SERVICES — DROPDOWN
   // ──────────────────────────────────────
   Widget _servicesCard(EmergencyProvider prov) {
-    final cols = _wide ? 8 : (_sw < 400 ? 3 : 4);
-
     return _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      // Header
       Row(children: [
         Icon(Icons.emergency_share_rounded, color: danger, size: _sw * 0.042),
         SizedBox(width: _sw * 0.018),
         Text('Emergency Services',
             style: TextStyle(fontSize: _fs, fontWeight: FontWeight.bold, color: Colors.black87)),
         const Spacer(),
-        // PKR total badge
         Consumer<EmergencyProvider>(builder: (_, p, __) => Container(
           padding: EdgeInsets.symmetric(horizontal: _sw * 0.028, vertical: _sh * 0.005),
           decoration: BoxDecoration(
@@ -537,41 +611,112 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
       SizedBox(height: _sh * 0.011),
       Divider(height: _sh * 0.001, color: const Color(0xFFEEEEEE)),
       SizedBox(height: _sh * 0.011),
-      GridView.count(
-        crossAxisCount: cols,
-        mainAxisSpacing: _sh * 0.01,
-        crossAxisSpacing: _sw * 0.02,
-        childAspectRatio: _wide ? 0.9 : (_sw < 400 ? 0.82 : 0.88),
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        children: prov.emergencyServices.map((svc) {
-          final sel = prov.isServiceSelected(svc.id);
-          return GestureDetector(
-            onTap: () => prov.toggleService(svc),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 140),
-              decoration: BoxDecoration(
-                color: sel ? svc.color.withOpacity(0.09) : Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(_sw * 0.022),
-                border: Border.all(color: sel ? svc.color : Colors.grey.shade200, width: sel ? 1.5 : 1),
-              ),
-              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Container(
-                  padding: EdgeInsets.all(_sw * 0.02),
-                  decoration: BoxDecoration(color: svc.color.withOpacity(0.12), shape: BoxShape.circle),
-                  child: Icon(svc.icon, color: svc.color, size: _sw * 0.052),
-                ),
-                SizedBox(height: _sh * 0.005),
-                Text(svc.name,
-                    style: TextStyle(fontSize: _fsXS, fontWeight: FontWeight.w600, color: Colors.black87),
-                    textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
-                Text('Rs ${svc.price.toStringAsFixed(0)}',
-                    style: TextStyle(fontSize: _fsXS * 0.88, color: Colors.grey.shade500)),
-              ]),
+
+      // ── Dropdown to add service ──
+      Row(children: [
+        Expanded(
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: _sw * 0.025),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(_sw * 0.022),
+              border: Border.all(color: Colors.grey.shade300),
             ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<EmergencyService>(
+                isExpanded: true,
+                hint: Text('Select a service to add...',
+                    style: TextStyle(color: Colors.grey.shade400, fontSize: _fs)),
+                value: _selectedDropdownService,
+                style: TextStyle(fontSize: _fs, color: Colors.black87),
+                icon: Icon(Icons.keyboard_arrow_down_rounded, color: Colors.grey, size: _sw * 0.046),
+                items: prov.emergencyServices.map((svc) {
+                  final alreadyAdded = prov.isServiceSelected(svc.id);
+                  return DropdownMenuItem<EmergencyService>(
+                    value: svc,
+                    child: Row(children: [
+                      Container(
+                        padding: EdgeInsets.all(_sw * 0.015),
+                        decoration: BoxDecoration(
+                          color: svc.color.withOpacity(0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(svc.icon, color: svc.color, size: _sw * 0.035),
+                      ),
+                      SizedBox(width: _sw * 0.018),
+                      Expanded(child: Text(svc.name,
+                          style: TextStyle(
+                            fontSize: _fs,
+                            fontWeight: alreadyAdded ? FontWeight.w700 : FontWeight.normal,
+                            color: alreadyAdded ? svc.color : Colors.black87,
+                          ))),
+                      Text('PKR ${svc.price.toStringAsFixed(0)}',
+                          style: TextStyle(fontSize: _fsS, color: Colors.grey.shade500)),
+                      if (alreadyAdded) ...[
+                        SizedBox(width: _sw * 0.01),
+                        Icon(Icons.check_circle_rounded, color: svc.color, size: _sw * 0.033),
+                      ],
+                    ]),
+                  );
+                }).toList(),
+                onChanged: (svc) {
+                  if (svc == null) return;
+                  prov.toggleService(svc);
+                  setState(() => _selectedDropdownService = null);
+                },
+              ),
+            ),
+          ),
+        ),
+      ]),
+      SizedBox(height: _sh * 0.012),
+
+      // ── Selected services chips ──
+      Consumer<EmergencyProvider>(builder: (_, p, __) {
+        if (p.selectedServices.isEmpty) {
+          return Container(
+            padding: EdgeInsets.symmetric(vertical: _sh * 0.018),
+            alignment: Alignment.center,
+            child: Text('No services added yet',
+                style: TextStyle(color: Colors.grey.shade400, fontSize: _fsS,
+                    fontStyle: FontStyle.italic)),
           );
-        }).toList(),
-      ),
+        }
+        return Wrap(
+          spacing: _sw * 0.02,
+          runSpacing: _sh * 0.008,
+          children: p.selectedServices.map((svc) => Container(
+            padding: EdgeInsets.symmetric(horizontal: _sw * 0.025, vertical: _sh * 0.007),
+            decoration: BoxDecoration(
+              color: svc.color.withOpacity(0.09),
+              borderRadius: BorderRadius.circular(_sw * 0.04),
+              border: Border.all(color: svc.color.withOpacity(0.4), width: 1.5),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(svc.icon, color: svc.color, size: _sw * 0.035),
+              SizedBox(width: _sw * 0.012),
+              Text(svc.name,
+                  style: TextStyle(fontSize: _fsS, fontWeight: FontWeight.w600,
+                      color: Colors.black87)),
+              SizedBox(width: _sw * 0.008),
+              Text('PKR ${svc.price.toStringAsFixed(0)}',
+                  style: TextStyle(fontSize: _fsXS, color: Colors.grey.shade500)),
+              SizedBox(width: _sw * 0.012),
+              GestureDetector(
+                onTap: () => p.removeSelectedService(svc.id),
+                child: Container(
+                  padding: EdgeInsets.all(_sw * 0.008),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.close_rounded, color: Colors.red.shade400, size: _sw * 0.028),
+                ),
+              ),
+            ]),
+          )).toList(),
+        );
+      }),
     ]));
   }
 
@@ -695,7 +840,6 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0,2))],
       ),
       child: Column(children: [
-        // Dark header
         Container(
           padding: EdgeInsets.symmetric(horizontal: _sw * 0.028, vertical: _sh * 0.012),
           decoration: BoxDecoration(
@@ -718,7 +862,6 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
             ),
           ]),
         ),
-        // Column headers: MR# | SINCE | PATIENT
         Padding(
           padding: EdgeInsets.symmetric(horizontal: _sw * 0.028, vertical: _sh * 0.009),
           child: Row(children: [
@@ -728,7 +871,6 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
           ]),
         ),
         Divider(height: _sh * 0.001, color: const Color(0xFFEEEEEE)),
-        // Rows
         prov.queue.isEmpty
             ? Padding(
           padding: EdgeInsets.symmetric(vertical: _sh * 0.024),
@@ -755,7 +897,10 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
         }).toList()),
         Divider(height: _sh * 0.001, color: const Color(0xFFEEEEEE)),
         TextButton.icon(
-          onPressed: () => prov.refresh(),
+          onPressed: () {
+            _syncOpdPatients();
+            prov.refresh();
+          },
           icon: Icon(Icons.refresh_rounded, size: _sw * 0.032, color: Colors.grey.shade500),
           label: Text('Refresh', style: TextStyle(fontSize: _fsS, color: Colors.grey.shade600)),
         ),
@@ -774,7 +919,6 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0,2))],
       ),
       child: Column(children: [
-        // Tab bar: INVESTIGATIONS | MEDICINES (matches screenshot exactly)
         TabBar(
           controller: _rightTab,
           labelColor: danger,
@@ -806,7 +950,6 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
     final items = prov.investigations[_invType] ?? [];
 
     return Column(children: [
-      // Radio: Lab | Ultra Sound | X-Rays
       Padding(
         padding: EdgeInsets.symmetric(horizontal: _sw * 0.02, vertical: _sh * 0.007),
         child: Row(children: types.map((t) => Expanded(
@@ -827,8 +970,6 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
         )).toList()),
       ),
       Divider(height: _sh * 0.001, color: const Color(0xFFEEEEEE)),
-
-      // Scrollable list
       Expanded(child: ListView.builder(
         padding: EdgeInsets.zero,
         itemCount: items.length,
@@ -851,8 +992,6 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
           );
         },
       )),
-
-      // Added table
       Divider(height: _sh * 0.001, color: const Color(0xFFEEEEEE)),
       Padding(
         padding: EdgeInsets.symmetric(horizontal: _sw * 0.028, vertical: _sh * 0.008),

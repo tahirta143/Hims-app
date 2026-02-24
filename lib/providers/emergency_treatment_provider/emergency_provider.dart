@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
-// ─────────────────────────────────────
-//  MODELS
-// ─────────────────────────────────────
+// ── Data Models ──
+
 class EmergencyPatient {
   final String mrNo;
   final String name;
@@ -11,133 +10,284 @@ class EmergencyPatient {
   final String phone;
   final String address;
   final DateTime admittedSince;
-  final bool inQueue;
-  const EmergencyPatient({
-    required this.mrNo, required this.name, required this.age,
-    required this.gender, required this.phone, required this.address,
-    required this.admittedSince, this.inQueue = false,
+  final String receiptNo;
+  final List<String> emergencyServices;
+
+  EmergencyPatient({
+    required this.mrNo,
+    required this.name,
+    required this.age,
+    required this.gender,
+    required this.phone,
+    required this.address,
+    required this.admittedSince,
+    this.receiptNo = '',
+    this.emergencyServices = const [],
   });
 }
 
-class EmService {
-  final String id, name;
+class EmergencyService {
+  final String id;
+  final String name;
   final double price;
   final IconData icon;
   final Color color;
-  const EmService({required this.id, required this.name, required this.price, required this.icon, required this.color});
+
+  const EmergencyService({
+    required this.id,
+    required this.name,
+    required this.price,
+    required this.icon,
+    required this.color,
+  });
 }
 
-class AddedInv {
-  final String type, name;
-  AddedInv({required this.type, required this.name});
+class EmergencyInvestigation {
+  final String type;
+  final String name;
+  EmergencyInvestigation({required this.type, required this.name});
 }
 
-class EmMedicine {
-  final String name, dose, route;
-  const EmMedicine({required this.name, required this.dose, required this.route});
+class EmergencyMedicine {
+  final String name;
+  final String dose;
+  final String route;
+  const EmergencyMedicine({required this.name, required this.dose, required this.route});
 }
 
-// ─────────────────────────────────────
-//  PROVIDER
-// ─────────────────────────────────────
+class EmergencyPrescription {
+  final EmergencyMedicine medicine;
+  EmergencyPrescription({required this.medicine});
+}
+
+// ── Provider ──
+
 class EmergencyProvider extends ChangeNotifier {
-
-  // ── 10 mock patients ──
-  static final List<EmergencyPatient> _allPatients = [
-    EmergencyPatient(mrNo:'000001',name:'Ahmed Hassan',     age:'35',gender:'Male',  phone:'0300-1234567',address:'12-B Model Town, Lahore',             admittedSince:DateTime(2026,2,23,9,15)),
-    EmergencyPatient(mrNo:'000002',name:'Fatima Malik',     age:'28',gender:'Female',phone:'0321-9876543',address:'House 5, Block C, Gulberg, Lahore',   admittedSince:DateTime(2026,2,23,10,0)),
-    EmergencyPatient(mrNo:'000003',name:'Muhammad Ali Khan',age:'52',gender:'Male',  phone:'0333-5554444',address:'Sector G-10, Street 4, Islamabad',     admittedSince:DateTime(2026,2,23,8,30)),
-    EmergencyPatient(mrNo:'000004',name:'Ayesha Siddiqui', age:'41',gender:'Female',phone:'0345-7778888',address:'Flat 3, Pearl Heights, Clifton',       admittedSince:DateTime(2026,2,23,7,45)),
-    EmergencyPatient(mrNo:'000005',name:'Usman Tariq',     age:'19',gender:'Male',  phone:'0312-3334455',address:'Village Kot Addu, Muzaffargarh',       admittedSince:DateTime(2026,2,23,11,0)),
-    EmergencyPatient(mrNo:'000006',name:'Sara Anwar',      age:'33',gender:'Female',phone:'0311-9998877',address:'G-9/1, Islamabad',                     admittedSince:DateTime(2026,2,23,10,30),inQueue:true),
-    EmergencyPatient(mrNo:'000007',name:'Bilal Rauf',      age:'34',gender:'Male',  phone:'0311-2223344',address:'DHA Phase 5, Lahore',                  admittedSince:DateTime(2026,2,23,10,38),inQueue:true),
-    EmergencyPatient(mrNo:'000008',name:'Zara Khan',       age:'22',gender:'Female',phone:'0322-1112233',address:'F-7/2, Islamabad',                     admittedSince:DateTime(2026,2,23,10,51),inQueue:true),
-    EmergencyPatient(mrNo:'000009',name:'Saima Noor',      age:'27',gender:'Female',phone:'0322-5556677',address:'Gulberg III, Lahore',                  admittedSince:DateTime(2026,2,23,10,55),inQueue:true),
-    EmergencyPatient(mrNo:'000010',name:'Hamza Malik',     age:'45',gender:'Male',  phone:'0300-4445566',address:'Bahria Town, Rawalpindi',               admittedSince:DateTime(2026,2,23,11,2)),
-  ];
-
-  /// Type "1" → "000001", "7" → "000007", "12" → "000012"
+  // ── Static MR formatter ──
   static String formatMr(String raw) {
     final digits = raw.replaceAll(RegExp(r'[^0-9]'), '');
     if (digits.isEmpty) return '';
     return int.parse(digits).toString().padLeft(6, '0');
   }
 
-  EmergencyPatient? lookupPatient(String raw) {
-    final formatted = formatMr(raw);
-    if (formatted.isEmpty) return null;
-    try { return _allPatients.firstWhere((p) => p.mrNo == formatted); } catch (_) { return null; }
-  }
-
-  // ── Queue ──
-  List<EmergencyPatient> get queue => _allPatients.where((p) => p.inQueue).toList();
-  int get queueCount => queue.length;
-  void refresh() => notifyListeners();
-
-  // ── Emergency Services ──
-  final List<EmService> emergencyServices = const [
-    EmService(id:'drip',     name:'Drip',      price:2000, icon:Icons.water_drop_rounded,           color:Color(0xFF1E88E5)),
-    EmService(id:'foodpipe', name:'Food Pipe', price:3500, icon:Icons.settings_input_svideo_rounded, color:Color(0xFF8E24AA)),
-    EmService(id:'injection',name:'Injection', price:1000, icon:Icons.vaccines_rounded,              color:Color(0xFF00B5AD)),
-    EmService(id:'oxygen',   name:'Oxygen',    price:1500, icon:Icons.air_rounded,                   color:Color(0xFF43A047)),
-    EmService(id:'ecg',      name:'ECG',       price:600,  icon:Icons.monitor_heart_rounded,         color:Color(0xFFE67E22)),
-    EmService(id:'nebulizer',name:'Nebulizer', price:800,  icon:Icons.masks_rounded,                 color:Color(0xFFF4511E)),
-    EmService(id:'dressing', name:'Dressing',  price:500,  icon:Icons.medical_services_rounded,      color:Color(0xFFE53935)),
-    EmService(id:'catheter', name:'Catheter',  price:1200, icon:Icons.device_hub_rounded,            color:Color(0xFF039BE5)),
+  // ── Queue (mock data + dynamically added from OPD) ──
+  final List<EmergencyPatient> _queue = [
+    EmergencyPatient(
+      mrNo: '000004',
+      name: 'Ayesha Siddiqui',
+      age: '41',
+      gender: 'Female',
+      phone: '0345-7778888',
+      address: 'Flat 3, Pearl Heights, Clifton',
+      admittedSince: DateTime.now().subtract(const Duration(minutes: 45)),
+      receiptNo: 'OPD71954',
+      emergencyServices: ['Emergency Consultation'],
+    ),
+    EmergencyPatient(
+      mrNo: '000001',
+      name: 'Ahmed Hassan',
+      age: '35',
+      gender: 'Male',
+      phone: '0300-1234567',
+      address: '12-B Model Town',
+      admittedSince: DateTime.now().subtract(const Duration(hours: 1, minutes: 20)),
+      receiptNo: 'OPD71957',
+      emergencyServices: ['Trauma Care'],
+    ),
   ];
 
-  final List<EmService> _selectedServices = [];
-  List<EmService> get selectedServices => List.unmodifiable(_selectedServices);
-  double get servicesTotalPrice => _selectedServices.fold(0.0, (s, e) => s + e.price);
-  void toggleService(EmService svc) {
-    final i = _selectedServices.indexWhere((s) => s.id == svc.id);
-    if (i >= 0) _selectedServices.removeAt(i); else _selectedServices.add(svc);
+  List<EmergencyPatient> get queue => List.unmodifiable(_queue);
+  int get queueCount => _queue.length;
+
+  /// Called from OpdProvider via bridge — adds newly admitted patient
+  void addPatientFromOpd(Map<String, dynamic> data) {
+    final already = _queue.any((p) =>
+    p.mrNo == data['mrNo'] &&
+        p.admittedSince == data['admittedSince']);
+    if (already) return;
+
+    _queue.insert(0, EmergencyPatient(
+      mrNo: data['mrNo'] ?? '',
+      name: data['name'] ?? '',
+      age: data['age'] ?? '',
+      gender: data['gender'] ?? '',
+      phone: data['phone'] ?? '',
+      address: data['address'] ?? '',
+      admittedSince: data['admittedSince'] ?? DateTime.now(),
+      receiptNo: data['receiptNo'] ?? '',
+      emergencyServices: List<String>.from(data['emergencyServices'] ?? []),
+    ));
     notifyListeners();
   }
+
+  EmergencyPatient? lookupPatient(String mrNo) {
+    try {
+      return _queue.firstWhere((p) => p.mrNo == mrNo);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void refresh() => notifyListeners();
+
+  // ── Emergency Services (as list for dropdown) ──
+  final List<EmergencyService> emergencyServices = const [
+    EmergencyService(
+      id: 'es1', name: 'IV Line', price: 300,
+      icon: Icons.vaccines_rounded, color: Color(0xFFE53935),
+    ),
+    EmergencyService(
+      id: 'es2', name: 'O₂ Therapy', price: 500,
+      icon: Icons.air_rounded, color: Color(0xFF1E88E5),
+    ),
+    EmergencyService(
+      id: 'es3', name: 'Nebulization', price: 400,
+      icon: Icons.cloud_rounded, color: Color(0xFF8E24AA),
+    ),
+    EmergencyService(
+      id: 'es4', name: 'ECG', price: 600,
+      icon: Icons.monitor_heart_rounded, color: Color(0xFFE53935),
+    ),
+    EmergencyService(
+      id: 'es5', name: 'Catheter', price: 350,
+      icon: Icons.water_drop_rounded, color: Color(0xFF43A047),
+    ),
+    EmergencyService(
+      id: 'es6', name: 'Dressing', price: 250,
+      icon: Icons.healing_rounded, color: Color(0xFFF4511E),
+    ),
+    EmergencyService(
+      id: 'es7', name: 'Injection', price: 200,
+      icon: Icons.medication_rounded, color: Color(0xFF00B5AD),
+    ),
+    EmergencyService(
+      id: 'es8', name: 'Drip', price: 450,
+      icon: Icons.local_drink_rounded, color: Color(0xFF1E88E5),
+    ),
+  ];
+
+  // ── Selected emergency services ──
+  final List<EmergencyService> _selectedServices = [];
+  List<EmergencyService> get selectedServices => List.unmodifiable(_selectedServices);
+
   bool isServiceSelected(String id) => _selectedServices.any((s) => s.id == id);
+
+  void toggleService(EmergencyService svc) {
+    if (isServiceSelected(svc.id)) {
+      _selectedServices.removeWhere((s) => s.id == svc.id);
+    } else {
+      _selectedServices.add(svc);
+    }
+    notifyListeners();
+  }
+
+  void removeSelectedService(String id) {
+    _selectedServices.removeWhere((s) => s.id == id);
+    notifyListeners();
+  }
+
+  double get servicesTotalPrice =>
+      _selectedServices.fold(0.0, (sum, s) => sum + s.price);
 
   // ── Investigations ──
   final Map<String, List<String>> investigations = const {
-    'Lab': ['CBC (Complete Blood Count)','LFTs','RFTs','Blood Sugar (Fasting)','HbA1c','Urine D/R','Blood Culture','ESR','CRP','Troponin','PT/APTT','Serum Electrolytes','Serum Creatinine','Thyroid Profile'],
-    'Ultra Sound': ['Abdominal Ultrasound','Pelvic Ultrasound','Thyroid Ultrasound','Doppler Study','ECHO','Renal Ultrasound','Scrotal Ultrasound'],
-    'X-Rays': ['Ankle Joint Lat+','Ankle Joint AP +','Barium Followthrough Study','Barium Meal Study','Barium Swallow Study','Cervicle Spine Ap','Cervicle Spine Lat','Chest PA','Chest AP','KUB','Skull AP/Lat','Pelvis AP','Wrist Joint AP/Lat','Knee Joint AP/Lat'],
+    'Lab': [
+      'CBC (Complete Blood Count)',
+      'LFTs (Liver Function Test)',
+      'RFTs (Renal Function Test)',
+      'Blood Sugar (Random)',
+      'Blood Sugar (Fasting)',
+      'HbA1c',
+      'Lipid Profile',
+      'Urine Analysis',
+      'Blood Culture',
+      'PT/APTT',
+      'Serum Electrolytes',
+    ],
+    'Ultra Sound': [
+      'Abdominal Ultrasound',
+      'Pelvic Ultrasound',
+      'Thyroid Ultrasound',
+      'Cardiac Echo',
+      'Renal Ultrasound',
+    ],
+    'X-Rays': [
+      'Chest X-Ray',
+      'Spine X-Ray',
+      'Hand/Wrist X-Ray',
+      'Skull X-Ray',
+      'Pelvis X-Ray',
+      'Knee X-Ray',
+    ],
   };
 
-  final List<AddedInv> _addedInvestigations = [];
-  List<AddedInv> get addedInvestigations => List.unmodifiable(_addedInvestigations);
-  void addInvestigation(String type, String name) {
-    if (!_addedInvestigations.any((i) => i.name == name)) { _addedInvestigations.add(AddedInv(type:type,name:name)); notifyListeners(); }
-  }
-  void removeInvestigation(String name) { _addedInvestigations.removeWhere((i) => i.name == name); notifyListeners(); }
+  final List<EmergencyInvestigation> _addedInvestigations = [];
+  List<EmergencyInvestigation> get addedInvestigations => List.unmodifiable(_addedInvestigations);
 
-  // ── Medicines ──
-  final List<EmMedicine> medicinesList = const [
-    EmMedicine(name:'Paracetamol 500mg',   dose:'1 tab TDS',route:'Oral'),
-    EmMedicine(name:'Amoxicillin 500mg',   dose:'1 tab BD', route:'Oral'),
-    EmMedicine(name:'Metronidazole 400mg', dose:'1 tab TDS',route:'Oral'),
-    EmMedicine(name:'Omeprazole 20mg',     dose:'1 cap BD', route:'Oral'),
-    EmMedicine(name:'Diclofenac 75mg/3ml', dose:'1 amp',    route:'IM'),
-    EmMedicine(name:'Ranitidine 50mg',     dose:'1 amp BD', route:'IV'),
-    EmMedicine(name:'Dextrose 5% 500ml',   dose:'1 bag',    route:'IV Drip'),
-    EmMedicine(name:'Normal Saline 0.9%',  dose:'1 bag',    route:'IV Drip'),
-    EmMedicine(name:'Buscopan 20mg',       dose:'1 amp',    route:'IM'),
-    EmMedicine(name:'Ondansetron 4mg',     dose:'1 amp TDS',route:'IV'),
-    EmMedicine(name:'Hydrocortisone 100mg',dose:'1 vial',   route:'IV'),
-    EmMedicine(name:'Ceftriaxone 1g',      dose:'1 vial BD',route:'IV'),
-  ];
-  final List<EmMedicine> _prescribedMedicines = [];
-  List<EmMedicine> get prescribedMedicines => List.unmodifiable(_prescribedMedicines);
-  void toggleMedicine(EmMedicine med) {
-    final i = _prescribedMedicines.indexWhere((m) => m.name == med.name);
-    if (i >= 0) _prescribedMedicines.removeAt(i); else _prescribedMedicines.add(med);
+  void addInvestigation(String type, String name) {
+    if (_addedInvestigations.any((i) => i.name == name)) {
+      _addedInvestigations.removeWhere((i) => i.name == name);
+    } else {
+      _addedInvestigations.add(EmergencyInvestigation(type: type, name: name));
+    }
     notifyListeners();
   }
-  bool isMedicinePrescribed(String name) => _prescribedMedicines.any((m) => m.name == name);
 
-  // ── Save ──
-  final List<Map<String, dynamic>> savedRecords = [];
-  void saveRecord({required String mrNo,required String name,required String age,required String gender,required String phone,required String address,required String mo,required String bed,required String complaint,required String moNotes,required String dischargeOpt,required List<EmService> services,required List<AddedInv> investigations,required List<EmMedicine> medicines}) {
-    savedRecords.add({'mrNo':mrNo,'name':name,'age':age,'gender':gender,'phone':phone,'address':address,'mo':mo,'bed':bed,'complaint':complaint,'moNotes':moNotes,'dischargeOption':dischargeOpt,'services':services,'investigations':investigations,'medicines':medicines,'date':DateTime.now()});
+  void removeInvestigation(String name) {
+    _addedInvestigations.removeWhere((i) => i.name == name);
+    notifyListeners();
+  }
+
+  // ── Medicines ──
+  final List<EmergencyMedicine> medicinesList = const [
+    EmergencyMedicine(name: 'Paracetamol 500mg', dose: '1 tab', route: 'Oral'),
+    EmergencyMedicine(name: 'Metoclopramide', dose: '10mg', route: 'IV'),
+    EmergencyMedicine(name: 'Ondansetron', dose: '4mg', route: 'IV'),
+    EmergencyMedicine(name: 'Diclofenac', dose: '75mg', route: 'IM'),
+    EmergencyMedicine(name: 'Hydrocortisone', dose: '100mg', route: 'IV'),
+    EmergencyMedicine(name: 'Salbutamol', dose: '2.5mg', route: 'Neb'),
+    EmergencyMedicine(name: 'Ringer Lactate', dose: '1000ml', route: 'IV Drip'),
+    EmergencyMedicine(name: 'Normal Saline', dose: '500ml', route: 'IV Drip'),
+    EmergencyMedicine(name: 'Dextrose 5%', dose: '500ml', route: 'IV Drip'),
+    EmergencyMedicine(name: 'Ceftriaxone', dose: '1g', route: 'IV'),
+    EmergencyMedicine(name: 'Omeprazole', dose: '40mg', route: 'IV'),
+    EmergencyMedicine(name: 'Tramadol', dose: '50mg', route: 'IM'),
+  ];
+
+  final List<EmergencyPrescription> _prescribedMedicines = [];
+  List<EmergencyPrescription> get prescribedMedicines => List.unmodifiable(_prescribedMedicines);
+
+  bool isMedicinePrescribed(String name) =>
+      _prescribedMedicines.any((p) => p.medicine.name == name);
+
+  void toggleMedicine(EmergencyMedicine med) {
+    if (isMedicinePrescribed(med.name)) {
+      _prescribedMedicines.removeWhere((p) => p.medicine.name == med.name);
+    } else {
+      _prescribedMedicines.add(EmergencyPrescription(medicine: med));
+    }
+    notifyListeners();
+  }
+
+  // ── Save record ──
+  void saveRecord({
+    required String mrNo,
+    required String name,
+    required String age,
+    required String gender,
+    required String phone,
+    required String address,
+    required String mo,
+    required String bed,
+    required String complaint,
+    required String moNotes,
+    required String dischargeOpt,
+    required List<EmergencyService> services,
+    required List<EmergencyInvestigation> investigations,
+    required List<EmergencyPrescription> medicines,
+  }) {
+    // Remove from queue on discharge
+    _queue.removeWhere((p) => p.mrNo == mrNo);
     notifyListeners();
   }
 

@@ -422,6 +422,29 @@ class OpdProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ── Check if any emergency service is selected ──
+  bool get hasEmergencyService =>
+      _selectedServices.any((s) => s.service.category == 'emergency');
+
+  // ── Emergency Admission flag ──
+  bool _emergencyAdmission = false;
+  bool get emergencyAdmission => _emergencyAdmission;
+  set emergencyAdmission(bool val) {
+    _emergencyAdmission = val;
+    notifyListeners();
+  }
+
+  // ── Admitted Emergency Patients (shared with EmergencyProvider) ──
+  // This list holds patients admitted from OPD receipt with emergency services
+  final List<Map<String, dynamic>> _admittedEmergencyPatients = [];
+  List<Map<String, dynamic>> get admittedEmergencyPatients =>
+      List.unmodifiable(_admittedEmergencyPatients);
+
+  void admitEmergencyPatient(Map<String, dynamic> patientData) {
+    _admittedEmergencyPatients.add(patientData);
+    notifyListeners();
+  }
+
   // ── Saved Receipts (seeded with mock data) ──
   final List<Map<String, dynamic>> _receipts = [
     {
@@ -638,8 +661,6 @@ class OpdProvider extends ChangeNotifier {
   // ── Save new receipt ──
   int _receiptCounter = 71960;
 
-  // Add this to your OpdProvider class
-
   void saveReceipt({
     required OpdPatient patient,
     required List<OpdSelectedService> services,
@@ -655,9 +676,8 @@ class OpdProvider extends ChangeNotifier {
       'date': DateTime.now(),
       'services': services.map((s) => s.service.category).toSet().toList(),
       'details': services.map((s) {
-        // For consultation services, include doctor name
         if (s.service.category == 'consultation') {
-          return s.service.name; // This already includes doctor name
+          return s.service.name;
         }
         return s.service.name;
       }).join(', '),
@@ -667,6 +687,26 @@ class OpdProvider extends ChangeNotifier {
       'status': 'Active',
     });
     _receiptCounter++;
+
+    // ── If emergency admission is checked AND emergency services selected → add to emergency queue ──
+    if (_emergencyAdmission && services.any((s) => s.service.category == 'emergency')) {
+      _admittedEmergencyPatients.add({
+        'mrNo': patient.mrNo,
+        'name': patient.fullName,
+        'age': patient.age,
+        'gender': patient.gender,
+        'phone': patient.phone,
+        'address': patient.address,
+        'admittedSince': DateTime.now(),
+        'receiptNo': 'OPD${_receiptCounter - 1}',
+        'emergencyServices': services
+            .where((s) => s.service.category == 'emergency')
+            .map((s) => s.service.name)
+            .toList(),
+      });
+    }
+
+    _emergencyAdmission = false;
     incrementMrNo();
     _selectedServices.clear();
     notifyListeners();
