@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:hims_app/screens/cunsultations/cunsultations.dart';
 import 'package:hims_app/screens/emergency_treatment/emergency_treatment.dart';
-// import 'package:hims_app/screens/home%20screen/home_screen.dart';
+import 'package:hims_app/screens/mr_details/mr_details.dart';
+import 'package:hims_app/screens/mr_details/mr_view/mr_view.dart';
 import 'package:hims_app/screens/opd_reciepts/opd_reciept.dart';
 import 'package:hims_app/screens/opd_reciepts/opd_records.dart';
-import 'package:hims_app/screens/patient_mr_no/patient_mr_no.dart';
 import 'package:hims_app/screens/consultation_payments/consultation_payments.dart';
+import 'package:hims_app/screens/shift_management/shift_management.dart';
+import '../../screens/add_expenses/add_expenses.dart';
 import '../../screens/dashboard/dashboard.dart';
 import 'drawer.dart';
 
@@ -154,7 +156,7 @@ class BaseScaffold extends StatelessWidget {
         screen = const ConsultationScreen();
         break;
       case 2:
-        screen = const PatientMrNoScreen();
+        screen = const ExpensesScreen();
         break;
       case 3:
         screen = const OpdReceiptScreen();
@@ -167,6 +169,15 @@ class BaseScaffold extends StatelessWidget {
         break;
       case 6:
         screen = const ConsultantPaymentsScreen();
+        break;
+      case 7:
+        screen = const ShiftManagementScreen();
+        break;
+      case 8:
+        screen = const MrDetailsScreen();
+        break;
+      case 9:
+        screen = const MrDataViewScreen();
         break;
       case -1: // Logout
         _showLogoutDialog(context);

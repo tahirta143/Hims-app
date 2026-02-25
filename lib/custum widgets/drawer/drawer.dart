@@ -108,8 +108,8 @@ class CustomDrawer extends StatelessWidget {
 
                   // Patient MR No
                   _buildDrawerItem(
-                    icon: Icons.badge_rounded,
-                    title: 'Patient MR No',
+                    icon: Icons.money,
+                    title: 'Add Expenses',
                     index: 2,
                   ),
 
@@ -135,6 +135,21 @@ class CustomDrawer extends StatelessWidget {
                     icon: Icons.payment_rounded,
                     title: 'Consultation Payments',
                     index: 6,
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.filter_tilt_shift,
+                    title: 'Shift Management',
+                    index: 7,
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.person_outline_rounded, // or Icons.medical_services_outlined
+                    title: 'MR Details',
+                    index: 8,
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.visibility_outlined, // or Icons.remove_red_eye_outlined
+                    title: 'MR View',
+                    index: 9,
                   ),
                 ],
               ),
