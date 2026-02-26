@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:hims_app/screens/opd_reciepts/opd_reciept.dart';
-import 'package:hims_app/screens/opd_reciepts/opd_records.dart';
-import 'package:hims_app/custum widgets/drawer/base_scaffold.dart'; // Add this import
+import 'package:hims_app/custum widgets/drawer/base_scaffold.dart';
+import '../../custum widgets/bottombar/bottombar.dart';
+import '../add_expenses/add_expenses.dart';
 import '../cunsultations/cunsultations.dart';
 import '../emergency_treatment/emergency_treatment.dart';
-
+import '../mr_details/mr_view/mr_view.dart';
 // ─────────────────────────────────────────────
 //  SUMMARY CARD WIDGET
 // ─────────────────────────────────────────────
@@ -28,7 +28,7 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double cardWidth =
-        (MediaQuery.of(context).size.width - 48) / 2; // 2 columns with padding
+        (MediaQuery.of(context).size.width - 48) / 2;
 
     return Container(
       width: cardWidth,
@@ -260,18 +260,16 @@ class _DoctorCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────
-//  HOME SCREEN
+//  DASHBOARD BODY (extracted from HomeScreen)
 // ─────────────────────────────────────────────
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+class _DashboardBody extends StatefulWidget {
+  const _DashboardBody();
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<_DashboardBody> createState() => _DashboardBodyState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 0;
-
+class _DashboardBodyState extends State<_DashboardBody> {
   static const Color primaryColor = Color(0xFF00B5AD);
   static const Color darkTeal = Color(0xFF00897B);
 
@@ -302,7 +300,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final List<Map<String, dynamic>> summaryCards = [
     {
       'title': 'OPD Revenue',
-      'value': '\$24,500',
+      'value': '24,500',      // ← Changed from $ to ₨
       'icon': Icons.attach_money_rounded,
       'color': const Color(0xFF00BFA5),
       'trend': '12%',
@@ -326,7 +324,7 @@ class _HomeScreenState extends State<HomeScreen> {
     },
     {
       'title': 'Expenses',
-      'value': '\$8,340',
+      'value': '8,340',       // ← Changed from $ to ₨
       'icon': Icons.receipt_long_rounded,
       'color': const Color(0xFFFF6B6B),
       'trend': '3%',
@@ -339,306 +337,316 @@ class _HomeScreenState extends State<HomeScreen> {
     final double screenWidth = MediaQuery.of(context).size.width;
     final double screenHeight = MediaQuery.of(context).size.height;
 
-    return BaseScaffold(
-      title: 'Dashboard',
-      drawerIndex: 0,
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 20,
-              offset: const Offset(0, -4),
-            ),
-          ],
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: (index) => setState(() => _selectedIndex = index),
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white,
-          selectedItemColor: primaryColor,
-          unselectedItemColor: Colors.grey.shade400,
-          showSelectedLabels: false,
-          showUnselectedLabels: false,
-          elevation: 0,
-          items: const [
-            BottomNavigationBarItem(
-                icon: Icon(Icons.home_rounded), label: ''),
-            BottomNavigationBarItem(
-                icon: Icon(Icons.search), label: ''),
-            BottomNavigationBarItem(
-                icon: Icon(Icons.chat_bubble_outline), label: ''),
-            BottomNavigationBarItem(
-                icon: Icon(Icons.calendar_today_outlined), label: ''),
-          ],
-        ),
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: EdgeInsets.symmetric(
+        horizontal: screenWidth * 0.04,
+        vertical: screenHeight * 0.0,
       ),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: EdgeInsets.symmetric(
-          horizontal: screenWidth * 0.04,
-          vertical: screenHeight * 0.02,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Summary Cards ──
-            const Text(
-              'Overview',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Summary Cards ──
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: screenWidth * 0.04,
+              mainAxisSpacing: screenWidth * 0.04,
+              childAspectRatio: 1.2,
             ),
-            SizedBox(height: screenHeight * 0.015),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: screenWidth * 0.03,
-                mainAxisSpacing: screenWidth * 0.03,
-                childAspectRatio: 1.45,
+            itemCount: summaryCards.length,
+            itemBuilder: (context, index) {
+              final card = summaryCards[index];
+              return _SummaryCard(
+                title: card['title'] as String,
+                value: card['value'] as String,
+                icon: card['icon'] as IconData,
+                color: card['color'] as Color,
+                trend: card['trend'] as String,
+                trendUp: card['trendUp'] as bool,
+              );
+            },
+          ),
+          // SizedBox(height: screenHeight * 0.025),
+
+          // ── Find Specialist ──
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Find Specialist',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
               ),
-              itemCount: summaryCards.length,
+              Text(
+                'View all',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: primaryColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: screenHeight * 0.014),
+
+          SizedBox(
+            height: 44,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: specialists.length,
               itemBuilder: (context, index) {
-                final card = summaryCards[index];
-                return _SummaryCard(
-                  title: card['title'] as String,
-                  value: card['value'] as String,
-                  icon: card['icon'] as IconData,
-                  color: card['color'] as Color,
-                  trend: card['trend'] as String,
-                  trendUp: card['trendUp'] as bool,
-                );
-              },
-            ),
-            SizedBox(height: screenHeight * 0.025),
-
-            // ── Find Specialist ──
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Find Specialist',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                Text(
-                  'View all',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: primaryColor,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: screenHeight * 0.014),
-
-            // Specialist Chips
-            SizedBox(
-              height: 44,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: specialists.length,
-                itemBuilder: (context, index) {
-                  final item = specialists[index];
-                  final isSelected = item['selected'] as bool;
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        for (var s in specialists) {
-                          s['selected'] = false;
-                        }
-                        specialists[index]['selected'] = true;
-                      });
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.only(right: 10),
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color:
-                        isSelected ? primaryColor : Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: isSelected
-                              ? primaryColor
-                              : Colors.grey.shade300,
-                        ),
-                        boxShadow: isSelected
-                            ? [
-                          BoxShadow(
-                            color: primaryColor.withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          )
-                        ]
-                            : null,
+                final item = specialists[index];
+                final isSelected = item['selected'] as bool;
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      for (var s in specialists) {
+                        s['selected'] = false;
+                      }
+                      specialists[index]['selected'] = true;
+                    });
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.only(right: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: isSelected ? primaryColor : Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: isSelected
+                            ? primaryColor
+                            : Colors.grey.shade300,
                       ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            item['icon'] as IconData,
-                            size: 16,
+                      boxShadow: isSelected
+                          ? [
+                        BoxShadow(
+                          color: primaryColor.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        )
+                      ]
+                          : null,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          item['icon'] as IconData,
+                          size: 16,
+                          color: isSelected
+                              ? Colors.white
+                              : Colors.grey.shade600,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          item['label'] as String,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
                             color: isSelected
                                 ? Colors.white
-                                : Colors.grey.shade600,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            item['label'] as String,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: isSelected
-                                  ? Colors.white
-                                  : Colors.grey.shade700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            SizedBox(height: screenHeight * 0.02),
-
-            // ── Banner ──
-            Container(
-              height: screenHeight * 0.17,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [primaryColor, darkTeal],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Stack(
-                children: [
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    bottom: 0,
-                    child: Container(
-                      width: screenWidth * 0.3,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
-                        borderRadius: const BorderRadius.only(
-                          topRight: Radius.circular(20),
-                          bottomRight: Radius.circular(20),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    right: 10,
-                    top: 10,
-                    bottom: 10,
-                    child: Container(
-                      width: screenWidth * 0.25,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.health_and_safety_rounded,
-                          size: 50, color: Colors.white54),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text(
-                          'Quick Appointments,\nTrusted Care',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            height: 1.3,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        ElevatedButton(
-                          onPressed: () {},
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: primaryColor,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 8),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(24),
-                            ),
-                            elevation: 0,
-                          ),
-                          child: const Text(
-                            'Start Now',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
+                                : Colors.grey.shade700,
                           ),
                         ),
                       ],
                     ),
                   ),
-                ],
-              ),
+                );
+              },
             ),
-            SizedBox(height: screenHeight * 0.025),
+          ),
+          SizedBox(height: screenHeight * 0.02),
 
-            // ── Available Doctors ──
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          // ── Banner ──
+          Container(
+            height: screenHeight * 0.17,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [primaryColor, darkTeal],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Stack(
               children: [
-                const Text(
-                  'Available Doctor',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: screenWidth * 0.3,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: const BorderRadius.only(
+                        topRight: Radius.circular(20),
+                        bottomRight: Radius.circular(20),
+                      ),
+                    ),
                   ),
                 ),
-                Text(
-                  'View all',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: primaryColor,
-                    fontWeight: FontWeight.w600,
+                Positioned(
+                  right: 10,
+                  top: 10,
+                  bottom: 10,
+                  child: Container(
+                    width: screenWidth * 0.25,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.health_and_safety_rounded,
+                        size: 50, color: Colors.white54),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'Quick Appointments,\nTrusted Care',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ElevatedButton(
+                        onPressed: () {},
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: primaryColor,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: const Text(
+                          'Start Now',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-            SizedBox(height: screenHeight * 0.014),
+          ),
+          SizedBox(height: screenHeight * 0.025),
 
-            SizedBox(
-              height: screenHeight * 0.33,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: doctors.length,
-                itemBuilder: (context, index) {
-                  final doctor = doctors[index];
-                  return _DoctorCard(
-                    doctor: doctor,
-                    isFeatured: doctor['featured'] as bool,
-                    primaryColor: primaryColor,
-                  );
-                },
+          // ── Available Doctors ──
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Available Doctor',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
               ),
+              Text(
+                'View all',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: primaryColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: screenHeight * 0.014),
+
+          SizedBox(
+            height: screenHeight * 0.33,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: doctors.length,
+              itemBuilder: (context, index) {
+                final doctor = doctors[index];
+                return _DoctorCard(
+                  doctor: doctor,
+                  isFeatured: doctor['featured'] as bool,
+                  primaryColor: primaryColor,
+                );
+              },
             ),
-            SizedBox(height: screenHeight * 0.02),
-          ],
-        ),
+          ),
+          SizedBox(height: screenHeight * 0.12),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+//  HOME SCREEN
+// ─────────────────────────────────────────────
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  int _selectedIndex = 0;
+
+  // ── Page titles for the AppBar ──
+  static const List<String> _titles = [
+    'Dashboard',
+    'Emergency',
+    'Consultations',
+    'MR View',
+    'Expenses',
+  ];
+
+  // ── Screens list — built once, kept alive via IndexedStack ──
+  static final List<Widget> _screens = [
+    const _DashboardBody(),
+    const EmergencyTreatmentScreen(),
+    const ConsultationScreen(),
+    const MrDataViewScreen(),
+    const ExpensesScreen(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return _selectedIndex == 0
+        ? BaseScaffold(
+      title: _titles[_selectedIndex],
+      drawerIndex: 0,
+      bottomNavigationBar: CustomFluidBottomNavBar(
+        currentIndex: _selectedIndex,
+        onItemSelected: (index) {
+          setState(() => _selectedIndex = index);
+        },
+      ),
+      body: _DashboardBody(),
+    )
+        : Scaffold(
+      extendBody: true,
+      body: _screens[_selectedIndex],
+      bottomNavigationBar: CustomFluidBottomNavBar(
+        currentIndex: _selectedIndex,
+        onItemSelected: (index) {
+          setState(() => _selectedIndex = index);
+        },
       ),
     );
   }

@@ -11,58 +11,14 @@ class ExpensesScreen extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => ExpensesProvider(),
       child: BaseScaffold(
-        title: 'HIMS Expenses',
+        title: 'Expenses',
         drawerIndex: 2,
         showNotificationIcon: false,
-        actions: [_ShiftBadge(), const SizedBox(width: 8), _RefreshButton()],
-        body: const _ExpensesBody(),
-      ),
-    );
-  }
-}
-
-// ─── Shift Badge ──────────────────────────────────────────────────────────────
-class _ShiftBadge extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final p = context.watch<ExpensesProvider>();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 7,
-                height: 7,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF00B5AD),
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 5),
-              Text(
-                'Active Shift: ${p.shiftName}',
-                style: const TextStyle(
-                  color: Color(0xFF1A202C),
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          Text(
-            'Shift Date: ${p.shiftDate}',
-            style: const TextStyle(color: Color(0xFF718096), fontSize: 9),
-          ),
+        actions: [
+          const SizedBox(width: 8),
+          _RefreshButton(),
         ],
+        body: const _ExpensesBody(),
       ),
     );
   }
@@ -81,8 +37,7 @@ class _RefreshButton extends StatelessWidget {
             backgroundColor: const Color(0xFF00B5AD),
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 1),
-            shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
         );
       },
@@ -111,53 +66,54 @@ class _RefreshButton extends StatelessWidget {
 }
 
 // ─── Body ─────────────────────────────────────────────────────────────────────
-// Uses Column (NOT SingleChildScrollView) so the transactions card
-// can take all remaining space and scroll only its rows internally.
 class _ExpensesBody extends StatelessWidget {
   const _ExpensesBody();
 
   @override
   Widget build(BuildContext context) {
-    final screenW = MediaQuery.of(context).size.width;
-    final isWide = screenW > 800;
-    final p = screenW < 400 ? 10.0 : 16.0;
-
     return Container(
       color: const Color(0xFFF0F4F8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Fixed top section ────────────────────────────────────────────
           Padding(
-            padding: EdgeInsets.fromLTRB(p, p, p, 0),
+            padding: EdgeInsets.fromLTRB(
+              MediaQuery.of(context).size.width < 400 ? 10.0 : 16.0,
+              MediaQuery.of(context).size.width < 400 ? 10.0 : 16.0,
+              MediaQuery.of(context).size.width < 400 ? 10.0 : 16.0,
+              0,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _PageHeader(isWide: isWide),
-                SizedBox(height: isWide ? 18 : 14),
-                isWide
-                    ? Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(flex: 2, child: _TotalExpensesCard()),
-                    const SizedBox(width: 14),
-                    _AddExpenseCard(),
-                  ],
-                )
-                    : Column(children: [
-                  _TotalExpensesCard(),
-                  const SizedBox(height: 12),
-                  _AddExpenseCard(),
-                ]),
-                SizedBox(height: isWide ? 16 : 12),
+                _PageHeader(),
+                SizedBox(height: MediaQuery.of(context).size.width > 800 ? 18 : 14),
+                if (MediaQuery.of(context).size.width > 800)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(flex: 2, child: _TotalExpensesCard()),
+                      const SizedBox(width: 14),
+                      _AddExpenseCard(),
+                    ],
+                  )
+                else
+                  Column(children: [
+                    _TotalExpensesCard(),
+                    const SizedBox(height: 12),
+                  ]),
+                SizedBox(height: MediaQuery.of(context).size.width > 800 ? 16 : 12),
               ],
             ),
           ),
-
-          // ── Transactions card — fills remaining height ────────────────────
           Expanded(
             child: Padding(
-              padding: EdgeInsets.fromLTRB(p, 0, p, p),
+              padding: EdgeInsets.fromLTRB(
+                MediaQuery.of(context).size.width < 400 ? 10.0 : 16.0,
+                0,
+                MediaQuery.of(context).size.width < 400 ? 10.0 : 16.0,
+                MediaQuery.of(context).size.width < 400 ? 10.0 : 16.0,
+              ),
               child: const _RecentTransactionsCard(),
             ),
           ),
@@ -169,40 +125,62 @@ class _ExpensesBody extends StatelessWidget {
 
 // ─── Page Header ──────────────────────────────────────────────────────────────
 class _PageHeader extends StatelessWidget {
-  final bool isWide;
-  const _PageHeader({required this.isWide});
+  const _PageHeader();
 
   @override
   Widget build(BuildContext context) {
+    // Cache MediaQuery values for performance
+    final Size screenSize = MediaQuery.of(context).size;
+    final double screenWidth = screenSize.width;
+    final double screenHeight = screenSize.height;
+
+    // Responsive breakpoints
+    final bool isTablet = screenWidth > 600;
+    final bool isDesktop = screenWidth > 800;
+
+    // Responsive values
+    final double iconSize = isDesktop ? 28 : (isTablet ? 24 : 20);
+    final double iconPadding = isDesktop ? 12 : (isTablet ? 10 : 8);
+    final double containerRadius = isDesktop ? 12 : 10;
+    final double titleFontSize = isDesktop ? 24 : (isTablet ? 20 : 18);
+    final double spacing = screenWidth * 0.03; // 3% of screen width
+    final double maxSpacing = isDesktop ? 50 : (isTablet ? 45 : 40);
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          padding: const EdgeInsets.all(8),
+          padding: EdgeInsets.all(iconPadding),
           decoration: BoxDecoration(
             color: const Color(0xFF00B5AD).withOpacity(0.12),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(containerRadius),
           ),
-          child: const Icon(Icons.account_balance_wallet_outlined,
-              color: Color(0xFF00B5AD), size: 24),
+          child: Icon(
+            Icons.account_balance_wallet_outlined,
+            color: const Color(0xFF00B5AD),
+            size: iconSize,
+          ),
         ),
-        const SizedBox(width: 12),
+        SizedBox(width: spacing.clamp(8, 16)), // Min 8, Max 16
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'HIMS Expenses Management',
-                style: TextStyle(
-                    fontSize: isWide ? 22 : 18,
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFF1A202C)),
+              Row(
+                spacing: spacing.clamp(20, maxSpacing),
+                children: [
+                  Text(
+                    'Add Expenses',
+                    style: TextStyle(
+                      fontSize: titleFontSize,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF1A202C),
+                    ),
+                  ),
+                   _AddExpenseCard(),
+                ],
               ),
-              const SizedBox(height: 2),
-              // const Text(
-              //   'Record and manage hospital expenses for the current shift',
-              //   style: TextStyle(fontSize: 12, color: Color(0xFF718096)),
-              // ),
+              SizedBox(height: screenHeight * 0.005), // Responsive vertical spacing
             ],
           ),
         ),
@@ -276,7 +254,7 @@ class _AddExpenseCard extends StatelessWidget {
     return GestureDetector(
       onTap: () => _openDialog(context),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(
           color: const Color(0xFF00B5AD),
           borderRadius: BorderRadius.circular(14),
@@ -292,25 +270,23 @@ class _AddExpenseCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 36,
-              height: 36,
+              width: 30,
+              height: 30,
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.add_rounded, color: Colors.white, size: 22),
+              child: const Icon(Icons.add_rounded, color: Colors.white, size: 20),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 10),
             const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Add New Expense',
+                Text('Add Expense',
                     style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                         fontSize: 15)),
-                Text('Record a new transaction',
-                    style: TextStyle(color: Colors.white70, fontSize: 11)),
               ],
             ),
           ],
@@ -342,8 +318,7 @@ class _AddExpenseDialog extends StatefulWidget {
 class _AddExpenseDialogState extends State<_AddExpenseDialog> {
   final _formKey = GlobalKey<FormState>();
   final _amountCtrl = TextEditingController();
-  final _expenseByCtrl =
-  TextEditingController(text: 'System Administrator');
+  final _expenseByCtrl = TextEditingController(text: 'System Administrator');
   final _descCtrl = TextEditingController();
   String _category = ExpensesProvider.categories.first;
   bool _isSaving = false;
@@ -376,20 +351,18 @@ class _AddExpenseDialogState extends State<_AddExpenseDialog> {
         ]),
         backgroundColor: const Color(0xFF00B5AD),
         behavior: SnackBarBehavior.floating,
-        shape:
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final sw = MediaQuery.of(context).size.width;
     return Dialog(
-      shape:
-      RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       insetPadding: EdgeInsets.symmetric(
-          horizontal: sw < 500 ? 16 : 40, vertical: 24),
+          horizontal: MediaQuery.of(context).size.width < 500 ? 16 : 40,
+          vertical: 24),
       child: Container(
         width: 520,
         padding: const EdgeInsets.all(24),
@@ -438,45 +411,37 @@ class _AddExpenseDialogState extends State<_AddExpenseDialog> {
                 const Divider(color: Color(0xFFF0F0F0)),
                 const SizedBox(height: 16),
 
-                // Category
                 _lbl('Expense Category / Name', required: true),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
                   value: _category,
                   isExpanded: true,
-                  style: const TextStyle(
-                      fontSize: 14, color: Color(0xFF1A202C)),
+                  style: const TextStyle(fontSize: 14, color: Color(0xFF1A202C)),
                   decoration: _deco(icon: Icons.description_outlined),
                   items: ExpensesProvider.categories
-                      .map((c) =>
-                      DropdownMenuItem(value: c, child: Text(c)))
+                      .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                       .toList(),
                   onChanged: (v) => setState(() => _category = v!),
                 ),
                 const SizedBox(height: 16),
 
-                // Amount
                 _lbl('Amount (PKR)', required: true),
                 const SizedBox(height: 6),
                 TextFormField(
                   controller: _amountCtrl,
-                  keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true),
+                  keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
                   style: const TextStyle(fontSize: 14),
                   decoration: _deco(hint: '0.00', icon: Icons.calculate_outlined),
                   validator: (v) {
-                    if (v == null || v.trim().isEmpty)
-                      return 'Amount is required';
-                    if (double.tryParse(v.trim()) == null)
-                      return 'Enter a valid number';
-                    if (double.parse(v.trim()) <= 0)
-                      return 'Must be greater than 0';
+                    if (v == null || v.trim().isEmpty) return 'Amount is required';
+                    if (double.tryParse(v.trim()) == null) return 'Enter a valid number';
+                    if (double.parse(v.trim()) <= 0) return 'Must be greater than 0';
                     return null;
                   },
                 ),
                 const SizedBox(height: 16),
 
-                // Expense By
                 _lbl('Expense By', required: true),
                 const SizedBox(height: 6),
                 TextFormField(
@@ -488,7 +453,6 @@ class _AddExpenseDialogState extends State<_AddExpenseDialog> {
                 ),
                 const SizedBox(height: 16),
 
-                // Description
                 _lbl('Description / Remarks'),
                 const SizedBox(height: 6),
                 TextFormField(
@@ -502,12 +466,10 @@ class _AddExpenseDialogState extends State<_AddExpenseDialog> {
                     contentPadding: const EdgeInsets.all(14),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide:
-                        const BorderSide(color: Color(0xFFE2E8F0))),
+                        borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
                     enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide:
-                        const BorderSide(color: Color(0xFFE2E8F0))),
+                        borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
                     focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                         borderSide: const BorderSide(
@@ -518,7 +480,6 @@ class _AddExpenseDialogState extends State<_AddExpenseDialog> {
                 ),
                 const SizedBox(height: 24),
 
-                // Save
                 SizedBox(
                   width: double.infinity,
                   height: 50,
@@ -570,43 +531,37 @@ class _AddExpenseDialogState extends State<_AddExpenseDialog> {
     ),
   );
 
-  InputDecoration _deco({String hint = '', IconData? icon}) =>
-      InputDecoration(
-        hintText: hint,
-        hintStyle:
-        const TextStyle(color: Color(0xFFBDBDBD), fontSize: 13),
-        prefixIcon: icon != null
-            ? Icon(icon, color: const Color(0xFFCBD5E0), size: 18)
-            : null,
-        contentPadding:
-        const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-        enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-        focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide:
-            const BorderSide(color: Color(0xFF00B5AD), width: 1.5)),
-        errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Color(0xFFE53E3E))),
-        filled: true,
-        fillColor: Colors.white,
-      );
+  InputDecoration _deco({String hint = '', IconData? icon}) => InputDecoration(
+    hintText: hint,
+    hintStyle: const TextStyle(color: Color(0xFFBDBDBD), fontSize: 13),
+    prefixIcon: icon != null
+        ? Icon(icon, color: const Color(0xFFCBD5E0), size: 18)
+        : null,
+    contentPadding:
+    const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+    border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+    enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+    focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Color(0xFF00B5AD), width: 1.5)),
+    errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Color(0xFFE53E3E))),
+    filled: true,
+    fillColor: Colors.white,
+  );
 }
 
 // ─── Recent Transactions Card ─────────────────────────────────────────────────
-// Card is a Column — header + table-header are FIXED, only ListView scrolls.
 class _RecentTransactionsCard extends StatelessWidget {
   const _RecentTransactionsCard();
 
   @override
   Widget build(BuildContext context) {
-    final isCompact = MediaQuery.of(context).size.width < 700;
-
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -621,10 +576,9 @@ class _RecentTransactionsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Card title + search — FIXED ───────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-            child: isCompact
+            child: MediaQuery.of(context).size.width < 700
                 ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -641,14 +595,10 @@ class _RecentTransactionsCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           const Divider(height: 1, color: Color(0xFFF0F0F0)),
-
-          // ── Table column headers — FIXED ──────────────────────────────────
-          _TableHeader(isCompact: isCompact),
+          _TableHeader(),
           const Divider(height: 1, color: Color(0xFFF0F0F0)),
-
-          // ── Only the rows scroll ──────────────────────────────────────────
           Expanded(
-            child: _TransactionList(isCompact: isCompact),
+            child: _TransactionList(),
           ),
         ],
       ),
@@ -664,8 +614,6 @@ class _RecentTransactionsCard extends StatelessWidget {
               fontWeight: FontWeight.bold,
               color: Color(0xFF1A202C))),
       SizedBox(height: 2),
-      Text('Summary of expenses recorded in this shift',
-          style: TextStyle(fontSize: 12, color: Color(0xFF718096))),
     ],
   );
 }
@@ -696,8 +644,7 @@ class _SearchBarState extends State<_SearchBar> {
       style: const TextStyle(fontSize: 13),
       decoration: InputDecoration(
         hintText: 'Search expenses...',
-        hintStyle:
-        const TextStyle(color: Color(0xFFBDBDBD), fontSize: 12),
+        hintStyle: const TextStyle(color: Color(0xFFBDBDBD), fontSize: 12),
         prefixIcon:
         const Icon(Icons.search, color: Color(0xFFBDBDBD), size: 18),
         suffixIcon: _ctrl.text.isNotEmpty
@@ -732,8 +679,7 @@ class _SearchBarState extends State<_SearchBar> {
 
 // ─── Table Header ─────────────────────────────────────────────────────────────
 class _TableHeader extends StatelessWidget {
-  final bool isCompact;
-  const _TableHeader({required this.isCompact});
+  const _TableHeader();
 
   @override
   Widget build(BuildContext context) {
@@ -744,7 +690,7 @@ class _TableHeader extends StatelessWidget {
         _h('ID', flex: 2),
         _h('EXPENSE DETAILS', flex: 4),
         _h('AMOUNT', flex: 2),
-        if (!isCompact) _h('RECORDED BY', flex: 3),
+        if (MediaQuery.of(context).size.width >= 700) _h('RECORDED BY', flex: 3),
         _h('ACTIONS', flex: 1, center: true),
       ]),
     );
@@ -762,10 +708,9 @@ class _TableHeader extends StatelessWidget {
   );
 }
 
-// ─── Transaction List (ListView only) ────────────────────────────────────────
+// ─── Transaction List ─────────────────────────────────────────────────────────
 class _TransactionList extends StatelessWidget {
-  final bool isCompact;
-  const _TransactionList({required this.isCompact});
+  const _TransactionList();
 
   @override
   Widget build(BuildContext context) {
@@ -776,13 +721,11 @@ class _TransactionList extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.receipt_long_outlined,
-                size: 48, color: Colors.grey[300]),
+            Icon(Icons.receipt_long_outlined, size: 48, color: Colors.grey[300]),
             const SizedBox(height: 12),
             const Text('No expenses found',
                 style: TextStyle(
-                    color: Color(0xFF718096),
-                    fontWeight: FontWeight.w600)),
+                    color: Color(0xFF718096), fontWeight: FontWeight.w600)),
           ],
         ),
       );
@@ -794,7 +737,6 @@ class _TransactionList extends StatelessWidget {
       itemBuilder: (_, i) => _TransactionRow(
         expense: expenses[i],
         isEven: i % 2 == 0,
-        isCompact: isCompact,
       ),
     );
   }
@@ -804,12 +746,10 @@ class _TransactionList extends StatelessWidget {
 class _TransactionRow extends StatelessWidget {
   final ExpenseModel expense;
   final bool isEven;
-  final bool isCompact;
 
   const _TransactionRow({
     required this.expense,
     required this.isEven,
-    required this.isCompact,
   });
 
   @override
@@ -820,7 +760,6 @@ class _TransactionRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // ID badge
           Expanded(
             flex: 2,
             child: Container(
@@ -836,8 +775,6 @@ class _TransactionRow extends StatelessWidget {
                       color: Color(0xFF00B5AD))),
             ),
           ),
-
-          // Details
           Expanded(
             flex: 4,
             child: Column(
@@ -850,8 +787,7 @@ class _TransactionRow extends StatelessWidget {
                         color: Color(0xFF1A202C))),
                 const SizedBox(height: 2),
                 Row(children: [
-                  const Icon(Icons.access_time,
-                      size: 11, color: Color(0xFF718096)),
+                  const Icon(Icons.access_time, size: 11, color: Color(0xFF718096)),
                   const SizedBox(width: 3),
                   Flexible(
                     child: Text(expense.formattedTime,
@@ -871,8 +807,6 @@ class _TransactionRow extends StatelessWidget {
               ],
             ),
           ),
-
-          // Amount
           Expanded(
             flex: 2,
             child: Text(expense.formattedAmount,
@@ -881,9 +815,7 @@ class _TransactionRow extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF1A202C))),
           ),
-
-          // Recorded by
-          if (!isCompact)
+          if (MediaQuery.of(context).size.width >= 700)
             Expanded(
               flex: 3,
               child: Row(children: [
@@ -915,8 +847,6 @@ class _TransactionRow extends StatelessWidget {
                 ),
               ]),
             ),
-
-          // Delete
           Expanded(
             flex: 1,
             child: Center(

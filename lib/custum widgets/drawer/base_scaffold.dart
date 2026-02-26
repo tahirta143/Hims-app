@@ -42,33 +42,39 @@ class BaseScaffold extends StatelessWidget {
   });
 
   @override
+  @override
   Widget build(BuildContext context) {
-    // Use provided key or create a new one
     final effectiveKey = scaffoldKey ?? GlobalKey<ScaffoldState>();
 
     return Scaffold(
       key: effectiveKey,
+      extendBody: true, // keep this
+
       drawer: CustomDrawer(
         selectedIndex: drawerIndex,
         onMenuItemTap: (index) {
-          Navigator.pop(context); // Close drawer
+          Navigator.pop(context);
           if (index != drawerIndex) {
             _navigateToScreen(context, index);
           }
         },
       ),
+
       floatingActionButton: floatingActionButton,
       floatingActionButtonLocation: floatingActionButtonLocation,
+
+      // ✅ MOVE bottomNavigationBar HERE
+      bottomNavigationBar: bottomNavigationBar,
+
+      // ✅ REMOVE bottom nav from Column
       body: Column(
         children: [
           if (showAppBar) _buildHeader(context, effectiveKey),
           Expanded(child: body),
-          if (bottomNavigationBar != null) bottomNavigationBar!,
         ],
       ),
     );
   }
-
   Widget _buildHeader(BuildContext context, GlobalKey<ScaffoldState> scaffoldKey) {
     return Container(
       decoration: const BoxDecoration(
