@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hims_app/screens/cunsultations/cunsultations.dart';
+import 'package:hims_app/screens/discount_vouchers/discount_vouchers.dart';
 import 'package:hims_app/screens/emergency_treatment/emergency_treatment.dart';
 import 'package:hims_app/screens/mr_details/mr_details.dart';
 import 'package:hims_app/screens/mr_details/mr_view/mr_view.dart';
@@ -184,6 +185,9 @@ class BaseScaffold extends StatelessWidget {
         break;
       case 9:
         screen = const MrDataViewScreen();
+        break;
+      case 10:
+        screen = const DiscountVoucherApprovalScreen();
         break;
       case -1: // Logout
         _showLogoutDialog(context);

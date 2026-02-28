@@ -150,6 +150,10 @@ class CustomDrawer extends StatelessWidget {
                     icon: Icons.visibility_outlined, // or Icons.remove_red_eye_outlined
                     title: 'MR View',
                     index: 9,
+                  ), _buildDrawerItem(
+                    icon: Icons.visibility_outlined, // or Icons.remove_red_eye_outlined
+                    title: 'Discount Voucher',
+                    index: 10,
                   ),
                 ],
               ),
