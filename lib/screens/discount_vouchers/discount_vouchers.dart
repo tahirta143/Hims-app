@@ -351,7 +351,7 @@ class _DiscountVoucherApprovalScreenState
         if (provider.isLoading) {
           return BaseScaffold(
             title: 'Discount Voucher Approval',
-            drawerIndex: -1, // no drawer item selected for this screen
+            drawerIndex: 10, // no drawer item selected for this screen
             showNotificationIcon: false,
             body: const Center(
                 child: CircularProgressIndicator(color: kPrimary)),
