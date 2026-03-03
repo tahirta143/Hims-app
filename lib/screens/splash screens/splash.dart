@@ -2,6 +2,10 @@ import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:hims_app/core/providers/permission_provider.dart';
+import 'package:hims_app/core/services/auth_storage_service.dart';
+import 'package:hims_app/screens/dashboard/dashboard.dart';
+import 'package:provider/provider.dart';
 
 import 'onboarding.dart';
 
@@ -51,9 +55,31 @@ class _SplashScreenState extends State<SplashScreen>
 
     _controller.forward();
 
-    // Navigate to next screen after splash
-    Future.delayed(const Duration(seconds: 3), () {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const OnboardingScreen()));
+    // Navigate after animation — restore session if token exists
+    Future.delayed(const Duration(seconds: 2), () async {
+      if (!mounted) return;
+
+      final storage = AuthStorageService();
+      final token = await storage.getToken();
+
+      if (!mounted) return;
+
+      if (token != null && token.isNotEmpty) {
+        // Existing session — sync permissions then go to dashboard
+        final permProvider = context.read<PermissionProvider>();
+        await permProvider.syncFromServer();
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      } else {
+        // No session — go through onboarding → login
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+        );
+      }
     });
   }
 

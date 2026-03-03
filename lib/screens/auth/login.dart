@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:hims_app/core/providers/permission_provider.dart';
+import 'package:hims_app/core/services/api_service.dart';
+import 'package:hims_app/core/services/auth_storage_service.dart';
 import 'package:hims_app/screens/auth/sign_up.dart';
+import 'package:provider/provider.dart';
 import '../dashboard/dashboard.dart';
 
 class SignInScreen extends StatefulWidget {
@@ -10,85 +14,106 @@ class SignInScreen extends StatefulWidget {
 }
 
 class _SignInScreenState extends State<SignInScreen> {
-  final _emailController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _isLoading = false;
 
-  // User type selection
-  bool _isDoctor = false;
-  bool _isPatient = false;
+  final _apiService     = ApiService();
+  final _storageService = AuthStorageService();
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
-  void _onUserTypeChanged(String type, bool? value) {
-    setState(() {
-      if (type == 'doctor') {
-        _isDoctor = value ?? false;
-        if (_isDoctor) {
-          _isPatient = false;
-        }
-      } else if (type == 'patient') {
-        _isPatient = value ?? false;
-        if (_isPatient) {
-          _isDoctor = false;
-        }
+  // ── Sign In ──────────────────────────────────────────────────────────────
+  Future<void> _signIn() async {
+    final username = _usernameController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (username.isEmpty || password.isEmpty) {
+      _showSnackBar('Please enter username and password', isError: true);
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      // Step 1: Login — get JWT token
+      final loginResult = await _apiService.login(username, password);
+
+      if (!loginResult.success) {
+        _showSnackBar(loginResult.message ?? 'Login failed', isError: true);
+        return;
       }
-    });
+
+      // Step 2: Persist login data to secure storage
+      await _storageService.saveLoginData(
+        token:    loginResult.token!,
+        userId:   loginResult.userId!,
+        username: loginResult.username!,
+        fullName: loginResult.fullName ?? '',
+        role:     loginResult.role ?? 'staff',
+      );
+
+      // Step 3: Fetch & cache permissions
+      if (!mounted) return;
+      final permProvider = context.read<PermissionProvider>();
+      await permProvider.syncFromServer();
+
+      // Step 4: Navigate to dashboard
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        (_) => false,
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _showSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: const TextStyle(fontSize: 14)),
+        backgroundColor: isError ? Colors.red.shade600 : const Color(0xFF00B5AD),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: EdgeInsets.all(MediaQuery.of(context).size.width * 0.04),
+      ),
+    );
   }
 
   void _handleSignUpNavigation() {
-    if (_isPatient) {
-      // Navigate to sign up if patient is selected
-      Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const SignUpScreen())
-      );
-    } else {
-      // Show message if doctor is selected or no selection
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _isDoctor
-                ? 'Doctor sign up is not available. Please contact administration.'
-                : 'Please select Patient to sign up',
-            style: const TextStyle(fontSize: 14),
-          ),
-          backgroundColor: _isDoctor ? Colors.orange : const Color(0xFF00B5AD),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          margin: EdgeInsets.all(MediaQuery.of(context).size.width * 0.04),
-        ),
-      );
-    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SignUpScreen()),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final mq = MediaQuery.of(context);
-    final screenW = mq.size.width;
-    final screenH = mq.size.height;
-
-    final hPad = screenW * 0.07;
-    final headerH = screenH * 0.30;
-    final logoSize = screenW * 0.18;
-    final logoIconSize = screenW * 0.10;
-    final titleFontSize = screenW * 0.062;
-    final inputFontSize = screenW * 0.038;
-    final btnFontSize = screenW * 0.042;
-    final socialBtnSize = screenW * 0.13;
+    final mq        = MediaQuery.of(context);
+    final screenW   = mq.size.width;
+    final screenH   = mq.size.height;
+    final hPad      = screenW * 0.07;
+    final headerH   = screenH * 0.30;
+    final logoSize  = screenW * 0.18;
+    final logoIconSize   = screenW * 0.10;
+    final titleFontSize  = screenW * 0.062;
+    final inputFontSize  = screenW * 0.038;
+    final btnFontSize    = screenW * 0.042;
 
     return Scaffold(
       backgroundColor: const Color(0xFF00B5AD),
       body: Column(
         children: [
-          // ── Teal Header ─────────────────────────────────────────────
+          // ── Teal Header ─────────────────────────────────────────────────
           SizedBox(
             height: headerH,
             child: SafeArea(
@@ -97,7 +122,6 @@ class _SignInScreenState extends State<SignInScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Logo icon circle
                     Container(
                       width: logoSize,
                       height: logoSize,
@@ -128,7 +152,7 @@ class _SignInScreenState extends State<SignInScreen> {
             ),
           ),
 
-          // ── White Body ───────────────────────────────────────────────
+          // ── White Body ───────────────────────────────────────────────────
           Expanded(
             child: Container(
               width: double.infinity,
@@ -140,7 +164,8 @@ class _SignInScreenState extends State<SignInScreen> {
                 ),
               ),
               child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(horizontal: hPad, vertical: screenH * 0.035),
+                padding: EdgeInsets.symmetric(
+                    horizontal: hPad, vertical: screenH * 0.035),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -154,79 +179,14 @@ class _SignInScreenState extends State<SignInScreen> {
                         color: const Color(0xFF00B5AD),
                       ),
                     ),
-                    SizedBox(height: screenH * 0.020),
+                    SizedBox(height: screenH * 0.025),
 
-                    // ── User Type Selection (Doctor/Patient) ──
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: screenW * 0.02,
-                        vertical: screenH * 0.012,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF5F5F5),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Row(
-                              children: [
-                                Checkbox(
-                                  value: _isDoctor,
-                                  onChanged: (value) => _onUserTypeChanged('doctor', value),
-                                  activeColor: const Color(0xFF00B5AD),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    'Login as Doctor',
-                                    style: TextStyle(
-                                      fontSize: inputFontSize,
-                                      color: Colors.black87,
-                                      fontWeight: _isDoctor ? FontWeight.w600 : FontWeight.normal,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Expanded(
-                            child: Row(
-                              children: [
-                                Checkbox(
-                                  value: _isPatient,
-                                  onChanged: (value) => _onUserTypeChanged('patient', value),
-                                  activeColor: const Color(0xFF00B5AD),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    'Login as Patient',
-                                    style: TextStyle(
-                                      fontSize: inputFontSize,
-                                      color: Colors.black87,
-                                      fontWeight: _isPatient ? FontWeight.w600 : FontWeight.normal,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: screenH * 0.020),
-
-                    // Email Field
+                    // Username Field
                     _InputField(
-                      controller: _emailController,
-                      hint: 'Email',
-                      prefixIcon: Icons.email_outlined,
-                      keyboardType: TextInputType.emailAddress,
+                      controller: _usernameController,
+                      hint: 'Username',
+                      prefixIcon: Icons.person_outline,
+                      keyboardType: TextInputType.text,
                       fontSize: inputFontSize,
                     ),
                     SizedBox(height: screenH * 0.016),
@@ -239,9 +199,12 @@ class _SignInScreenState extends State<SignInScreen> {
                       obscureText: _obscurePassword,
                       fontSize: inputFontSize,
                       suffixIcon: GestureDetector(
-                        onTap: () => setState(() => _obscurePassword = !_obscurePassword),
+                        onTap: () =>
+                            setState(() => _obscurePassword = !_obscurePassword),
                         child: Icon(
-                          _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                          _obscurePassword
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
                           color: Colors.grey,
                           size: screenW * 0.045,
                         ),
@@ -253,9 +216,7 @@ class _SignInScreenState extends State<SignInScreen> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: GestureDetector(
-                        onTap: () {
-                          // Handle forgot password
-                        },
+                        onTap: () {},
                         child: Text(
                           'Forgot Password?',
                           style: TextStyle(
@@ -272,44 +233,33 @@ class _SignInScreenState extends State<SignInScreen> {
                     SizedBox(
                       height: screenH * 0.062,
                       child: ElevatedButton(
-                        onPressed: () {
-                          // Validate user type selection
-                          if (!_isDoctor && !_isPatient) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: const Text('Please select user type (Doctor or Patient)'),
-                                backgroundColor: const Color(0xFF00B5AD),
-                                behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                margin: EdgeInsets.all(hPad),
-                              ),
-                            );
-                            return;
-                          }
-
-                          // Navigate to dashboard
-                          Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => const HomeScreen())
-                          );
-                        },
+                        onPressed: _isLoading ? null : _signIn,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF00B5AD),
                           foregroundColor: Colors.white,
+                          disabledBackgroundColor:
+                              const Color(0xFF00B5AD).withOpacity(0.6),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                           elevation: 0,
                         ),
-                        child: Text(
-                          'Sign In',
-                          style: TextStyle(
-                            fontSize: btnFontSize,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 22,
+                                width: 22,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2.5,
+                                ),
+                              )
+                            : Text(
+                                'Sign In',
+                                style: TextStyle(
+                                  fontSize: btnFontSize,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                       ),
                     ),
                     SizedBox(height: screenH * 0.022),
@@ -336,38 +286,6 @@ class _SignInScreenState extends State<SignInScreen> {
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                    SizedBox(height: screenH * 0.028),
-
-                    // Divider
-                    Row(
-                      children: [
-                        const Expanded(child: Divider(color: Color(0xFFE0E0E0))),
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: screenW * 0.03),
-                          child: Text(
-                            'Or Sign In with',
-                            style: TextStyle(
-                              fontSize: inputFontSize * 0.9,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ),
-                        const Expanded(child: Divider(color: Color(0xFFE0E0E0))),
-                      ],
-                    ),
-                    SizedBox(height: screenH * 0.024),
-
-                    // Social Buttons
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _SocialButton(label: 'f', size: socialBtnSize, fontSize: inputFontSize * 1.1),
-                        SizedBox(width: screenW * 0.04),
-                        _SocialButton(label: 'G', size: socialBtnSize, fontSize: inputFontSize * 1.1),
-                        SizedBox(width: screenW * 0.04),
-                        _SocialButton(label: 'X', size: socialBtnSize, fontSize: inputFontSize * 1.1),
                       ],
                     ),
                     SizedBox(height: screenH * 0.02),
@@ -412,7 +330,8 @@ class _InputField extends StatelessWidget {
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: fontSize),
-        prefixIcon: Icon(prefixIcon, color: Colors.grey.shade400, size: fontSize * 1.3),
+        prefixIcon:
+            Icon(prefixIcon, color: Colors.grey.shade400, size: fontSize * 1.3),
         suffixIcon: suffixIcon,
         filled: true,
         fillColor: const Color(0xFFF5F5F5),
@@ -427,46 +346,8 @@ class _InputField extends StatelessWidget {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF00B5AD), width: 1.5),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Social Button ─────────────────────────────────────────────────────────────
-class _SocialButton extends StatelessWidget {
-  final String label;
-  final double size;
-  final double fontSize;
-
-  const _SocialButton({
-    required this.label,
-    required this.size,
-    required this.fontSize,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {},
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: const Color(0xFFE0E0E0), width: 1.5),
-          color: Colors.white,
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: fontSize,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
+          borderSide:
+              const BorderSide(color: Color(0xFF00B5AD), width: 1.5),
         ),
       ),
     );
@@ -494,14 +375,20 @@ class _BandagePainter extends CustomPainter {
 
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset.zero, width: size.width * 0.32, height: size.height * 0.82),
+        Rect.fromCenter(
+            center: Offset.zero,
+            width: size.width * 0.32,
+            height: size.height * 0.82),
         Radius.circular(size.width * 0.16),
       ),
       paint,
     );
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset.zero, width: size.width * 0.82, height: size.height * 0.32),
+        Rect.fromCenter(
+            center: Offset.zero,
+            width: size.width * 0.82,
+            height: size.height * 0.32),
         Radius.circular(size.height * 0.16),
       ),
       paint,
@@ -511,10 +398,14 @@ class _BandagePainter extends CustomPainter {
     final r = size.width * 0.04;
     final o = size.width * 0.22;
     for (final pt in [
-      Offset(cx - o, cy - o * 0.5), Offset(cx - o * 0.5, cy - o),
-      Offset(cx + o, cy - o * 0.5), Offset(cx + o * 0.5, cy - o),
-      Offset(cx - o, cy + o * 0.5), Offset(cx - o * 0.5, cy + o),
-      Offset(cx + o, cy + o * 0.5), Offset(cx + o * 0.5, cy + o),
+      Offset(cx - o, cy - o * 0.5),
+      Offset(cx - o * 0.5, cy - o),
+      Offset(cx + o, cy - o * 0.5),
+      Offset(cx + o * 0.5, cy - o),
+      Offset(cx - o, cy + o * 0.5),
+      Offset(cx - o * 0.5, cy + o),
+      Offset(cx + o, cy + o * 0.5),
+      Offset(cx + o * 0.5, cy + o),
     ]) {
       canvas.drawCircle(pt, r, dotPaint);
     }

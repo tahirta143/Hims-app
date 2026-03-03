@@ -297,4 +297,6 @@ class EmergencyProvider extends ChangeNotifier {
     _prescribedMedicines.clear();
     notifyListeners();
   }
+
+  void refreshAll() {}
 }

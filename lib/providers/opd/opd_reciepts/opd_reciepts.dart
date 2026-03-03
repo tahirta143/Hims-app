@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/services/opd_receipt_api_service.dart';
+
 class OpdPatient {
   final String mrNo;
   final String fullName;
@@ -31,6 +33,7 @@ class OpdService {
   final double price;
   final IconData icon;
   final Color color;
+  final String? imageUrl;
 
   const OpdService({
     required this.id,
@@ -39,6 +42,7 @@ class OpdService {
     required this.price,
     required this.icon,
     required this.color,
+    this.imageUrl,
   });
 }
 
@@ -57,6 +61,23 @@ class OpdSelectedService {
 }
 
 class OpdProvider extends ChangeNotifier {
+  final OpdReceiptApiService _apiService = OpdReceiptApiService();
+
+  // ── Loading / error state ──
+  bool _loadingServices = false;
+  bool _loadingReceipts = false;
+  String? _errorMessage;
+
+  bool get isLoadingServices => _loadingServices;
+  bool get isLoadingReceipts => _loadingReceipts;
+  String? get errorMessage => _errorMessage;
+
+  OpdProvider() {
+    _initStaticServices();
+    loadOpdServices();
+    loadReceipts();
+  }
+
   // ── Auto MR No counter ──
   int _mrCounter = 6; // starts after 5 mock patients
 
@@ -199,23 +220,14 @@ class OpdProvider extends ChangeNotifier {
     },
   ];
 
-  // ── Services per Category (Only the ones you want) ──
-  final Map<String, List<OpdService>> services = const {
-    'opd': [
-      OpdService(id: 'opd1',
-          name: 'OPD Registration',
-          category: 'opd',
-          price: 200,
-          icon: Icons.app_registration_rounded,
-          color: Color(0xFFE53935)),
-      OpdService(id: 'opd2',
-          name: 'OPD Follow-Up',
-          category: 'opd',
-          price: 100,
-          icon: Icons.repeat_rounded,
-          color: Color(0xFFE53935)),
-    ],
-    'consultation': [
+  // ── Services per Category (API + static) ──
+  final Map<String, List<OpdService>> services = {};
+
+  void _initStaticServices() {
+    services.clear();
+    services.addAll({
+      // 'opd' is loaded from API
+      'consultation': [
       OpdService(id: 'con1',
           name: 'Dr. Tahir (Neuro)',
           category: 'consultation',
@@ -391,7 +403,56 @@ class OpdProvider extends ChangeNotifier {
           icon: Icons.emergency_rounded,
           color: Color(0xFFE53935)),
     ],
-  };
+    });
+  }
+
+  Future<void> loadOpdServices() async {
+    _loadingServices = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    final result = await _apiService.fetchOpdServices();
+
+    if (result.success) {
+      // Map API services into our OPD category
+      final apiServices = result.services
+          .where((s) => s.isActive == 1 && s.allowOpdService != 0)
+          .map((s) {
+        final rate = double.tryParse(s.serviceRate) ?? 0.0;
+        // Map head to category color/icon
+        Color color;
+        IconData icon;
+        switch (s.serviceHead.toLowerCase()) {
+          case 'emergency':
+            color = const Color(0xFFE53935);
+            icon = Icons.emergency_rounded;
+            break;
+          case 'opd':
+          default:
+            color = const Color(0xFFE53935);
+            icon = Icons.local_hospital_rounded;
+        }
+        return OpdService(
+          id: s.serviceId,
+          name: s.serviceName,
+          category: 'opd',
+          price: rate,
+          icon: icon,
+          color: color,
+          imageUrl: s.imageUrl,
+        );
+      }).toList();
+
+      services['opd'] = apiServices;
+      _errorMessage = null;
+    } else {
+      _errorMessage = result.message;
+      // keep any existing static OPD if present (none by default)
+    }
+
+    _loadingServices = false;
+    notifyListeners();
+  }
 
   // ── Selected Services ──
   final List<OpdSelectedService> _selectedServices = [];
@@ -445,7 +506,7 @@ class OpdProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Saved Receipts (seeded with mock data) ──
+  // ── Saved Receipts (from API, fallback seeded with mock data) ──
   final List<Map<String, dynamic>> _receipts = [
     {
       'receiptNo': 'OPD71946',
@@ -647,6 +708,51 @@ class OpdProvider extends ChangeNotifier {
 
   List<Map<String, dynamic>> get receipts => List.unmodifiable(_receipts);
 
+  Future<void> loadReceipts() async {
+    _loadingReceipts = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    final result = await _apiService.fetchOpdReceipts();
+
+    if (result.success && result.receipts.isNotEmpty) {
+      _receipts
+        ..clear()
+        ..addAll(result.receipts.map((r) {
+          // Parse date string (YYYY-MM-DD) to DateTime for UI
+          DateTime parsedDate;
+          try {
+            parsedDate = DateTime.parse(r.date);
+          } catch (_) {
+            parsedDate = DateTime.now();
+          }
+
+          return {
+            'receiptNo': r.receiptId,
+            'mrNo': r.patientMrNumber,
+            'patientName': r.patientName,
+            'age': r.patientAge?.toString() ?? '',
+            'gender': r.patientGender,
+            'date': parsedDate,
+            'services': r.opdService.isNotEmpty
+                ? r.opdService.split(',').map((e) => e.trim()).toList()
+                : <String>[],
+            'details': r.serviceDetail,
+            'total': r.totalAmount,
+            'discount': r.discount,
+            'paid': r.paid,
+            'status': r.status,
+          };
+        }));
+      _errorMessage = null;
+    } else if (!result.success) {
+      _errorMessage = result.message;
+    }
+
+    _loadingReceipts = false;
+    notifyListeners();
+  }
+
   // ── Update receipt status (cancel / refund) ──
   void updateReceiptStatus(int index, String status) {
     if (index < 0 || index >= _receipts.length) return;
@@ -661,12 +767,49 @@ class OpdProvider extends ChangeNotifier {
   // ── Save new receipt ──
   int _receiptCounter = 71960;
 
-  void saveReceipt({
+  Future<bool> saveReceipt({
     required OpdPatient patient,
     required List<OpdSelectedService> services,
     required double discount,
     required double amountPaid,
-  }) {
+  }) async {
+    final now = DateTime.now();
+    final dateStr =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final timeStr =
+        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+
+    final servicesHeads = services.map((s) => s.service.category).toSet().toList();
+    final detailsList = services.map((s) => s.service.name).toList();
+
+    final payload = {
+      'patient_mr_number': patient.mrNo,
+      'patient_name': patient.fullName,
+      'phone_number': patient.phone,
+      'patient_age': patient.age,
+      'patient_gender': patient.gender,
+      'patient_address': patient.address,
+      'date': dateStr,
+      'time': timeStr,
+      'opd_service': servicesHeads.join(', '),
+      'service_detail': detailsList.join(', '),
+      'total_amount': servicesTotal,
+      'discount': discount,
+      'paid': amountPaid,
+      'status': 'Active',
+    };
+
+    final apiResult = await _apiService.createOpdReceipt(payload);
+
+    if (!apiResult.success) {
+      _errorMessage = apiResult.message;
+      notifyListeners();
+      return false;
+    }
+
+    final receiptNo =
+        apiResult.receipt?.receiptId ?? 'OPD$_receiptCounter';
+
     _receipts.add({
       'receiptNo': 'OPD$_receiptCounter',
       'mrNo': patient.mrNo,
@@ -710,5 +853,6 @@ class OpdProvider extends ChangeNotifier {
     incrementMrNo();
     _selectedServices.clear();
     notifyListeners();
+    return true;
   }
 }

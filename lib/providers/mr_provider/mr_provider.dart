@@ -1,141 +1,59 @@
 import 'package:flutter/material.dart';
-
-// ─── Patient Model ────────────────────────────────────────────────────────────
-class PatientModel {
-  final String mrNumber;
-  final String firstName;
-  final String lastName;
-  final String guardianName;
-  final String relation;
-  final String gender;
-  final String dateOfBirth;
-  final int? age;
-  final String bloodGroup;
-  final String profession;
-  final String phoneNumber;
-  final String email;
-  final String cnic;
-  final String address;
-  final String city;
-  final DateTime registeredAt;
-  int totalVisits;
-  int visitsToday;
-
-  PatientModel({
-    required this.mrNumber,
-    required this.firstName,
-    required this.lastName,
-    this.guardianName = '',
-    this.relation = 'Parent',
-    required this.gender,
-    this.dateOfBirth = '',
-    this.age,
-    this.bloodGroup = '',
-    this.profession = '',
-    this.phoneNumber = '',
-    this.email = '',
-    this.cnic = '',
-    this.address = '',
-    this.city = '',
-    required this.registeredAt,
-    this.totalVisits = 0,
-    this.visitsToday = 0,
-  });
-
-  String get fullName => '$firstName $lastName'.trim();
-}
+import '../../core/services/mr_api_service.dart';
+import '../../models/mr_model/mr_patient_model.dart';
 
 // ─── MR Provider ─────────────────────────────────────────────────────────────
 class MrProvider extends ChangeNotifier {
-  /// Tracks the highest numeric MR number used so far.
-  /// Starts at 5 since mock data goes 00001–00005.
-  int _mrCounter = 5;
+  final MrApiService _apiService = MrApiService();
 
-  final List<PatientModel> _patients = [
-    PatientModel(
-      mrNumber: '00001',
-      firstName: 'ANAS',
-      lastName: 'SHAREEF',
-      guardianName: 'Muhammad Shareef',
-      relation: 'Parent',
-      gender: 'Male',
-      age: 25,
-      phoneNumber: '03037015072',
-      email: 'anas@email.com',
-      city: 'Lahore',
-      bloodGroup: 'B+',
-      profession: 'Engineer',
-      address: 'House 12, Street 4, Gulberg',
-      registeredAt: DateTime(2025, 4, 20),
-      totalVisits: 8,
-      visitsToday: 2,
-    ),
-    PatientModel(
-      mrNumber: '00002',
-      firstName: 'USAMA',
-      lastName: 'ARIF',
-      guardianName: 'Muhammad Arif',
-      relation: 'Parent',
-      gender: 'Male',
-      age: 27,
-      phoneNumber: '03064423884',
-      cnic: '3520264293471',
-      city: 'LAHORE',
-      bloodGroup: 'O+',
-      registeredAt: DateTime(2025, 5, 11),
-      totalVisits: 12,
-      visitsToday: 1,
-    ),
-    PatientModel(
-      mrNumber: '00003',
-      firstName: 'TAHIR',
-      lastName: 'M USMAN',
-      guardianName: 'Usman',
-      relation: 'Parent',
-      gender: 'Male',
-      age: 24,
-      phoneNumber: '03092232631',
-      city: 'Kot Radha Kishan',
-      bloodGroup: 'A+',
-      registeredAt: DateTime(2025, 1, 10),
-      totalVisits: 5,
-      visitsToday: 1,
-    ),
-    PatientModel(
-      mrNumber: '00004',
-      firstName: 'RIDA',
-      lastName: '',
-      gender: 'Female',
-      age: 18,
-      phoneNumber: '03014988514',
-      city: 'LHR',
-      bloodGroup: 'AB+',
-      registeredAt: DateTime(2024, 11, 22),
-      totalVisits: 3,
-      visitsToday: 1,
-    ),
-    PatientModel(
-      mrNumber: '00005',
-      firstName: 'FARZANA',
-      lastName: 'BIBI',
-      guardianName: 'Ahmad Khan',
-      relation: 'Spouse',
-      gender: 'Female',
-      age: 45,
-      phoneNumber: '03215602548',
-      cnic: '3520112345678',
-      city: 'LHR',
-      bloodGroup: 'B-',
-      profession: 'Teacher',
-      address: 'Flat 3, Block A, Model Town',
-      registeredAt: DateTime(2024, 10, 5),
-      totalVisits: 9,
-      visitsToday: 0,
-    ),
-  ];
+  // ── State ──
+  bool _isLoading = false;
+  bool _isCreating = false;
+  String? _errorMessage;
+  String? _nextMrNumber;
 
+  bool get isLoading => _isLoading;
+  bool get isCreating => _isCreating;
+  String? get errorMessage => _errorMessage;
+  String? get nextMrNumber => _nextMrNumber;
+  List<PatientModel> _patients = [];
   String _searchQuery = '';
   PatientModel? _selectedPatient;
+
+  // ── Constructor: Load data on init ──
+  MrProvider() {
+    loadPatients();
+    fetchNextMR();
+  }
+
+  // ── Load Patients from API ──
+  Future<void> loadPatients() async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    final result = await _apiService.fetchAllPatients(limit: 100);
+
+    if (result.success) {
+      _patients = result.patients.map((p) => p.toPatientModel()).toList();
+      _errorMessage = null;
+    } else {
+      _errorMessage = result.message;
+      _patients = [];
+    }
+
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  // ── Fetch Next MR Number ──
+  Future<void> fetchNextMR() async {
+    final result = await _apiService.fetchNextMRNumber();
+    if (result.success && result.nextMR != null) {
+      _nextMrNumber = result.nextMR;
+      notifyListeners();
+    }
+  }
 
   // ── Getters ───────────────────────────────────────────────────────────────
   List<PatientModel> get patients {
@@ -153,31 +71,37 @@ class MrProvider extends ChangeNotifier {
   String get searchQuery => _searchQuery;
   PatientModel? get selectedPatient => _selectedPatient;
 
-  // ── MR number lookup ──────────────────────────────────────────────────────
-  /// Accepts both raw numbers ("3", "03", "003") and full padded ("00003").
-  /// Always normalises to 5-digit padded form before matching.
-  PatientModel? findByMrNumber(String input) {
+  // ── MR number lookup (API call) ──────────────────────────────────────────────────
+  Future<PatientModel?> findByMrNumber(String input) async {
     final trimmed = input.trim();
     if (trimmed.isEmpty) return null;
 
-    // Try to parse as int so "3" → "00003", "03" → "00003"
-    final asInt = int.tryParse(trimmed);
-    final normalised =
-    asInt != null ? asInt.toString().padLeft(5, '0') : trimmed.toUpperCase();
-
+    // First check local cache
+    final normalised = _normalizeMrNumber(trimmed);
     try {
-      return _patients.firstWhere(
-            (p) => p.mrNumber.toUpperCase() == normalised,
+      final local = _patients.firstWhere(
+        (p) => p.mrNumber.toUpperCase() == normalised,
       );
+      return local;
     } catch (_) {
+      // Not in cache, try API
+      final result = await _apiService.fetchPatientByMR(normalised);
+      if (result.success && result.patient != null) {
+        final patient = result.patient!.toPatientModel();
+        // Add to cache if not already there
+        if (!_patients.any((p) => p.mrNumber == patient.mrNumber)) {
+          _patients.insert(0, patient);
+          notifyListeners();
+        }
+        return patient;
+      }
       return null;
     }
   }
 
-  /// Returns the next auto-generated MR number (zero-padded to 5 digits).
-  String _nextMrNumber() {
-    _mrCounter++;
-    return _mrCounter.toString().padLeft(5, '0');
+  String _normalizeMrNumber(String input) {
+    final asInt = int.tryParse(input);
+    return asInt != null ? asInt.toString().padLeft(5, '0') : input.toUpperCase();
   }
 
   // ── State mutations ───────────────────────────────────────────────────────
@@ -196,11 +120,8 @@ class MrProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Registers a new patient.
-  /// • If [mrNumber] matches an existing record → returns that record (no duplicate).
-  /// • If [mrNumber] is blank → auto-generates the next padded MR number.
-  /// • If [mrNumber] is a plain number like "6" → pads to "00006".
-  PatientModel registerPatient({
+  /// Registers a new patient via API
+  Future<PatientModel?> registerPatient({
     String mrNumber = '',
     required String firstName,
     required String lastName,
@@ -216,34 +137,14 @@ class MrProvider extends ChangeNotifier {
     String cnic = '',
     String address = '',
     String city = '',
-  }) {
-    // Normalise the MR input
-    String resolvedMr;
-    final trimmed = mrNumber.trim();
-    if (trimmed.isEmpty) {
-      resolvedMr = _nextMrNumber();
-    } else {
-      final asInt = int.tryParse(trimmed);
-      resolvedMr =
-      asInt != null ? asInt.toString().padLeft(5, '0') : trimmed;
-    }
+  }) async {
+    _isCreating = true;
+    _errorMessage = null;
+    notifyListeners();
 
-    // If MR already exists, return existing record
-    final existing = findByMrNumber(resolvedMr);
-    if (existing != null) {
-      _selectedPatient = existing;
-      notifyListeners();
-      return existing;
-    }
-
-    // Ensure _mrCounter stays ahead of any manually-typed numeric MR
-    final asInt = int.tryParse(resolvedMr);
-    if (asInt != null && asInt > _mrCounter) {
-      _mrCounter = asInt;
-    }
-
+    // Create patient model
     final patient = PatientModel(
-      mrNumber: resolvedMr,
+      mrNumber: mrNumber.trim().isEmpty ? (_nextMrNumber ?? '00001') : mrNumber.trim(),
       firstName: firstName.trim().toUpperCase(),
       lastName: lastName.trim().toUpperCase(),
       guardianName: guardianName.trim(),
@@ -261,15 +162,74 @@ class MrProvider extends ChangeNotifier {
       registeredAt: DateTime.now(),
     );
 
-    _patients.insert(0, patient);
-    _selectedPatient = patient;
-    notifyListeners();
-    return patient;
+    // Call API
+    final result = await _apiService.createPatient(patient.toApiRequest());
+
+    _isCreating = false;
+
+    if (result.success && result.patient != null) {
+      final createdPatient = result.patient!.toPatientModel();
+      _patients.insert(0, createdPatient);
+      _selectedPatient = createdPatient;
+      _errorMessage = null;
+      notifyListeners();
+      
+      // Fetch next MR for future use
+      fetchNextMR();
+      
+      return createdPatient;
+    } else {
+      _errorMessage = result.message;
+      notifyListeners();
+      return null;
+    }
   }
 
-  void deletePatient(String mrNumber) {
-    _patients.removeWhere((p) => p.mrNumber == mrNumber);
-    if (_selectedPatient?.mrNumber == mrNumber) _selectedPatient = null;
+  /// Update existing patient via API
+  Future<bool> updatePatient(PatientModel patient) async {
+    _isCreating = true;
+    _errorMessage = null;
     notifyListeners();
+
+    final result = await _apiService.updatePatient(
+      patient.mrNumber,
+      patient.toApiRequest(),
+    );
+
+    _isCreating = false;
+
+    if (result.success && result.patient != null) {
+      final updatedPatient = result.patient!.toPatientModel();
+      final index = _patients.indexWhere((p) => p.mrNumber == patient.mrNumber);
+      if (index != -1) {
+        _patients[index] = updatedPatient;
+      }
+      if (_selectedPatient?.mrNumber == patient.mrNumber) {
+        _selectedPatient = updatedPatient;
+      }
+      _errorMessage = null;
+      notifyListeners();
+      return true;
+    } else {
+      _errorMessage = result.message;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Delete patient via API
+  Future<bool> deletePatient(String mrNumber) async {
+    final result = await _apiService.deletePatient(mrNumber);
+
+    if (result.success) {
+      _patients.removeWhere((p) => p.mrNumber == mrNumber);
+      if (_selectedPatient?.mrNumber == mrNumber) _selectedPatient = null;
+      notifyListeners();
+      return true;
+    } else {
+      _errorMessage = result.message;
+      notifyListeners();
+      return false;
+    }
   }
 }

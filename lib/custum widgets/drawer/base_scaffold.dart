@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hims_app/screens/cunsultations/consultation_report.dart';
 import 'package:hims_app/screens/cunsultations/cunsultations.dart';
 import 'package:hims_app/screens/discount_vouchers/discount_vouchers.dart';
 import 'package:hims_app/screens/emergency_treatment/emergency_treatment.dart';
@@ -188,6 +189,9 @@ class BaseScaffold extends StatelessWidget {
         break;
       case 10:
         screen = const DiscountVoucherApprovalScreen();
+        break;
+      case 11:
+        screen = const AppointmentReportScreen();
         break;
       case -1: // Logout
         _showLogoutDialog(context);

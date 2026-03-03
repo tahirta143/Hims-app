@@ -1,177 +1,264 @@
+import 'dart:convert';
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import '../../core/services/auth_storage_service.dart';
+import '../../models/add_expenses_model/add_expenses_model.dart';
+// import '../../services/auth_storage_service.dart';
 
-// ─── Expense Model ────────────────────────────────────────────────────────────
-class ExpenseModel {
-  final String id;
-  final String category;
-  final double amount;
-  final String expenseBy;
-  final String description;
-  final DateTime recordedAt;
-
-  ExpenseModel({
-    required this.id,
-    required this.category,
-    required this.amount,
-    required this.expenseBy,
-    this.description = '',
-    required this.recordedAt,
-  });
-
-  String get formattedTime {
-    final h = recordedAt.hour > 12 ? recordedAt.hour - 12 : recordedAt.hour == 0 ? 12 : recordedAt.hour;
-    final m = recordedAt.minute.toString().padLeft(2, '0');
-    final period = recordedAt.hour >= 12 ? 'PM' : 'AM';
-    final day = recordedAt.day.toString().padLeft(2, '0');
-    final months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    return '$h:$m $period | $day ${months[recordedAt.month - 1]} ${recordedAt.year}';
-  }
-
-  String get formattedAmount => 'PKR ${_formatNum(amount)}';
-
-  static String _formatNum(double n) {
-    if (n >= 1000) {
-      final parts = n.toStringAsFixed(0).split('');
-      final result = StringBuffer();
-      for (int i = 0; i < parts.length; i++) {
-        if (i > 0 && (parts.length - i) % 3 == 0) result.write(',');
-        result.write(parts[i]);
-      }
-      return result.toString();
-    }
-    return n.toStringAsFixed(0);
-  }
-}
-
-// ─── Expenses Provider ────────────────────────────────────────────────────────
 class ExpensesProvider extends ChangeNotifier {
-  // Expense categories
+  static const String _baseUrl = 'http://10.0.2.2:3001/api/expenses';
+
+  final AuthStorageService _storage = AuthStorageService();
+
+  Future<Map<String, String>> _authHeaders() async {
+    final token = await _storage.getToken();
+    developer.log('🔑 Token: $token', name: 'ExpensesProvider');
+    return {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
   static const List<String> categories = [
     'Ambulance',
+    'Salary',
+    'Utilities',
     'Medicines',
-    'Lab Supplies',
-    'Maintenance',
-    'Electricity',
-    'Water & Gas',
-    'Staff Salary',
     'Equipment',
-    'Cleaning',
-    'Catering',
-    'Security',
+    'Maintenance',
+    'Food & Beverages',
+    'Transport',
     'Other',
   ];
 
-  // Shift info (mock)
-  final String shiftName = 'Morning';
-  final String shiftDate = '23 Feb 2026';
+  static const List<String> shifts = ['Morning', 'Evening', 'Night'];
 
-  // Mock initial transactions
-  final List<ExpenseModel> _expenses = [
-    ExpenseModel(
-      id: 'EXP0001',
-      category: 'Medicines',
-      amount: 1500,
-      expenseBy: 'System Administrator',
-      description: 'Monthly medicine stock',
-      recordedAt: DateTime(2026, 2, 25, 9, 15),
-    ),
-    ExpenseModel(
-      id: 'EXP0002',
-      category: 'Electricity',
-      amount: 8500,
-      expenseBy: 'System Administrator',
-      description: 'February electricity bill',
-      recordedAt: DateTime(2026, 2, 25, 10, 42),
-    ),
-    ExpenseModel(
-      id: 'EXP0003',
-      category: 'Ambulance',
-      amount: 2333,
-      expenseBy: 'System Administrator',
-      description: '',
-      recordedAt: DateTime(2026, 2, 25, 11, 38),
-    ),
-    ExpenseModel(
-      id: 'EXP0004',
-      category: 'Cleaning',
-      amount: 700,
-      expenseBy: 'System Administrator',
-      description: 'Cleaning supplies for ward',
-      recordedAt: DateTime(2026, 2, 25, 12, 5),
-    ),
-  ];
-
+  List<ExpenseModel> _allExpenses = [];
+  List<ExpenseModel> _expenses = [];
   String _searchQuery = '';
-  int _expenseCounter = 4;
+  bool isLoading = false;
+  String? errorMessage;
 
-  // ── Getters ───────────────────────────────────────────────────────────────
-  List<ExpenseModel> get expenses {
-    if (_searchQuery.trim().isEmpty) return List.from(_expenses);
-    final q = _searchQuery.toLowerCase();
-    return _expenses.where((e) {
-      return e.category.toLowerCase().contains(q) ||
-          e.id.toLowerCase().contains(q) ||
-          e.expenseBy.toLowerCase().contains(q) ||
-          e.description.toLowerCase().contains(q);
-    }).toList();
-  }
+  List<ExpenseModel> get expenses => _expenses;
 
-  double get totalExpenses =>
-      _expenses.fold(0, (sum, e) => sum + e.amount);
-
+  // Returns the shift_id of the most recent expense (used when adding new expense)
+  int get currentShiftId =>
+      _allExpenses.isNotEmpty ? _allExpenses.first.shiftId : 0;
+// Add this getter alongside currentShiftId
+  String get currentShiftDate =>
+      _allExpenses.isNotEmpty ? _allExpenses.first.shiftDate : '';
   String get formattedTotal {
-    final n = totalExpenses;
-    if (n >= 1000) {
-      final s = n.toStringAsFixed(0);
-      final buffer = StringBuffer();
-      for (int i = 0; i < s.length; i++) {
-        if (i > 0 && (s.length - i) % 3 == 0) buffer.write(',');
-        buffer.write(s[i]);
-      }
-      return 'PKR ${buffer.toString()}';
-    }
-    return 'PKR ${n.toStringAsFixed(0)}';
+    final total = _expenses.fold<double>(0, (sum, e) => sum + e.amount);
+    final formatted = total.toStringAsFixed(2).replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (m) => '${m[1]},',
+    );
+    return 'PKR $formatted';
   }
 
-  String get searchQuery => _searchQuery;
+  ExpensesProvider() {
+    fetchExpenses();
+  }
 
-  void setSearchQuery(String q) {
-    _searchQuery = q;
+  Future<void> fetchExpenses() async {
+    isLoading = true;
+    errorMessage = null;
+    notifyListeners();
+
+    try {
+      final headers = await _authHeaders();
+      developer.log('📡 GET $_baseUrl', name: 'ExpensesProvider');
+
+      final response = await http.get(Uri.parse(_baseUrl), headers: headers);
+
+      developer.log('📥 Status: ${response.statusCode}', name: 'ExpensesProvider');
+      developer.log('📥 Body: ${response.body}', name: 'ExpensesProvider');
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        if (json['success'] == true) {
+          _allExpenses = (json['data'] as List)
+              .map((e) => ExpenseModel.fromJson(e))
+              .toList();
+          developer.log('✅ Loaded ${_allExpenses.length} expenses', name: 'ExpensesProvider');
+          _applyFilter();
+        } else {
+          errorMessage = 'Failed to load expenses.';
+          developer.log('❌ success=false: ${response.body}', name: 'ExpensesProvider');
+        }
+      } else if (response.statusCode == 401) {
+        errorMessage = 'Session expired. Please log in again.';
+        developer.log('🔐 401 Unauthorized', name: 'ExpensesProvider');
+      } else {
+        errorMessage = 'Server error: ${response.statusCode}';
+        developer.log('❌ ${response.statusCode}: ${response.body}', name: 'ExpensesProvider');
+      }
+    } catch (e, stack) {
+      errorMessage = 'Network error. Check your connection.';
+      developer.log('💥 $e', name: 'ExpensesProvider', error: e, stackTrace: stack);
+    }
+
+    isLoading = false;
+    notifyListeners();
+  }
+
+  Future<bool> addExpense({
+    required String category,
+    required double amount,
+    required String expenseBy,
+    required String description,
+    required String expenseShift,
+    required int shiftId,
+  }) async {
+    final now = DateTime.now();
+    final expenseDate =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final expenseTime =
+        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+
+    // shift_date comes from the existing expenses (the date the shift was opened)
+    final shiftDate = currentShiftDate.isNotEmpty ? currentShiftDate : expenseDate;
+
+    // Exactly matches controller: expense_id(auto), expense_date, expense_time,
+    // expense_shift, expense_description, expense_name, expense_amount,
+    // expense_by, shift_id, shift_date
+    final body = jsonEncode({
+      'expense_date': expenseDate,
+      'expense_time': expenseTime,
+      'expense_shift': expenseShift,
+      'expense_description': description,
+      'expense_name': category,
+      'expense_amount': amount,
+      'expense_by': expenseBy,
+      'shift_id': shiftId,
+      'shift_date': shiftDate,   // ← THIS was missing, causing the undefined error
+    });
+
+    try {
+      final headers = await _authHeaders();
+      developer.log('📡 POST $_baseUrl', name: 'ExpensesProvider');
+      developer.log('📤 Body: $body', name: 'ExpensesProvider');
+
+      final response = await http.post(Uri.parse(_baseUrl), headers: headers, body: body);
+
+      developer.log('📥 Status: ${response.statusCode}', name: 'ExpensesProvider');
+      developer.log('📥 Body: ${response.body}', name: 'ExpensesProvider');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        developer.log('✅ Expense added successfully', name: 'ExpensesProvider');
+        await fetchExpenses();
+        return true;
+      }
+      developer.log('❌ Add failed ${response.statusCode}: ${response.body}', name: 'ExpensesProvider');
+      return false;
+    } catch (e, stack) {
+      developer.log('💥 $e', name: 'ExpensesProvider', error: e, stackTrace: stack);
+      return false;
+    }
+  }
+
+  // update expenses
+  Future<bool> updateExpense({
+    required int srlNo,
+    required String category,
+    required double amount,
+    required String expenseBy,
+    required String description,
+    required String expenseShift, required String expenseDate, required String expenseTime,
+  }) async {
+    final now = DateTime.now();
+    final expenseDate =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final expenseTime =
+        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+
+    final body = jsonEncode({
+      'expense_name': category,
+      'expense_amount': amount,
+      'expense_by': expenseBy,
+      'expense_description': description,
+      'expense_shift': expenseShift,
+      'expense_date': expenseDate,
+      'expense_time': expenseTime,
+    });
+
+    try {
+      final headers = await _authHeaders();
+      final url = '$_baseUrl/$srlNo';  // ← srl_no e.g. /api/expenses/4101
+      developer.log('📡 PUT $url', name: 'ExpensesProvider');
+      developer.log('📤 Body: $body', name: 'ExpensesProvider');
+
+      final response = await http.put(Uri.parse(url), headers: headers, body: body);
+
+      developer.log('📥 Status: ${response.statusCode}', name: 'ExpensesProvider');
+      developer.log('📥 Body: ${response.body}', name: 'ExpensesProvider');
+
+      if (response.statusCode == 200) {
+        developer.log('✅ Updated srl_no: $srlNo', name: 'ExpensesProvider');
+        await fetchExpenses();
+        return true;
+      }
+      developer.log('❌ Update failed ${response.statusCode}: ${response.body}', name: 'ExpensesProvider');
+      return false;
+    } catch (e, stack) {
+      developer.log('💥 $e', name: 'ExpensesProvider', error: e, stackTrace: stack);
+      return false;
+    }
+  }
+
+
+  // delete expenses
+  Future<bool> deleteExpense(int srlNo) async {  // ← int, not String
+    try {
+      final headers = await _authHeaders();
+      final url = '$_baseUrl/$srlNo';  // ← uses srlNo e.g. /api/expenses/4101
+      developer.log('📡 DELETE $url', name: 'ExpensesProvider');
+
+      final response = await http.delete(Uri.parse(url), headers: headers);
+
+      developer.log('📥 Status: ${response.statusCode}', name: 'ExpensesProvider');
+      developer.log('📥 Body: ${response.body}', name: 'ExpensesProvider');
+
+      if (response.statusCode == 200) {
+        developer.log('✅ Deleted srl_no: $srlNo', name: 'ExpensesProvider');
+        _allExpenses.removeWhere((e) => e.srlNo == srlNo);  // ← match by srlNo
+        _applyFilter();
+        notifyListeners();
+        return true;
+      }
+      developer.log('❌ Delete failed ${response.statusCode}: ${response.body}', name: 'ExpensesProvider');
+      return false;
+    } catch (e, stack) {
+      developer.log('💥 $e', name: 'ExpensesProvider', error: e, stackTrace: stack);
+      return false;
+    }
+  }
+
+  void setSearchQuery(String query) {
+    _searchQuery = query.toLowerCase();
+    _applyFilter();
     notifyListeners();
   }
 
   void clearSearch() {
     _searchQuery = '';
+    _applyFilter();
+    fetchExpenses();
     notifyListeners();
   }
 
-  String _nextId() {
-    _expenseCounter++;
-    return 'EXP${_expenseCounter.toString().padLeft(4, '0')}';
-  }
-
-  void addExpense({
-    required String category,
-    required double amount,
-    required String expenseBy,
-    String description = '',
-  }) {
-    _expenses.insert(
-      0,
-      ExpenseModel(
-        id: _nextId(),
-        category: category,
-        amount: amount,
-        expenseBy: expenseBy.trim().isEmpty ? 'System Administrator' : expenseBy.trim(),
-        description: description.trim(),
-        recordedAt: DateTime.now(),
-      ),
-    );
-    notifyListeners();
-  }
-
-  void deleteExpense(String id) {
-    _expenses.removeWhere((e) => e.id == id);
-    notifyListeners();
+  void _applyFilter() {
+    if (_searchQuery.isEmpty) {
+      _expenses = List.from(_allExpenses);
+    } else {
+      _expenses = _allExpenses.where((e) {
+        return e.category.toLowerCase().contains(_searchQuery) ||
+            e.expenseBy.toLowerCase().contains(_searchQuery) ||
+            e.description.toLowerCase().contains(_searchQuery) ||
+            e.id.toLowerCase().contains(_searchQuery);
+      }).toList();
+    }
   }
 }

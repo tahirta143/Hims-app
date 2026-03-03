@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../custum widgets/drawer/base_scaffold.dart';
+import '../../models/mr_model/mr_patient_model.dart';
 import '../../providers/mr_provider/mr_provider.dart';
 
 class MrDetailsScreen extends StatelessWidget {
@@ -107,7 +108,7 @@ class _MrDetailsBodyState extends State<_MrDetailsBody> {
   }
 
   // ── Called on Enter key OR focus lost ─────────────────────────────────────
-  void _lookupMrNumber(String value) {
+  Future<void> _lookupMrNumber(String value) async {
     final input = value.trim();
 
     // If field is empty, just reset
@@ -121,7 +122,7 @@ class _MrDetailsBodyState extends State<_MrDetailsBody> {
     }
 
     final provider = context.read<MrProvider>();
-    final patient = provider.findByMrNumber(input);
+    final patient = await provider.findByMrNumber(input);
 
     if (patient != null) {
       // Found — fill the form and show padded MR in the field
@@ -187,7 +188,7 @@ class _MrDetailsBodyState extends State<_MrDetailsBody> {
     setState(() => _isExistingPatient = false);
   }
 
-  void _onRegisterTapped() {
+  Future<void> _onRegisterTapped() async {
     if (!_formKey.currentState!.validate()) return;
 
     if (_isExistingPatient) {
@@ -196,7 +197,15 @@ class _MrDetailsBodyState extends State<_MrDetailsBody> {
     }
 
     final provider = context.read<MrProvider>();
-    final patient = provider.registerPatient(
+
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final patient = await provider.registerPatient(
       mrNumber: _mrNumberCtrl.text,
       firstName: _firstNameCtrl.text,
       lastName: _lastNameCtrl.text,
@@ -218,10 +227,17 @@ class _MrDetailsBodyState extends State<_MrDetailsBody> {
       city: _cityCtrl.text,
     );
 
-    // Show the assigned MR number back in the field
-    _mrNumberCtrl.text = patient.mrNumber;
-    setState(() => _isExistingPatient = true);
-    _showSnack('Patient registered! MR: ${patient.mrNumber}');
+    // Close loading dialog
+    if (mounted) Navigator.pop(context);
+
+    if (patient != null) {
+      // Show the assigned MR number back in the field
+      _mrNumberCtrl.text = patient.mrNumber;
+      setState(() => _isExistingPatient = true);
+      _showSnack('Patient registered! MR: ${patient.mrNumber}');
+    } else {
+      _showSnack(provider.errorMessage ?? 'Failed to register patient', isInfo: true);
+    }
   }
 
   void _showSnack(String msg, {bool isInfo = false}) {

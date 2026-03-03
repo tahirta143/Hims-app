@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../custum widgets/drawer/base_scaffold.dart';
+import '../../../models/mr_model/mr_patient_model.dart';
 import '../../../providers/mr_provider/mr_provider.dart';
 
 class MrDataViewScreen extends StatelessWidget {
@@ -24,70 +25,98 @@ class _MrDataViewBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
+    final provider = context.watch<MrProvider>();
 
     return Container(
       color: const Color(0xFFF0F4F8), // Light background
-      child: SingleChildScrollView(
-        padding: EdgeInsets.symmetric(
-          horizontal: screenWidth * 0.04, // Responsive padding
-          vertical: screenHeight * 0.02,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Teal sub-header (redesigned as card)
-            _buildSubHeader(context),
-            const SizedBox(height: 16),
-
-            // Search bar card
-            _buildSearchBar(context),
-            const SizedBox(height: 16),
-
-            // Stats card
-            _buildStatsBar(context),
-            const SizedBox(height: 16),
-
-            // Table card
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Table header with title
-                  Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text(
-                      'Registered Patients',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1A202C),
+      child: provider.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : provider.errorMessage != null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.error_outline,
+                          size: screenWidth * 0.15, color: Colors.red.shade300),
+                      SizedBox(height: screenHeight * 0.02),
+                      Text(provider.errorMessage!,
+                          style: TextStyle(
+                              fontSize: screenWidth * 0.04,
+                              color: Colors.red.shade400)),
+                      SizedBox(height: screenHeight * 0.02),
+                      ElevatedButton.icon(
+                        onPressed: () => provider.loadPatients(),
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('Retry'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF00B5AD),
+                          foregroundColor: Colors.white,
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                  Divider(height: 1, color: Color(0xFFE2E8F0)),
-                  // Table
-                  SizedBox(
-                    height: 400, // Fixed height for mobile
-                    child: _PatientTable(),
+                )
+              : SingleChildScrollView(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: screenWidth * 0.04,
+                    vertical: screenHeight * 0.02,
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Teal sub-header (redesigned as card)
+                      _buildSubHeader(context),
+                      const SizedBox(height: 16),
+
+                      // Search bar card
+                      _buildSearchBar(context),
+                      const SizedBox(height: 16),
+
+                      // Stats card
+                      _buildStatsBar(context),
+                      const SizedBox(height: 16),
+
+                      // Table card
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Table header with title
+                            Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Text(
+                                'Registered Patients',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF1A202C),
+                                ),
+                              ),
+                            ),
+                            Divider(height: 1, color: Color(0xFFE2E8F0)),
+                            // Table
+                            SizedBox(
+                              height: 400, // Fixed height for mobile
+                              child: _PatientTable(),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
+                ),
     );
   }
 
@@ -764,16 +793,43 @@ class _PatientRow extends StatelessWidget {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              context.read<MrProvider>().deletePatient(p.mrNumber);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Patient removed successfully'),
-                  backgroundColor: const Color(0xFF00B5AD),
-                  behavior: SnackBarBehavior.floating,
-                ),
+              
+              // Show loading
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const Center(child: CircularProgressIndicator()),
               );
+
+              final success = await context.read<MrProvider>().deletePatient(p.mrNumber);
+
+              // Close loading
+              if (context.mounted) Navigator.pop(context);
+
+              if (success) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Patient removed successfully'),
+                      backgroundColor: Color(0xFF00B5AD),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              } else {
+                if (context.mounted) {
+                  final errorMsg = context.read<MrProvider>().errorMessage ?? 'Failed to delete patient';
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(errorMsg),
+                      backgroundColor: Colors.red.shade400,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFE53E3E),

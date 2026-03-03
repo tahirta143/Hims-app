@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../custum widgets/drawer/base_scaffold.dart';
+import '../../models/consultation_model/appointment_model.dart';
+import '../../models/consultation_model/doctor_model.dart';
 import '../../providers/opd/consultation_provider/cunsultation_provider.dart';
+import '../../providers/mr_provider/mr_provider.dart';
 
 class ConsultationScreen extends StatefulWidget {
   const ConsultationScreen({super.key});
@@ -40,58 +43,104 @@ class _ConsultationScreenState extends State<ConsultationScreen> {
 
           // ── SCROLLABLE BODY ──
           Expanded(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Summary cards
-                  _buildSummary(prov, sw, sh),
+            child: prov.isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : prov.errorMessage != null
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.error_outline,
+                                size: sw * 0.15, color: Colors.red.shade300),
+                            SizedBox(height: sh * 0.02),
+                            Text(prov.errorMessage!,
+                                style: TextStyle(
+                                    fontSize: sw * 0.04,
+                                    color: Colors.red.shade400)),
+                            SizedBox(height: sh * 0.02),
+                            ElevatedButton.icon(
+                              onPressed: () => prov.loadDoctors(),
+                              icon: const Icon(Icons.refresh_rounded),
+                              label: const Text('Retry'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: primary,
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Summary cards
+                            _buildSummary(prov, sw, sh),
 
-                  // Section heading
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(
-                        sw * 0.04, sh * 0.018, sw * 0.04, sh * 0.012),
-                    child: Row(children: [
-                      Icon(Icons.people_alt_rounded,
-                          color: primary, size: sw * 0.045),
-                      SizedBox(width: sw * 0.02),
-                      Text('Our Consultants',
-                          style: TextStyle(fontSize: sw * 0.042,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87)),
-                    ]),
-                  ),
+                            // Section heading
+                            Padding(
+                              padding: EdgeInsets.fromLTRB(
+                                  sw * 0.04, sh * 0.018, sw * 0.04, sh * 0.012),
+                              child: Row(children: [
+                                Icon(Icons.people_alt_rounded,
+                                    color: primary, size: sw * 0.045),
+                                SizedBox(width: sw * 0.02),
+                                Text('Our Consultants',
+                                    style: TextStyle(
+                                        fontSize: sw * 0.042,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black87)),
+                              ]),
+                            ),
 
-                  // Doctor grid — 2 per row, column layout cards
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: sw * 0.04),
-                    child: GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: prov.doctors.length,
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: sw * 0.03,
-                        mainAxisSpacing:  sw * 0.03,
-                        // Column layout is taller — lower ratio = taller cells
-                        childAspectRatio: sw >= 600 ? 0.72
-                            : sw >= 400 ? 0.68 : 0.65,
+                            // Doctor grid — 2 per row, column layout cards
+                            prov.doctors.isEmpty
+                                ? Center(
+                                    child: Padding(
+                                      padding: EdgeInsets.all(sw * 0.1),
+                                      child: Text('No doctors available',
+                                          style: TextStyle(
+                                              fontSize: sw * 0.04,
+                                              color: Colors.grey.shade500)),
+                                    ),
+                                  )
+                                : Padding(
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: sw * 0.04),
+                                    child: GridView.builder(
+                                      shrinkWrap: true,
+                                      physics:
+                                          const NeverScrollableScrollPhysics(),
+                                      itemCount: prov.doctors.length,
+                                      gridDelegate:
+                                          SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 2,
+                                        crossAxisSpacing: sw * 0.03,
+                                        mainAxisSpacing: sw * 0.03,
+                                        // Column layout is taller — lower ratio = taller cells
+                                        childAspectRatio: sw >= 600
+                                            ? 0.72
+                                            : sw >= 400
+                                                ? 0.68
+                                                : 0.65,
+                                      ),
+                                      itemBuilder: (_, i) => _DoctorCard(
+                                        doctor: prov.doctors[i],
+                                        availableSlots:
+                                            prov.availableSlotsForDoctor(
+                                                prov.doctors[i].name,
+                                                DateTime.now()),
+                                        onTap: () => _showDialog(context, prov,
+                                            prov.doctors[i], sw, sh),
+                                      ),
+                                    ),
+                                  ),
+
+                            SizedBox(height: sh * 0.04),
+                          ],
+                        ),
                       ),
-                      itemBuilder: (_, i) => _DoctorCard(
-                        doctor: prov.doctors[i],
-                        availableSlots: prov.availableSlotsForDoctor(
-                            prov.doctors[i].name, DateTime.now()),
-                        onTap: () => _showDialog(
-                            context, prov, prov.doctors[i], sw, sh),
-                      ),
-                    ),
-                  ),
-
-                  SizedBox(height: sh * 0.04),
-                ],
-              ),
-            ),
           ),
         ],
       ),
@@ -419,7 +468,7 @@ class _AppointmentDialogState extends State<_AppointmentDialog> {
     super.dispose();
   }
 
-  void _onMrChanged(String val) {
+  void _onMrChanged(String val) async {
     final digits    = val.replaceAll(RegExp(r'[^0-9]'), '');
     final formatted = digits.isEmpty
         ? '' : int.parse(digits).toString().padLeft(5, '0');
@@ -429,22 +478,41 @@ class _AppointmentDialogState extends State<_AppointmentDialog> {
           selection: TextSelection.collapsed(offset: formatted.length));
     }
     if (formatted.isEmpty) {
-      setState(() { _patientFound = false; _patientNotFound = false; });
-      _nameCtrl.clear(); _contactCtrl.clear(); _addressCtrl.clear();
+      setState(() {
+        _patientFound = false;
+        _patientNotFound = false;
+      });
+      _nameCtrl.clear();
+      _contactCtrl.clear();
+      _addressCtrl.clear();
       return;
     }
-    final prov    = Provider.of<ConsultationProvider>(context, listen: false);
-    final patient = prov.lookupPatient(formatted);
+
+    // Look up patient via MR provider (API + cache)
+    final mrProv = Provider.of<MrProvider>(context, listen: false);
+    final patient = await mrProv.findByMrNumber(formatted);
+
+    if (!mounted) return;
+
     if (patient != null) {
-      setState(() { _patientFound = true; _patientNotFound = false;
-      _isFirstVisit = patient['isFirstVisit'] as bool; });
-      _nameCtrl.text    = patient['name']    as String;
-      _contactCtrl.text = patient['contact'] as String;
-      _addressCtrl.text = patient['address'] as String;
+      setState(() {
+        _patientFound = true;
+        _patientNotFound = false;
+        // If patient exists in MR, treat as follow‑up by default
+        _isFirstVisit = false;
+      });
+      _nameCtrl.text = patient.fullName;
+      _contactCtrl.text = patient.phoneNumber;
+      _addressCtrl.text = patient.address;
     } else {
-      setState(() { _patientFound = false;
-      _patientNotFound = formatted.length >= 3; });
-      _nameCtrl.clear(); _contactCtrl.clear(); _addressCtrl.clear();
+      setState(() {
+        _patientFound = false;
+        _patientNotFound = formatted.length >= 3;
+        _isFirstVisit = true;
+      });
+      _nameCtrl.clear();
+      _contactCtrl.clear();
+      _addressCtrl.clear();
     }
   }
 
@@ -566,14 +634,22 @@ class _AppointmentDialogState extends State<_AppointmentDialog> {
     }
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (_mrCtrl.text.isEmpty)      { _snack('Please enter MR No',       err: true); return; }
     if (_nameCtrl.text.isEmpty)    { _snack('Please enter patient name', err: true); return; }
     if (_contactCtrl.text.isEmpty) { _snack('Please enter contact no',   err: true); return; }
     if (_selectedSlot == null)     { _snack('Please select a time slot', err: true); return; }
 
     final prov = Provider.of<ConsultationProvider>(context, listen: false);
-    prov.addAppointment(ConsultationAppointment(
+    
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final success = await prov.addAppointment(ConsultationAppointment(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       consultantName:   widget.doctor.name,
       specialty:        widget.doctor.specialty,
@@ -592,8 +668,17 @@ class _AppointmentDialogState extends State<_AppointmentDialog> {
       type:             _selectedType,
       status:           'Upcoming',
     ));
-    Navigator.pop(context);
-    _snack('Appointment booked!', err: false);
+
+    // Close loading dialog
+    if (mounted) Navigator.pop(context);
+
+    if (success) {
+      // Close appointment dialog
+      if (mounted) Navigator.pop(context);
+      _snack('Appointment booked successfully!', err: false);
+    } else {
+      _snack(prov.errorMessage ?? 'Failed to book appointment', err: true);
+    }
   }
 
   void _snack(String msg, {required bool err}) {

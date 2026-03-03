@@ -67,9 +67,9 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
     super.initState();
     _rightTab = TabController(length: 2, vsync: this);
 
-    // Sync OPD admitted patients to Emergency queue
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _syncOpdPatients();
+      Provider.of<EmergencyProvider>(context, listen: false)
+          .refreshAll();
     });
   }
 

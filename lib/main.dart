@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hims_app/core/providers/permission_provider.dart';
 import 'package:hims_app/providers/emergency_treatment_provider/emergency_provider.dart';
 import 'package:hims_app/providers/mr_provider/mr_provider.dart';
 import 'package:hims_app/providers/opd/consultation_provider/cunsultation_provider.dart';
@@ -8,11 +9,14 @@ import 'package:hims_app/providers/voucher_provider/voucher.dart';
 import 'package:hims_app/screens/splash%20screens/splash.dart';
 import 'package:provider/provider.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
+
 // In your main.dart or a separate file
 final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -20,14 +24,16 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // ✅ ConsultationProvider is above ALL routes,
-        //    so every screen can access it
+        // ─── RBAC ─────────────────────────────────────────────────────
+        ChangeNotifierProvider(create: (_) => PermissionProvider()),
+
+        // ─── Existing Providers ───────────────────────────────────────
         ChangeNotifierProvider(create: (_) => ConsultationProvider()),
         ChangeNotifierProvider(create: (_) => OpdProvider()),
-        ChangeNotifierProvider(create: (_)=> EmergencyProvider()),
-        ChangeNotifierProvider(create: (_)=> MrProvider()),
-        ChangeNotifierProvider(create: (_)=> ShiftProvider()),
-        ChangeNotifierProvider(create: (_)=> VoucherProvider()),
+        ChangeNotifierProvider(create: (_) => EmergencyProvider()),
+        ChangeNotifierProvider(create: (_) => MrProvider()),
+        ChangeNotifierProvider(create: (_) => ShiftProvider()),
+        ChangeNotifierProvider(create: (_) => VoucherProvider()),
       ],
       child: MaterialApp(
         title: 'HIMS',
@@ -41,3 +47,4 @@ class MyApp extends StatelessWidget {
     );
   }
 }
+

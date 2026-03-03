@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../custum widgets/drawer/base_scaffold.dart';
 import '../../providers/opd/opd_reciepts/opd_reciepts.dart';
+import '../../providers/mr_provider/mr_provider.dart'; // Add this import
 
 class OpdReceiptScreen extends StatefulWidget {
   const OpdReceiptScreen({super.key});
@@ -32,6 +33,7 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
   String? _selectedReference;
   bool _patientFound    = false;
   bool _patientNotFound = false;
+  bool _isSearching     = false; // New flag for loading state
 
   // services state
   String _activeCat  = 'opd';
@@ -53,8 +55,12 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final prov = Provider.of<OpdProvider>(context, listen: false);
-      _mrNoCtrl.text = prov.nextMrNo;
+      final opdProv = Provider.of<OpdProvider>(context, listen: false);
+      final mrProv = Provider.of<MrProvider>(context, listen: false);
+      _mrNoCtrl.text = opdProv.nextMrNo;
+
+      // Load references and panels from OpdProvider
+      // These should be loaded in OpdProvider initialization
     });
   }
 
@@ -66,42 +72,74 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
     super.dispose();
   }
 
-  // ─── MR lookup ───
-  void _onMrChanged(String raw) {
+  // ─── MR lookup using MrProvider ───
+  Future<void> _onMrChanged(String raw) async {
     final digits    = raw.replaceAll(RegExp(r'[^0-9]'), '');
     final formatted = digits.isEmpty ? '' : int.parse(digits).toString().padLeft(6, '0');
+
     if (_mrNoCtrl.text != formatted) {
       _mrNoCtrl.value = TextEditingValue(
         text: formatted,
         selection: TextSelection.collapsed(offset: formatted.length),
       );
     }
-    if (formatted.isEmpty) { _clearPatient(); return; }
-    final prov    = Provider.of<OpdProvider>(context, listen: false);
-    final patient = prov.lookupPatient(formatted);
-    if (patient != null) {
+
+    if (formatted.isEmpty) {
+      _clearPatient();
+      return;
+    }
+
+    // Only search if we have at least 4 digits
+    if (formatted.length >= 4) {
       setState(() {
-        _patientFound = true; _patientNotFound = false;
-        _nameCtrl.text    = patient.fullName;
-        _phoneCtrl.text   = patient.phone;
-        _ageCtrl.text     = patient.age;
-        _genderCtrl.text  = patient.gender;
-        _addressCtrl.text = patient.address;
-        _cityCtrl.text    = patient.city;
-        _selectedPanel     = patient.panel == 'None' ? null : patient.panel;
-        _selectedReference = patient.reference;
+        _isSearching = true;
+        _patientFound = false;
+        _patientNotFound = false;
       });
+
+      final mrProv = Provider.of<MrProvider>(context, listen: false);
+      final patient = await mrProv.findByMrNumber(formatted);
+
+      setState(() {
+        _isSearching = false;
+      });
+
+      if (patient != null) {
+        setState(() {
+          _patientFound = true;
+          _patientNotFound = false;
+          _nameCtrl.text    = '${patient.firstName} ${patient.lastName}'.trim();
+          _phoneCtrl.text   = patient.phoneNumber;
+          _ageCtrl.text     = patient.age?.toString() ?? '';
+          _genderCtrl.text  = patient.gender;
+          _addressCtrl.text = patient.address;
+          _cityCtrl.text    = patient.city;
+          // Panel and reference might not be in patient model, keep existing logic
+          // _selectedPanel     = patient.panel == 'None' ? null : patient.panel;
+          // _selectedReference = patient.reference;
+        });
+      } else {
+        setState(() {
+          _patientFound = false;
+          _patientNotFound = true;
+          _clearFields();
+        });
+      }
     } else {
       setState(() {
-        _patientFound    = false;
-        _patientNotFound = formatted.length >= 3;
-        if (!_patientNotFound) _clearFields();
+        _patientFound = false;
+        _patientNotFound = false;
+        _clearFields();
       });
     }
   }
 
   void _clearPatient() {
-    setState(() { _patientFound = false; _patientNotFound = false; });
+    setState(() {
+      _patientFound = false;
+      _patientNotFound = false;
+      _isSearching = false;
+    });
     _clearFields();
   }
 
@@ -137,23 +175,42 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
     }
 
     final patient = OpdPatient(
-      mrNo: _mrNoCtrl.text, fullName: _nameCtrl.text.trim(),
-      phone: _phoneCtrl.text.trim(), age: _ageCtrl.text.trim(),
-      gender: _genderCtrl.text.trim(), address: _addressCtrl.text.trim(),
-      city: _cityCtrl.text.trim(), panel: _selectedPanel ?? 'None',
+      mrNo: _mrNoCtrl.text,
+      fullName: _nameCtrl.text.trim(),
+      phone: _phoneCtrl.text.trim(),
+      age: _ageCtrl.text.trim(),
+      gender: _genderCtrl.text.trim(),
+      address: _addressCtrl.text.trim(),
+      city: _cityCtrl.text.trim(),
+      panel: _selectedPanel ?? 'None',
       reference: _selectedReference ?? 'General Physician',
     );
-    prov.saveReceipt(patient: patient, services: prov.selectedServices.toList(),
-        discount: _discountVal, amountPaid: _amountPaidVal);
 
-    if (prov.emergencyAdmission == false &&
-        prov.selectedServices.isNotEmpty &&
-        prov.selectedServices.any((s) => s.service.category == 'emergency')) {
-      // Already admitted (saveReceipt handles it), just show message
-    }
+    prov
+        .saveReceipt(
+      patient: patient,
+      services: prov.selectedServices.toList(),
+      discount: _discountVal,
+      amountPaid: _amountPaidVal,
+    )
+        .then((ok) {
+      if (!ok) {
+        _snack(
+            prov.errorMessage ?? 'Failed to save OPD receipt. Please try again.',
+            err: true);
+        return;
+      }
 
-    _snack('Receipt saved!', err: false);
-    _clearAll();
+      if (prov.emergencyAdmission == false &&
+          prov.selectedServices.isNotEmpty &&
+          prov.selectedServices
+              .any((s) => s.service.category == 'emergency')) {
+        // Already admitted (saveReceipt handles it), just show message
+      }
+
+      _snack('Receipt saved!', err: false);
+      _clearAll();
+    });
   }
 
   void _snack(String msg, {required bool err}) {
@@ -184,11 +241,11 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
       title: 'OPD Receipt',
       drawerIndex: 3,
       showAppBar: false,
-      body: Consumer<OpdProvider>(
-        builder: (_, prov, __) => Column(children: [
-          _buildHeader(),
+      body: Consumer2<OpdProvider, MrProvider>(
+        builder: (_, opdProv, mrProv, __) => Column(children: [
+          _buildHeader(mrProv),
           Expanded(
-            child: _isWide ? _wideBody(prov) : _narrowBody(prov),
+            child: _isWide ? _wideBody(opdProv, mrProv) : _narrowBody(opdProv, mrProv),
           ),
         ]),
       ),
@@ -198,7 +255,7 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
   // ════════════════════════════════════════════
   //  HEADER
   // ════════════════════════════════════════════
-  Widget _buildHeader() {
+  Widget _buildHeader(MrProvider mrProv) {
     final now = DateTime.now();
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const wdays  = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
@@ -272,7 +329,7 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
   // ════════════════════════════════════════════
   //  WIDE BODY
   // ════════════════════════════════════════════
-  Widget _wideBody(OpdProvider prov) {
+  Widget _wideBody(OpdProvider opdProv, MrProvider mrProv) {
     return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Expanded(
         flex: 63,
@@ -282,9 +339,9 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
             SliverPadding(
               padding: EdgeInsets.fromLTRB(_pad, _pad, _pad * 0.5, _pad + _bp),
               sliver: SliverList(delegate: SliverChildListDelegate([
-                _patientCard(prov),
+                _patientCard(opdProv, mrProv),
                 SizedBox(height: _pad),
-                _servicesSection(prov),
+                _servicesSection(opdProv),
               ])),
             ),
           ],
@@ -298,7 +355,7 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
             SliverPadding(
               padding: EdgeInsets.fromLTRB(_pad * 0.5, _pad, _pad, _pad + _bp),
               sliver: SliverList(delegate: SliverChildListDelegate([
-                _billingCard(prov),
+                _billingCard(opdProv),
               ])),
             ),
           ],
@@ -310,18 +367,18 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
   // ════════════════════════════════════════════
   //  NARROW BODY
   // ════════════════════════════════════════════
-  Widget _narrowBody(OpdProvider prov) {
+  Widget _narrowBody(OpdProvider opdProv, MrProvider mrProv) {
     return CustomScrollView(
       physics: const BouncingScrollPhysics(),
       slivers: [
         SliverPadding(
           padding: EdgeInsets.fromLTRB(_pad, _pad, _pad, _pad + _bp),
           sliver: SliverList(delegate: SliverChildListDelegate([
-            _patientCard(prov),
+            _patientCard(opdProv, mrProv),
             SizedBox(height: _pad),
-            _servicesSection(prov),
+            _servicesSection(opdProv),
             SizedBox(height: _pad),
-            _billingCard(prov),
+            _billingCard(opdProv),
           ])),
         ),
       ],
@@ -331,7 +388,7 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
   // ════════════════════════════════════════════
   //  PATIENT CARD
   // ════════════════════════════════════════════
-  Widget _patientCard(OpdProvider prov) {
+  Widget _patientCard(OpdProvider opdProv, MrProvider mrProv) {
     return _SectionCard(
       sw: _sw, icon: Icons.person_pin_rounded, title: 'Patient Information',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -341,7 +398,14 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
             keyboardType: TextInputType.number,
             style: TextStyle(fontSize: _fs, fontWeight: FontWeight.bold, color: Colors.black87),
             decoration: _decor('e.g. 000001').copyWith(
-              suffixIcon: _patientFound
+              suffixIcon: _isSearching
+                  ? Container(
+                width: 20,
+                height: 20,
+                margin: const EdgeInsets.all(12),
+                child: const CircularProgressIndicator(strokeWidth: 2),
+              )
+                  : _patientFound
                   ? const Icon(Icons.check_circle_rounded, color: Colors.green, size: 20)
                   : _patientNotFound
                   ? Icon(Icons.search_off_rounded, color: Colors.orange.shade400, size: 20)
@@ -352,6 +416,8 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
             onChanged: _onMrChanged,
           ),
         ),
+        if (_isSearching)
+          _statusChip(Icons.hourglass_empty, 'Searching patient...', primary),
         if (_patientFound)
           _statusChip(Icons.check_circle_rounded, 'Patient found — fields auto-filled', Colors.green),
         if (_patientNotFound)
@@ -381,12 +447,12 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
         _row2(
           _FieldLabel(label: 'Panel', fsS: _fsS, sh: _sh,
             child: _DropDown(sw: _sw, fs: _fs, value: _selectedPanel,
-                hint: 'Select Panel', items: prov.panels,
+                hint: 'Select Panel', items: opdProv.panels,
                 onChanged: (v) => setState(() => _selectedPanel = v)),
           ),
           _FieldLabel(label: 'Reference', req: true, fsS: _fsS, sh: _sh,
             child: _DropDown(sw: _sw, fs: _fs, value: _selectedReference,
-                hint: 'General Physician', items: prov.references,
+                hint: 'General Physician', items: opdProv.references,
                 onChanged: (v) => setState(() => _selectedReference = v)),
           ),
         ),
@@ -612,12 +678,24 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
         ),
         child: Row(children: [
           Container(
-            padding: EdgeInsets.all(_sw * 0.018),
+            width: _sw * 0.12,
+            height: _sw * 0.12,
             decoration: BoxDecoration(
               color: svc.color.withOpacity(0.12),
               borderRadius: BorderRadius.circular(_sw * 0.018),
             ),
-            child: Icon(svc.icon, color: svc.color, size: _sw * 0.042),
+            clipBehavior: Clip.antiAlias,
+            child: svc.imageUrl != null && svc.imageUrl!.isNotEmpty
+                ? Image.network(
+              _buildServiceImageUrl(svc.imageUrl!),
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Icon(
+                svc.icon,
+                color: svc.color,
+                size: _sw * 0.042,
+              ),
+            )
+                : Icon(svc.icon, color: svc.color, size: _sw * 0.042),
           ),
           SizedBox(width: _sw * 0.022),
           Expanded(child: Column(
@@ -638,6 +716,19 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
         ]),
       ),
     );
+  }
+
+  String _buildServiceImageUrl(String path) {
+    final trimmed = path.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    // Backend returns paths like "/services/xyz.png"
+    const host = 'http://127.0.0.1:3001';
+    if (trimmed.startsWith('/')) {
+      return '$host$trimmed';
+    }
+    return '$host/$trimmed';
   }
 
   // ════════════════════════════════════════════
