@@ -65,9 +65,13 @@ class _SplashScreenState extends State<SplashScreen>
       if (!mounted) return;
 
       if (token != null && token.isNotEmpty) {
-        // Existing session — sync permissions then go to dashboard
+        // Existing session — load cached perms immediately then sync from server
         final permProvider = context.read<PermissionProvider>();
+        await permProvider.loadFromStorage();
+        
+        // Sync in background/parallel to refresh if needed
         await permProvider.syncFromServer();
+        
         if (!mounted) return;
         Navigator.pushReplacement(
           context,

@@ -49,10 +49,12 @@ class PermissionProvider extends ChangeNotifier {
       final serverVersion = result.permissionsVersion ?? 0;
       final localVersion  = await _storage.getPermissionsVersion();
 
-      // Always refresh on first load (localVersion == 0) or version change
+      // Always update the in-memory service with the latest permissions from server
+      _service.updatePermissions(result.permissions);
+
+      // Save to storage only if version changed or first load
       if (localVersion == 0 || serverVersion != localVersion) {
         await _storage.savePermissions(result.permissions, serverVersion);
-        _service.updatePermissions(result.permissions);
       }
 
       return true;
