@@ -7,7 +7,7 @@ import 'package:hims_app/screens/mr_details/mr_details.dart';
 import 'package:hims_app/screens/mr_details/mr_view/mr_view.dart';
 import 'package:hims_app/screens/opd_reciepts/opd_reciept.dart';
 import 'package:hims_app/screens/opd_reciepts/opd_records.dart';
-import 'package:hims_app/screens/consultation_payments/consultation_payments.dart';
+import 'package:hims_app/screens/consultation_payments/consultation_payments.dart' hide TextStyle;
 import 'package:hims_app/screens/shift_management/shift_management.dart';
 import '../../screens/add_expenses/add_expenses.dart';
 import '../../screens/dashboard/dashboard.dart';

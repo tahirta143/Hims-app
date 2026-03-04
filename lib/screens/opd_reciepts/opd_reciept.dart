@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../custum widgets/drawer/base_scaffold.dart';
+import '../../global/global_api.dart';
 import '../../providers/opd/opd_reciepts/opd_reciepts.dart';
-import '../../providers/mr_provider/mr_provider.dart'; // Add this import
+import '../../providers/mr_provider/mr_provider.dart';
+import '../../providers/shift_management/shift_management.dart'; // Add this import
 
 class OpdReceiptScreen extends StatefulWidget {
   const OpdReceiptScreen({super.key});
@@ -186,12 +188,15 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
       reference: _selectedReference ?? 'General Physician',
     );
 
+    final shiftProv = Provider.of<ShiftProvider>(context, listen: false);
+    
     prov
         .saveReceipt(
       patient: patient,
       services: prov.selectedServices.toList(),
       discount: _discountVal,
       amountPaid: _amountPaidVal,
+      currentShift: shiftProv.shift,
     )
         .then((ok) {
       if (!ok) {
@@ -723,8 +728,8 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
     if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
       return trimmed;
     }
-    // Backend returns paths like "/services/xyz.png"
-    const host = 'http://127.0.0.1:3001';
+    // Use GlobalApi.baseUrl for service images
+    final host = GlobalApi.baseUrl.replaceAll('/api', '');
     if (trimmed.startsWith('/')) {
       return '$host$trimmed';
     }

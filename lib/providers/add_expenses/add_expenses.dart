@@ -3,11 +3,12 @@ import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../core/services/auth_storage_service.dart';
+import '../../global/global_api.dart';
 import '../../models/add_expenses_model/add_expenses_model.dart';
 // import '../../services/auth_storage_service.dart';
 
 class ExpensesProvider extends ChangeNotifier {
-  static const String _baseUrl = 'http://10.0.2.2:3001/api/expenses';
+  static const String _baseUrl = '${GlobalApi.baseUrl}/expenses';
 
   final AuthStorageService _storage = AuthStorageService();
 

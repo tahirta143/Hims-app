@@ -1,10 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../../global/global_api.dart';
 import 'auth_storage_service.dart';
 import '../../models/mr_model/mr_patient_model.dart';
 
 class MrApiService {
-  static const String baseUrl = 'http://10.0.2.2:3001/api';
+  // static const String baseUrl = 'http://10.0.2.2:3001/api';
   final AuthStorageService _storage = AuthStorageService();
 
   // ─── Helper: build auth headers ───────────────────────────────────
@@ -23,7 +24,7 @@ class MrApiService {
   }) async {
     try {
       final headers = await _authHeaders();
-      final uri = Uri.parse('$baseUrl/mr-data').replace(
+      final uri = Uri.parse('${GlobalApi.baseUrl}/mr-data').replace(
         queryParameters: {
           'page': page.toString(),
           'limit': limit.toString(),
@@ -87,7 +88,7 @@ class MrApiService {
     try {
       final headers = await _authHeaders();
       final response = await http
-          .get(Uri.parse('$baseUrl/mr-data/$mrNumber'), headers: headers)
+          .get(Uri.parse('${GlobalApi.baseUrl}/mr-data/$mrNumber'), headers: headers)
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 401) {
@@ -141,7 +142,7 @@ class MrApiService {
     try {
       final headers = await _authHeaders();
       final response = await http
-          .get(Uri.parse('$baseUrl/mr-data/next-mr'), headers: headers)
+          .get(Uri.parse('${GlobalApi.baseUrl}/mr-data/next-mr'), headers: headers)
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 401) {
@@ -188,7 +189,7 @@ class MrApiService {
       final headers = await _authHeaders();
       final response = await http
           .post(
-            Uri.parse('$baseUrl/mr-data'),
+            Uri.parse('${GlobalApi.baseUrl}/mr-data'),
             headers: headers,
             body: jsonEncode(patientData),
           )
@@ -235,7 +236,7 @@ class MrApiService {
       final headers = await _authHeaders();
       final response = await http
           .put(
-            Uri.parse('$baseUrl/mr-data/$mrNumber'),
+            Uri.parse('${GlobalApi.baseUrl}/mr-data/$mrNumber'),
             headers: headers,
             body: jsonEncode(patientData),
           )
@@ -280,7 +281,7 @@ class MrApiService {
     try {
       final headers = await _authHeaders();
       final response = await http
-          .delete(Uri.parse('$baseUrl/mr-data/$mrNumber'), headers: headers)
+          .delete(Uri.parse('${GlobalApi.baseUrl}/mr-data/$mrNumber'), headers: headers)
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 401) {

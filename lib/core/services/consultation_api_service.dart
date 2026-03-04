@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../../global/global_api.dart';
 import 'auth_storage_service.dart';
 import '../../models/consultation_model/doctor_model.dart';
 import '../../models/consultation_model/appointment_model.dart';
 
 class ConsultationApiService {
-  static const String baseUrl = 'http://10.0.2.2:3001/api';
+  // static const String baseUrl = 'http://10.0.2.2:3001/api';
   final AuthStorageService _storage = AuthStorageService();
 
   // ─── Helper: build auth headers ───────────────────────────────────
@@ -22,7 +23,7 @@ class ConsultationApiService {
     try {
       final headers = await _authHeaders();
       final response = await http
-          .get(Uri.parse('$baseUrl/doctors'), headers: headers)
+          .get(Uri.parse('${GlobalApi.baseUrl}/doctors'), headers: headers)
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 401) {
@@ -70,7 +71,7 @@ class ConsultationApiService {
     try {
       final headers = await _authHeaders();
       final response = await http
-          .get(Uri.parse('$baseUrl/appointments'), headers: headers)
+          .get(Uri.parse('${GlobalApi.baseUrl}/appointments'), headers: headers)
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 401) {
@@ -120,7 +121,7 @@ class ConsultationApiService {
       final headers = await _authHeaders();
       final response = await http
           .post(
-            Uri.parse('$baseUrl/appointments'),
+            Uri.parse('${GlobalApi.baseUrl}/appointments'),
             headers: headers,
             body: jsonEncode(appointmentData),
           )
@@ -172,7 +173,7 @@ class ConsultationApiService {
   }) async {
     try {
       final headers = await _authHeaders();
-      final uri = Uri.parse('$baseUrl/appointments/slots').replace(
+      final uri = Uri.parse('${GlobalApi.baseUrl}/appointments/slots').replace(
         queryParameters: {
           'doctor_srl_no': doctorSrlNo.toString(),
           'date': date,

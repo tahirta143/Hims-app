@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../custum widgets/drawer/base_scaffold.dart';
-import '../../providers/opd/opd_reciepts/opd_reciepts.dart';
+import '../../providers/consultant_payments_provider/consultant_payments_provider.dart';
+import '../../models/consultant_payment_model/consultant_payment_model.dart';
 
 class ConsultantPaymentsScreen extends StatefulWidget {
   const ConsultantPaymentsScreen({super.key});
@@ -25,10 +26,7 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
   String _searchQuery = '';
   String _statusFilter = 'All'; // All, Paid, Unpaid
 
-  // Doctor share percentage
-  static const double DOCTOR_SHARE_PERCENTAGE = 20.0;
-
-  // MediaQuery values — set every build (same as OPD Receipt)
+  //MediaQuery values — set every build (same as OPD Receipt)
   late double _sw, _sh, _tp, _bp;
   late bool _isWide;
 
@@ -59,17 +57,19 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
       title: 'Consultant Payments',
       drawerIndex: 6, // Match your drawer index
       showAppBar: false, // We'll use custom header (same as OPD Receipt)
-      body: Consumer<OpdProvider>(
+      body: Consumer<ConsultantPaymentsProvider>(
         builder: (context, provider, child) {
-          final payments = _generatePaymentsFromReceipts(provider);
+          if (provider.isLoading) {
+            return const Center(child: CircularProgressIndicator(color: primary));
+          }
 
           return Column(
             children: [
               _buildHeader(), // Custom header with menu button
               Expanded(
                 child: _isWide
-                    ? _buildWideLayout(payments)
-                    : _buildNarrowLayout(payments),
+                    ? _buildWideLayout(provider)
+                    : _buildNarrowLayout(provider),
               ),
             ],
           );
@@ -78,80 +78,78 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
     );
   }
 
-  List<ConsultantPayment> _generatePaymentsFromReceipts(OpdProvider provider) {
-    Map<String, ConsultantPayment> paymentMap = {};
-
-    for (var receipt in provider.receipts) {
-      // Check for consultation services
-      final services = receipt['services'] as List? ?? [];
-      final isConsultation = services.any((service) {
-        final serviceStr = service.toString().toLowerCase();
-        return serviceStr.contains('consultation') ||
-            serviceStr.contains('consult') ||
-            serviceStr == 'consultation';
-      });
-
-      final details = receipt['details'] as String? ?? '';
-      final hasDoctor = details.contains('Dr.');
-
-      if (receipt['status'] == 'Active' && (isConsultation || hasDoctor)) {
-        final doctorName = _extractDoctorName(details);
-        final totalAmount = (receipt['total'] as num?)?.toDouble() ?? 0.0;
-        final doctorShare = totalAmount * (DOCTOR_SHARE_PERCENTAGE / 100);
-        final hospitalRevenue = totalAmount - doctorShare;
-
-        if (!paymentMap.containsKey(doctorName)) {
-          paymentMap[doctorName] = ConsultantPayment(
-            doctorName: doctorName,
-            appointments: 0,
-            totalAmount: 0,
-            doctorShare: 0,
-            hospitalRevenue: 0,
-            status: 'Unpaid',
-            date: receipt['date'] as DateTime? ?? DateTime.now(),
-            details: [],
-          );
-        }
-
-        final payment = paymentMap[doctorName]!;
-        payment.appointments += 1;
-        payment.totalAmount += totalAmount;
-        payment.doctorShare += doctorShare;
-        payment.hospitalRevenue += hospitalRevenue;
-
-        payment.details.add(PaymentDetail(
-          time: receipt['date'] as DateTime? ?? DateTime.now(),
-          doctor: doctorName,
-          patientId: receipt['mrNo'] as String? ?? '',
-          patientName: receipt['patientName'] as String? ?? '',
-          service: details,
-          amount: doctorShare,
-          totalBill: totalAmount,
-          sharePercentage: DOCTOR_SHARE_PERCENTAGE,
-          status: 'ACTIVE',
-        ));
-      }
-    }
-
-    return paymentMap.values.toList();
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadData();
+    });
   }
 
-  String _extractDoctorName(String details) {
-    if (details.contains('Dr.')) {
-      final regex = RegExp(r'Dr\.\s*([^(]*)');
-      final match = regex.firstMatch(details);
-      if (match != null) {
-        return 'Dr. ${match.group(1)?.trim() ?? ''}';
-      }
-    }
-
-    if (details.contains('Tahir')) return 'Dr. Tahir';
-    if (details.contains('Sara')) return 'Dr. Sara';
-    if (details.contains('Raza')) return 'Dr. Raza';
-    if (details.contains('Nida')) return 'Dr. Nida';
-
-    return 'Dr. Tahir';
+  void _loadData() {
+    String? paid;
+    if (_statusFilter == 'Paid') paid = 'Paid';
+    if (_statusFilter == 'Unpaid') paid = 'Unpaid';
+    
+    Provider.of<ConsultantPaymentsProvider>(context, listen: false).loadDashboardData(
+      fromDate: _fromDate,
+      toDate: _toDate,
+      paid: paid,
+    );
   }
+
+  List<DoctorBreakdownModel> _getFilteredBreakdown(List<DoctorBreakdownModel> list) {
+    return list.where((d) => 
+      d.doctorName.toLowerCase().contains(_searchQuery.toLowerCase()) &&
+      (_statusFilter == 'All' || d.status.toLowerCase() == _statusFilter.toLowerCase())
+    ).toList();
+  }
+
+  List<PayoutRecordModel> _getFilteredRecords(List<PayoutRecordModel> list) {
+    return list.where((r) => 
+      (r.doctorName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+       r.patientName.toLowerCase().contains(_searchQuery.toLowerCase()))
+    ).toList();
+  }
+
+  Widget _buildWideLayout(ConsultantPaymentsProvider prov) {
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(_pad, 0, _pad, _bp),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              SizedBox(height: _sh * 0.02),
+              _buildDoctorBreakdown(prov.breakdown),
+              SizedBox(height: _sh * 0.03),
+              _buildRawRecords(prov.records),
+            ]),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNarrowLayout(ConsultantPaymentsProvider prov) {
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(_pad, 0, _pad, _bp),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              SizedBox(height: _sh * 0.02),
+              _buildDoctorBreakdown(prov.breakdown),
+              SizedBox(height: _sh * 0.03),
+              _buildRawRecords(prov.records),
+            ]),
+          ),
+        ),
+      ],
+    );
+  }
+
 
   // Custom header with menu button (same pattern as OPD Receipt)
   Widget _buildHeader() {
@@ -246,10 +244,9 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
           SizedBox(height: _sh * 0.02),
 
           // Stats cards (horizontally scrollable)
-          Consumer<OpdProvider>(
-            builder: (context, provider, child) {
-              final payments = _generatePaymentsFromReceipts(provider);
-              return _buildStatsRow(payments);
+          Consumer<ConsultantPaymentsProvider>(
+            builder: (context, prov, child) {
+              return _buildStatsRow(prov.analytics);
             },
           ),
           SizedBox(height: _sh * 0.02),
@@ -261,12 +258,8 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
     );
   }
 
-  Widget _buildStatsRow(List<ConsultantPayment> payments) {
-    final totalDoctors = payments.length;
-    final totalAmount = payments.fold<double>(0, (sum, p) => sum + p.totalAmount);
-    final totalDoctorShare = payments.fold<double>(0, (sum, p) => sum + p.doctorShare);
-    final totalHospitalRevenue = payments.fold<double>(0, (sum, p) => sum + p.hospitalRevenue);
-    final totalAppointments = payments.fold<int>(0, (sum, p) => sum + p.appointments);
+  Widget _buildStatsRow(ConsultantPaymentAnalytics? analytics) {
+    if (analytics == null) return const SizedBox.shrink();
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -275,28 +268,28 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
           _buildStatCard(
             icon: Icons.people_rounded,
             label: 'DOCTORS',
-            value: totalDoctors.toString(),
+            value: analytics.totalDoctors.toString(),
             color: Colors.blue,
           ),
           SizedBox(width: _sp),
           _buildStatCard(
             icon: Icons.receipt_rounded,
             label: 'TOTAL AMOUNT',
-            value: 'PKR ${_formatPKR(totalAmount)}',
+            value: 'PKR ${_formatPKR(analytics.totalAmount)}',
             color: Colors.purple,
           ),
           SizedBox(width: _sp),
           _buildStatCard(
             icon: Icons.person_rounded,
             label: 'DOCTOR SHARE',
-            value: 'PKR ${_formatPKR(totalDoctorShare)}',
+            value: 'PKR ${_formatPKR(analytics.totalDoctorShare)}',
             color: Colors.green,
           ),
           SizedBox(width: _sp),
           _buildStatCard(
             icon: Icons.local_hospital_rounded,
             label: 'HOSPITAL REVENUE',
-            value: 'PKR ${_formatPKR(totalHospitalRevenue)}',
+            value: 'PKR ${_formatPKR(analytics.totalHospitalRevenue)}',
             color: Colors.orange,
           ),
           if (_isWide) ...[
@@ -304,7 +297,7 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
             _buildStatCard(
               icon: Icons.calendar_today_rounded,
               label: 'APPOINTMENTS',
-              value: totalAppointments.toString(),
+              value: analytics.totalAppointments.toString(),
               color: Colors.teal,
             ),
           ],
@@ -404,11 +397,11 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
           ),
           SizedBox(width: _sp),
           _buildDatePicker('From', _fromDate, (date) {
-            setState(() => _fromDate = date);
+            setState(() => _fromDate = date); _loadData();
           }),
           SizedBox(width: _sp),
           _buildDatePicker('To', _toDate, (date) {
-            setState(() => _toDate = date);
+            setState(() => _toDate = date); _loadData();
           }),
           SizedBox(width: _sp),
           Container(
@@ -480,46 +473,8 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
     );
   }
 
-  Widget _buildWideLayout(List<ConsultantPayment> payments) {
-    return CustomScrollView(
-      physics: const BouncingScrollPhysics(),
-      slivers: [
-        SliverPadding(
-          padding: EdgeInsets.fromLTRB(_pad, 0, _pad, _bp),
-          sliver: SliverList(
-            delegate: SliverChildListDelegate([
-              SizedBox(height: _sh * 0.02),
-              _buildDoctorBreakdown(payments),
-              SizedBox(height: _sh * 0.03),
-              _buildRawRecords(payments),
-            ]),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildNarrowLayout(List<ConsultantPayment> payments) {
-    return CustomScrollView(
-      physics: const BouncingScrollPhysics(),
-      slivers: [
-        SliverPadding(
-          padding: EdgeInsets.fromLTRB(_pad, 0, _pad, _bp),
-          sliver: SliverList(
-            delegate: SliverChildListDelegate([
-              SizedBox(height: _sh * 0.02),
-              _buildDoctorBreakdown(payments),
-              SizedBox(height: _sh * 0.03),
-              _buildRawRecords(payments),
-            ]),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDoctorBreakdown(List<ConsultantPayment> payments) {
-    final filteredPayments = _filterPayments(payments);
+  Widget _buildDoctorBreakdown(List<DoctorBreakdownModel> breakdown) {
+    final filtered = _getFilteredBreakdown(breakdown);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -612,7 +567,7 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
                             ),
                           ),
                         ),
-                        SizedBox(
+                         SizedBox(
                           width: _sw * 0.2,
                           child: Text('ACTION',
                             style: TextStyle(
@@ -627,13 +582,13 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
                   ),
 
                   // Rows
-                  if (filteredPayments.isEmpty)
+                  if (filtered.isEmpty)
                     SizedBox(
                       width: _sw * 1.5,
                       child: _buildEmptyState('No doctor payments found'),
                     )
                   else
-                    ...filteredPayments.map((payment) {
+                    ...filtered.map((payment) {
                       return Container(
                         padding: EdgeInsets.symmetric(horizontal: _sw * 0.025, vertical: _sh * 0.02),
                         decoration: BoxDecoration(
@@ -686,7 +641,7 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
                             ),
                             SizedBox(
                               width: _sw * 0.2,
-                              child: _buildStatusButton(payment),
+                              child: _buildStatusButton(payment.status),
                             ),
                           ],
                         ),
@@ -701,9 +656,8 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
     );
   }
 
-  Widget _buildRawRecords(List<ConsultantPayment> payments) {
-    final allDetails = payments.expand((p) => p.details).toList();
-    final filteredDetails = _filterDetails(allDetails);
+  Widget _buildRawRecords(List<PayoutRecordModel> records) {
+    final filtered = _getFilteredRecords(records);
     final today = DateTime.now();
 
     return Column(
@@ -747,165 +701,34 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
                     ),
                     child: Row(
                       children: [
-                        SizedBox(
-                          width: _sw * 0.25,
-                          child: Text('TIME',
-                            style: TextStyle(
-                              fontSize: _fsS,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ),
-                        SizedBox(
-                          width: _sw * 0.2,
-                          child: Text('DOCTOR',
-                            style: TextStyle(
-                              fontSize: _fsS,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ),
-                        SizedBox(
-                          width: _sw * 0.2,
-                          child: Text('PATIENT',
-                            style: TextStyle(
-                              fontSize: _fsS,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ),
-                        SizedBox(
-                          width: _sw * 0.25,
-                          child: Text('SERVICE',
-                            style: TextStyle(
-                              fontSize: _fsS,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ),
-                        SizedBox(
-                          width: _sw * 0.2,
-                          child: Text('AMOUNT',
-                            style: TextStyle(
-                              fontSize: _fsS,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ),
-                        SizedBox(
-                          width: _sw * 0.15,
-                          child: Text('STATUS',
-                            style: TextStyle(
-                              fontSize: _fsS,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ),
+                        SizedBox(width: _sw * 0.25, child: Text('TIME', style: TextStyle(fontSize: _fsS, fontWeight: FontWeight.bold))),
+                        SizedBox(width: _sw * 0.2,  child: Text('DOCTOR', style: TextStyle(fontSize: _fsS, fontWeight: FontWeight.bold))),
+                        SizedBox(width: _sw * 0.2,  child: Text('PATIENT', style: TextStyle(fontSize: _fsS, fontWeight: FontWeight.bold))),
+                        SizedBox(width: _sw * 0.35, child: Text('SERVICE', style: TextStyle(fontSize: _fsS, fontWeight: FontWeight.bold))),
+                        SizedBox(width: _sw * 0.2,  child: Text('SHARE', style: TextStyle(fontSize: _fsS, fontWeight: FontWeight.bold))),
+                        SizedBox(width: _sw * 0.2,  child: Text('TOTAL BILL', style: TextStyle(fontSize: _fsS, fontWeight: FontWeight.bold))),
                       ],
                     ),
                   ),
 
-                  // Records
-                  if (filteredDetails.isEmpty)
-                    SizedBox(
-                      width: _sw * 1.5,
-                      child: _buildEmptyState('No share records found'),
-                    )
+                  // Rows
+                  if (filtered.isEmpty)
+                    SizedBox(width: _sw * 1.5, child: _buildEmptyState('No share records found'))
                   else
-                    ...filteredDetails.map((detail) {
+                    ...filtered.map((record) {
                       return Container(
-                        padding: EdgeInsets.symmetric(horizontal: _sw * 0.025, vertical: _sh * 0.015),
+                        padding: EdgeInsets.symmetric(horizontal: _sw * 0.025, vertical: _sh * 0.02),
                         decoration: BoxDecoration(
-                          border: Border(
-                            bottom: BorderSide(color: Colors.grey.shade200),
-                          ),
+                          border: Border(bottom: BorderSide(color: Colors.grey.shade100)),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Row(
                           children: [
-                            Row(
-                              children: [
-                                SizedBox(
-                                  width: _sw * 0.25,
-                                  child: Text(
-                                    DateFormat('dd MMM yyyy HH:mm').format(detail.time),
-                                    style: TextStyle(fontSize: _fs, color: Colors.black87),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: _sw * 0.2,
-                                  child: Text(
-                                    detail.doctor,
-                                    style: TextStyle(fontSize: _fs, color: Colors.black87),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: _sw * 0.2,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        detail.patientName,
-                                        style: TextStyle(fontSize: _fs, color: Colors.black87),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      Text(
-                                        detail.patientId,
-                                        style: TextStyle(fontSize: _fsS * 0.9, color: Colors.grey.shade600),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: _sw * 0.25,
-                                  child: Text(
-                                    detail.service,
-                                    style: TextStyle(fontSize: _fs, color: Colors.black87),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: _sw * 0.2,
-                                  child: Text(
-                                    'PKR ${_formatPKR(detail.amount)}',
-                                    style: TextStyle(
-                                      fontSize: _fs,
-                                      color: primary,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: _sw * 0.15,
-                                  child: _buildStatusChip(detail.status),
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: _sh * 0.005),
-                            // Share info row - aligned with content
-                            Padding(
-                              padding: EdgeInsets.only(left: _sw * 0.25),
-                              child: Text(
-                                'SHARE: ${detail.sharePercentage.toStringAsFixed(2)}% | Total: ${_formatPKR(detail.totalBill)}',
-                                style: TextStyle(
-                                  fontSize: _fsS * 0.9,
-                                  color: Colors.grey.shade600,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                            ),
+                            SizedBox(width: _sw * 0.25, child: Text('${record.date} ${record.time}', style: TextStyle(fontSize: _fs))),
+                            SizedBox(width: _sw * 0.2,  child: Text(record.doctorName, style: TextStyle(fontSize: _fs))),
+                            SizedBox(width: _sw * 0.2,  child: Text(record.patientName, style: TextStyle(fontSize: _fs))),
+                            SizedBox(width: _sw * 0.35, child: Text(record.serviceDetail, style: TextStyle(fontSize: _fsS), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                            SizedBox(width: _sw * 0.2,  child: Text('PKR ${_formatPKR(record.doctorShare)}', style: TextStyle(fontSize: _fs, fontWeight: FontWeight.w600, color: Colors.green))),
+                            SizedBox(width: _sw * 0.2,  child: Text('PKR ${_formatPKR(record.totalAmount)}', style: TextStyle(fontSize: _fs, color: Colors.grey))),
                           ],
                         ),
                       );
@@ -937,32 +760,22 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
     );
   }
 
-  Widget _buildStatusButton(ConsultantPayment payment) {
-    final isPaid = payment.status == 'Paid';
-    return GestureDetector(
-      onTap: () {
-        if (!isPaid) {
-          _showMarkPaidDialog(payment);
-        }
-      },
+  Widget _buildStatusButton(String status) {
+    final isPaid = status.toLowerCase() == 'paid' || status.toLowerCase() == 'completed';
+    return Center(
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: _sw * 0.02, vertical: _sh * 0.008),
+        padding: EdgeInsets.symmetric(horizontal: _sw * 0.03, vertical: _sh * 0.008),
         decoration: BoxDecoration(
           color: isPaid ? Colors.green.withOpacity(0.1) : primary.withOpacity(0.1),
           borderRadius: BorderRadius.circular(_sw * 0.015),
-          border: Border.all(
-            color: isPaid ? Colors.green : primary,
-            width: 1,
-          ),
+          border: Border.all(color: isPaid ? Colors.green.withOpacity(0.3) : primary.withOpacity(0.3)),
         ),
-        child: Center(
-          child: Text(
-            isPaid ? 'Paid' : 'Mark Paid',
-            style: TextStyle(
-              fontSize: _fsS,
-              fontWeight: FontWeight.w600,
-              color: isPaid ? Colors.green : primary,
-            ),
+        child: Text(
+          status,
+          style: TextStyle(
+            fontSize: _fsS,
+            fontWeight: FontWeight.w600,
+            color: isPaid ? Colors.green : primary,
           ),
         ),
       ),
@@ -971,14 +784,18 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
 
   Widget _buildStatusChip(String status) {
     Color color;
-    switch (status) {
+    switch (status.toUpperCase()) {
       case 'ACTIVE':
+      case 'COMPLETED':
+      case 'PAID':
         color = Colors.green;
         break;
       case 'PENDING':
+      case 'UNPAID':
         color = Colors.orange;
         break;
       case 'CANCELLED':
+      case 'REFUNDED':
         color = Colors.red;
         break;
       default:
@@ -1002,148 +819,4 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
       ),
     );
   }
-
-  List<ConsultantPayment> _filterPayments(List<ConsultantPayment> payments) {
-    return payments.where((payment) {
-      if (_statusFilter != 'All' && payment.status != _statusFilter) {
-        return false;
-      }
-
-      if (_searchQuery.isNotEmpty) {
-        final query = _searchQuery.toLowerCase();
-        final matchesDoctor = payment.doctorName.toLowerCase().contains(query);
-        final matchesPatient = payment.details.any((d) =>
-        d.patientName.toLowerCase().contains(query) ||
-            d.patientId.contains(query));
-        if (!matchesDoctor && !matchesPatient) return false;
-      }
-
-      return true;
-    }).toList();
-  }
-
-  List<PaymentDetail> _filterDetails(List<PaymentDetail> details) {
-    return details.where((detail) {
-      if (_searchQuery.isNotEmpty) {
-        final query = _searchQuery.toLowerCase();
-        return detail.doctor.toLowerCase().contains(query) ||
-            detail.patientName.toLowerCase().contains(query) ||
-            detail.patientId.contains(query);
-      }
-      return true;
-    }).toList();
-  }
-
-  void _showMarkPaidDialog(ConsultantPayment payment) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_sw * 0.04)),
-        title: Row(
-          children: [
-            Icon(Icons.payment_rounded, color: primary, size: _sw * 0.06),
-            SizedBox(width: _sp),
-            Text(
-              'Mark Payment as Paid',
-              style: TextStyle(fontSize: _fsL, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Doctor: ${payment.doctorName}',
-              style: TextStyle(fontSize: _fs, fontWeight: FontWeight.w600),
-            ),
-            SizedBox(height: _sh * 0.01),
-            Text(
-              'Amount: PKR ${_formatPKR(payment.doctorShare)}',
-              style: TextStyle(fontSize: _fs, color: primary, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: _sh * 0.02),
-            Text(
-              'This will mark all pending payments for this doctor as paid. Continue?',
-              style: TextStyle(fontSize: _fs, color: Colors.grey.shade600),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: TextStyle(color: Colors.grey.shade600)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                payment.status = 'Paid';
-              });
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Payment marked as paid successfully'),
-                  backgroundColor: primary,
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_sw * 0.02)),
-            ),
-            child: const Text('Confirm'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class ConsultantPayment {
-  String doctorName;
-  int appointments;
-  double totalAmount;
-  double doctorShare;
-  double hospitalRevenue;
-  String status;
-  DateTime date;
-  List<PaymentDetail> details;
-
-  ConsultantPayment({
-    required this.doctorName,
-    required this.appointments,
-    required this.totalAmount,
-    required this.doctorShare,
-    required this.hospitalRevenue,
-    required this.status,
-    required this.date,
-    required this.details,
-  });
-}
-
-class PaymentDetail {
-  final DateTime time;
-  final String doctor;
-  final String patientId;
-  final String patientName;
-  final String service;
-  final double amount;
-  final double totalBill;
-  final double sharePercentage;
-  final String status;
-
-  PaymentDetail({
-    required this.time,
-    required this.doctor,
-    required this.patientId,
-    required this.patientName,
-    required this.service,
-    required this.amount,
-    required this.totalBill,
-    required this.sharePercentage,
-    required this.status,
-  });
 }

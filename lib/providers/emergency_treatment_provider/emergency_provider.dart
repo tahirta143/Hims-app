@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../core/services/emergency_treatment_api_service.dart';
+import '../../core/services/opd_receipt_api_service.dart';
+import '../../global/global_api.dart';
+import '../../models/emergency_model/emergency_treatment_model.dart';
+
 // ── Data Models ──
 
 class EmergencyPatient {
@@ -32,6 +37,7 @@ class EmergencyService {
   final double price;
   final IconData icon;
   final Color color;
+  final String? imageUrl;
 
   const EmergencyService({
     required this.id,
@@ -39,6 +45,7 @@ class EmergencyService {
     required this.price,
     required this.icon,
     required this.color,
+    this.imageUrl,
   });
 }
 
@@ -70,44 +77,98 @@ class EmergencyProvider extends ChangeNotifier {
     return int.parse(digits).toString().padLeft(6, '0');
   }
 
-  // ── Queue (mock data + dynamically added from OPD) ──
-  final List<EmergencyPatient> _queue = [
-    EmergencyPatient(
-      mrNo: '000004',
-      name: 'Ayesha Siddiqui',
-      age: '41',
-      gender: 'Female',
-      phone: '0345-7778888',
-      address: 'Flat 3, Pearl Heights, Clifton',
-      admittedSince: DateTime.now().subtract(const Duration(minutes: 45)),
-      receiptNo: 'OPD71954',
-      emergencyServices: ['Emergency Consultation'],
-    ),
-    EmergencyPatient(
-      mrNo: '000001',
-      name: 'Ahmed Hassan',
-      age: '35',
-      gender: 'Male',
-      phone: '0300-1234567',
-      address: '12-B Model Town',
-      admittedSince: DateTime.now().subtract(const Duration(hours: 1, minutes: 20)),
-      receiptNo: 'OPD71957',
-      emergencyServices: ['Trauma Care'],
-    ),
-  ];
+  // ── Queue (loaded from API) ──
+  final List<EmergencyPatient> _queue = [];
 
   List<EmergencyPatient> get queue => List.unmodifiable(_queue);
   int get queueCount => _queue.length;
 
-  /// Called from OpdProvider via bridge — adds newly admitted patient
-  void addPatientFromOpd(Map<String, dynamic> data) {
-    final already = _queue.any((p) =>
-    p.mrNo == data['mrNo'] &&
-        p.admittedSince == data['admittedSince']);
-    if (already) return;
+  bool _loadingQueue = false;
+  bool get isLoadingQueue => _loadingQueue;
 
-    _queue.insert(0, EmergencyPatient(
-      mrNo: data['mrNo'] ?? '',
+  final EmergencyTreatmentApiService _emergencyApi =
+      EmergencyTreatmentApiService();
+
+  /// Load the emergency queue from the API.
+  Future<void> loadQueue() async {
+    _loadingQueue = true;
+    notifyListeners();
+    final result = await _emergencyApi.fetchEmergencyQueue();
+    if (result.success) {
+      _queue
+        ..clear()
+        ..addAll(result.queue.map((item) => EmergencyPatient(
+              mrNo: item.patientMrNumber,
+              name: item.patientName,
+              age: item.patientAge,
+              gender: item.patientGender,
+              phone: '',
+              address: '',
+              admittedSince: item.admittedSince != null
+                  ? DateTime.tryParse(item.admittedSince!) ?? DateTime.now()
+                  : DateTime.now(),
+              emergencyServices: [],
+            )));
+    }
+    _loadingQueue = false;
+    notifyListeners();
+  }
+
+  // ── Emergency Services (loaded from API) ──
+  final List<EmergencyService> _emergencyServices = [];
+  List<EmergencyService> get emergencyServices => List.unmodifiable(_emergencyServices);
+
+  bool _loadingServices = false;
+  bool get isLoadingServices => _loadingServices;
+
+  final OpdReceiptApiService _opdApi = OpdReceiptApiService();
+
+  Future<void> loadEmergencyServices() async {
+    _loadingServices = true;
+    notifyListeners();
+    final result = await _opdApi.fetchOpdServices();
+    if (result.success) {
+      _emergencyServices.clear();
+      for (final s in result.services) {
+        if (s.isActive == 1 && s.allowEmergencyService != 0) {
+          final rate = double.tryParse(s.serviceRate) ?? 0.0;
+          
+          // Map head to color/icon
+          Color color = const Color(0xFFE53935);
+          IconData icon = Icons.medical_services_rounded;
+          
+          switch (s.serviceHead.toLowerCase()) {
+            case 'emergency': color = const Color(0xFFE53935); icon = Icons.emergency_rounded; break;
+            case 'opd':       color = const Color(0xFF1E88E5); icon = Icons.local_hospital_rounded; break;
+          }
+
+          final imageUrl = s.imageUrl != null && s.imageUrl!.isNotEmpty
+              ? (s.imageUrl!.startsWith('http') ? s.imageUrl : '${GlobalApi.baseUrl}${s.imageUrl}')
+              : null;
+
+          _emergencyServices.add(EmergencyService(
+            id: s.serviceId,
+            name: s.serviceName,
+            price: rate,
+            icon: icon,
+            color: color,
+            imageUrl: imageUrl,
+          ));
+        }
+      }
+    }
+    _loadingServices = false;
+    notifyListeners();
+  }
+
+  /// Kept for backward compatibility with OPD receipt bridge (no-op now — queue comes from API).
+  void addPatientFromOpd(Map<String, dynamic> data) {
+    final mrNo = data['mrNo'] as String;
+    // Don't add if already in queue
+    if (_queue.any((p) => p.mrNo == mrNo)) return;
+
+    _queue.add(EmergencyPatient(
+      mrNo: mrNo,
       name: data['name'] ?? '',
       age: data['age'] ?? '',
       gender: data['gender'] ?? '',
@@ -130,41 +191,43 @@ class EmergencyProvider extends ChangeNotifier {
 
   void refresh() => notifyListeners();
 
-  // ── Emergency Services (as list for dropdown) ──
-  final List<EmergencyService> emergencyServices = const [
-    EmergencyService(
-      id: 'es1', name: 'IV Line', price: 300,
-      icon: Icons.vaccines_rounded, color: Color(0xFFE53935),
-    ),
-    EmergencyService(
-      id: 'es2', name: 'O₂ Therapy', price: 500,
-      icon: Icons.air_rounded, color: Color(0xFF1E88E5),
-    ),
-    EmergencyService(
-      id: 'es3', name: 'Nebulization', price: 400,
-      icon: Icons.cloud_rounded, color: Color(0xFF8E24AA),
-    ),
-    EmergencyService(
-      id: 'es4', name: 'ECG', price: 600,
-      icon: Icons.monitor_heart_rounded, color: Color(0xFFE53935),
-    ),
-    EmergencyService(
-      id: 'es5', name: 'Catheter', price: 350,
-      icon: Icons.water_drop_rounded, color: Color(0xFF43A047),
-    ),
-    EmergencyService(
-      id: 'es6', name: 'Dressing', price: 250,
-      icon: Icons.healing_rounded, color: Color(0xFFF4511E),
-    ),
-    EmergencyService(
-      id: 'es7', name: 'Injection', price: 200,
-      icon: Icons.medication_rounded, color: Color(0xFF00B5AD),
-    ),
-    EmergencyService(
-      id: 'es8', name: 'Drip', price: 450,
-      icon: Icons.local_drink_rounded, color: Color(0xFF1E88E5),
-    ),
-  ];
+  // ── Existing treatment record (loaded per-MR) ──
+  EmergencyTreatmentApiModel? currentRecord;
+
+  /// Fetch existing treatment for a given MR from the API.
+  Future<EmergencyTreatmentApiModel?> fetchExistingTreatment(
+      String mrNo) async {
+    final result = await _emergencyApi.fetchByMR(mrNo);
+    if (result.success) {
+      currentRecord = result.record;
+      return result.record;
+    }
+    return null;
+  }
+
+  /// Create a new treatment record.
+  Future<EmergencyTreatmentResult> saveToApi(
+      Map<String, dynamic> payload) async {
+    return _emergencyApi.createTreatment(payload);
+  }
+
+  /// Update an existing treatment record.
+  Future<EmergencyTreatmentResult> updateToApi(
+      int id, Map<String, dynamic> payload) async {
+    return _emergencyApi.updateTreatment(id, payload);
+  }
+
+  /// Create an emergency bill.
+  Future<EmergencyBillingResult> createBill(
+      Map<String, dynamic> payload) async {
+    return _emergencyApi.createBill(payload);
+  }
+
+  /// Fetch current shift.
+  Future<ShiftResult> fetchCurrentShift() async {
+    return _emergencyApi.fetchCurrentShift();
+  }
+
 
   // ── Selected emergency services ──
   final List<EmergencyService> _selectedServices = [];
@@ -269,7 +332,7 @@ class EmergencyProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Save record ──
+  // ── Save record (local queue update only — API called from screen) ──
   void saveRecord({
     required String mrNo,
     required String name,
@@ -286,8 +349,12 @@ class EmergencyProvider extends ChangeNotifier {
     required List<EmergencyInvestigation> investigations,
     required List<EmergencyPrescription> medicines,
   }) {
-    // Remove from queue on discharge
-    _queue.removeWhere((p) => p.mrNo == mrNo);
+    // On discharge — remove from queue
+    if (dischargeOpt == 'After Treatment' ||
+        dischargeOpt == 'Refer to Admission' ||
+        dischargeOpt == 'Patient Expired') {
+      _queue.removeWhere((p) => p.mrNo == mrNo);
+    }
     notifyListeners();
   }
 
@@ -295,8 +362,15 @@ class EmergencyProvider extends ChangeNotifier {
     _selectedServices.clear();
     _addedInvestigations.clear();
     _prescribedMedicines.clear();
+    currentRecord = null;
     notifyListeners();
   }
 
-  void refreshAll() {}
+  /// Called on screen init — loads queue from real API.
+  Future<void> refreshAll() async {
+    await Future.wait([
+      loadQueue(),
+      loadEmergencyServices(),
+    ]);
+  }
 }

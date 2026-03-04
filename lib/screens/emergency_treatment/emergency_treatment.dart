@@ -52,6 +52,7 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
   final _notesCtrl    = TextEditingController();
 
   bool _patientFound = false;
+  int? _existingRecordId; // set when existing treatment loaded from API
 
   late TabController _rightTab;
   String _invType = 'X-Rays';
@@ -103,11 +104,89 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
       );
     }
     if (formatted.isEmpty) { _resetPatient(); return; }
+    // First check in-memory queue for quick fill
     final p = prov.lookupPatient(formatted);
     if (p != null) {
       _fillPatient(p);
-    } else {
-      if (_patientFound) _resetPatient();
+    } else if (_patientFound) {
+      _resetPatient();
+    }
+    // Then call API to load existing treatment record (vitals, notes, etc.)
+    if (formatted.isNotEmpty) {
+      _loadExistingTreatment(formatted, prov);
+    }
+  }
+
+  Future<void> _loadExistingTreatment(
+      String mrNo, EmergencyProvider prov) async {
+    final rec = await prov.fetchExistingTreatment(mrNo);
+    if (rec == null) {
+      setState(() => _existingRecordId = null);
+      return;
+    }
+    // Update state: patient fields (if not already filled)
+    setState(() {
+      _existingRecordId = rec.srlNo;
+      _patientFound = true;
+      if (_nameCtrl.text.isEmpty) _nameCtrl.text = rec.patientName;
+      if (_ageCtrl.text.isEmpty) _ageCtrl.text = rec.patientAge;
+      if (_genderCtrl.text.isEmpty) _genderCtrl.text = rec.patientGender;
+      if (_phoneCtrl.text.isEmpty) _phoneCtrl.text = rec.phoneNumber;
+      if (_addressCtrl.text.isEmpty) _addressCtrl.text = rec.address;
+      // Clinical fields
+      _moCtrl.text    = rec.mo;
+      _bedCtrl.text   = rec.bed;
+      _pulseCtrl.text = rec.pulse;
+      _tempCtrl.text  = rec.temp;
+      _bpCtrl.text    = rec.bp;
+      _respCtrl.text  = rec.respRate;
+      _spo2Ctrl.text  = rec.spo2;
+      _weightCtrl.text = rec.weight;
+      _heightCtrl.text = rec.height;
+      _complainCtrl.text = rec.complaint;
+      _notesCtrl.text    = rec.moNotes;
+      _disOpt = _mapOutcome(rec.outcome);
+      // Admitted since
+      if (rec.admittedSince != null && rec.admittedSince!.isNotEmpty) {
+        try {
+          final dt = DateTime.parse(rec.admittedSince!);
+          _admCtrl.text = _fmtDt(dt);
+        } catch (_) {
+          _admCtrl.text = rec.admittedSince!;
+        }
+      }
+    });
+    // Auto-select services from existing record
+    if (rec.selectedServices.isNotEmpty) {
+      prov.clearAll();
+      for (final svcName in rec.selectedServices) {
+        final match = prov.emergencyServices.where(
+          (s) => s.name.toLowerCase() == svcName.toLowerCase(),
+        );
+        for (final m in match) {
+          if (!prov.isServiceSelected(m.id)) prov.toggleService(m);
+        }
+      }
+    }
+  }
+
+  String _mapOutcome(String? outcome) {
+    switch (outcome) {
+      case 'after_treatment':        return 'After Treatment';
+      case 'refer_admission':        return 'Refer to Admission';
+      case 'refer_other_hospital':   return 'Refer to Other Hospital';
+      case 'patient_expired':        return 'Patient Expired';
+      default: return _disOpt;
+    }
+  }
+
+  String _outcomeKey(String label) {
+    switch (label) {
+      case 'After Treatment':        return 'after_treatment';
+      case 'Refer to Admission':     return 'refer_admission';
+      case 'Refer to Other Hospital':return 'refer_other_hospital';
+      case 'Patient Expired':        return 'patient_expired';
+      default: return 'after_treatment';
     }
   }
 
@@ -164,6 +243,7 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
     _admCtrl.text = 'Auto-filled from Emergency Receipt';
     setState(() {
       _patientFound = false;
+      _existingRecordId = null;
       _disOpt = 'After Treatment';
       _discharged = false;
       _selectedDropdownService = null;
@@ -171,8 +251,58 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
     prov.clearAll();
   }
 
-  void _saveAndPrint(EmergencyProvider prov) {
-    if (_nameCtrl.text.trim().isEmpty) { _snack('Please fill patient name', err: true); return; }
+  Future<void> _saveAndPrint(EmergencyProvider prov) async {
+    if (_nameCtrl.text.trim().isEmpty) {
+      _snack('Please fill patient name', err: true);
+      return;
+    }
+
+    final payload = {
+      'patient_mr_number': _mrCtrl.text,
+      'patient_name':  _nameCtrl.text,
+      'patient_age':   _ageCtrl.text,
+      'patient_gender':_genderCtrl.text,
+      'phone_number':  _phoneCtrl.text,
+      'address':       _addressCtrl.text,
+      'mo':            _moCtrl.text,
+      'bed':           _bedCtrl.text,
+      'pulse':         _pulseCtrl.text,
+      'temp':          _tempCtrl.text,
+      'bp':            _bpCtrl.text,
+      'resp_rate':     _respCtrl.text,
+      'spo2':          _spo2Ctrl.text,
+      'weight':        _weightCtrl.text,
+      'height':        _heightCtrl.text,
+      'complaint':     _complainCtrl.text,
+      'mo_notes':      _notesCtrl.text,
+      'outcome':       _outcomeKey(_disOpt),
+      'discharge_patient': _discharged,
+      'selected_services':
+          prov.selectedServices.map((s) => s.name).toList(),
+    };
+
+    bool apiSuccess;
+    String? apiMessage;
+
+    if (_existingRecordId != null) {
+      final result = await prov.updateToApi(_existingRecordId!, payload);
+      apiSuccess = result.success;
+      apiMessage = result.message;
+    } else {
+      final result = await prov.saveToApi(payload);
+      apiSuccess = result.success;
+      apiMessage = result.message;
+      if (result.success && result.record != null) {
+        setState(() => _existingRecordId = result.record!.srlNo);
+      }
+    }
+
+    if (!apiSuccess) {
+      _snack(apiMessage ?? 'Failed to save record', err: true);
+      return;
+    }
+
+    // Also call local saveRecord to update queue state
     prov.saveRecord(
       mrNo: _mrCtrl.text, name: _nameCtrl.text, age: _ageCtrl.text,
       gender: _genderCtrl.text, phone: _phoneCtrl.text, address: _addressCtrl.text,
@@ -183,8 +313,11 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
       investigations: prov.addedInvestigations.toList(),
       medicines: prov.prescribedMedicines.toList(),
     );
+
     _snack('Record saved & printing...');
     _clearAll(prov);
+    // Refresh queue after save
+    prov.refreshAll();
   }
 
   void _snack(String msg, {bool err = false}) {
@@ -636,12 +769,17 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
                     value: svc,
                     child: Row(children: [
                       Container(
-                        padding: EdgeInsets.all(_sw * 0.015),
+                        width: _sw * 0.08,
+                        height: _sw * 0.08,
                         decoration: BoxDecoration(
                           color: svc.color.withOpacity(0.12),
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(svc.icon, color: svc.color, size: _sw * 0.035),
+                        clipBehavior: Clip.antiAlias,
+                        child: svc.imageUrl != null
+                            ? Image.network(svc.imageUrl!, fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Icon(svc.icon, color: svc.color, size: _sw * 0.045))
+                            : Icon(svc.icon, color: svc.color, size: _sw * 0.045),
                       ),
                       SizedBox(width: _sw * 0.018),
                       Expanded(child: Text(svc.name,
@@ -693,7 +831,19 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
               border: Border.all(color: svc.color.withOpacity(0.4), width: 1.5),
             ),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(svc.icon, color: svc.color, size: _sw * 0.035),
+              Container(
+                width: _sw * 0.06,
+                height: _sw * 0.06,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: svc.imageUrl != null
+                    ? Image.network(svc.imageUrl!, fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Icon(svc.icon, color: svc.color, size: _sw * 0.03))
+                    : Icon(svc.icon, color: svc.color, size: _sw * 0.03),
+              ),
               SizedBox(width: _sw * 0.012),
               Text(svc.name,
                   style: TextStyle(fontSize: _fsS, fontWeight: FontWeight.w600,
@@ -799,7 +949,7 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
     )),
     SizedBox(width: _sp),
     Expanded(flex: 2, child: ElevatedButton.icon(
-      onPressed: () => _saveAndPrint(prov),
+      onPressed: () async => await _saveAndPrint(prov),
       style: ElevatedButton.styleFrom(
         backgroundColor: const Color(0xFFEF9A9A),
         foregroundColor: Colors.white,

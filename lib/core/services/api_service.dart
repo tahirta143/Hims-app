@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:hims_app/global/global_api.dart';
 import 'package:http/http.dart' as http;
 import 'auth_storage_service.dart';
 
@@ -41,7 +42,7 @@ class PermissionsResult {
 /// Automatically attaches Bearer tokens to protected requests.
 class ApiService {
   // TODO: Change this to your actual backend URL
-  static const String baseUrl = 'https://api.opd.afaqmis.com/api';
+  // static const String baseUrl = 'https://api.afaqhims.com/api';
 
   final AuthStorageService _storage = AuthStorageService();
 
@@ -59,7 +60,7 @@ class ApiService {
     try {
       final response = await http
           .post(
-        Uri.parse('$baseUrl/auth/login'),
+        Uri.parse('${GlobalApi.baseUrl}/auth/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'username': username, 'password': password}),
       )
@@ -95,7 +96,7 @@ class ApiService {
     try {
       final headers = await _authHeaders();
       final response = await http
-          .get(Uri.parse('$baseUrl/auth/permissions'), headers: headers)
+          .get(Uri.parse('${GlobalApi.baseUrl}/auth/permissions'), headers: headers)
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 401) {

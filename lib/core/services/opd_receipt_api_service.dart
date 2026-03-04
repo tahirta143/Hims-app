@@ -2,14 +2,12 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../../global/global_api.dart';
 import 'auth_storage_service.dart';
 import '../../models/opd_model/opd_service_model.dart';
 import '../../models/opd_model/opd_receipt_model.dart';
 
 class OpdReceiptApiService {
-  // Use same host as your backend example
-  // For Android emulator, switch to 10.0.2.2 instead of 127.0.0.1
-  static const String baseUrl = 'http://127.0.0.1:3001/api';
   final AuthStorageService _storage = AuthStorageService();
 
   Future<Map<String, String>> _authHeaders() async {
@@ -25,7 +23,7 @@ class OpdReceiptApiService {
     try {
       final headers = await _authHeaders();
       final response = await http
-          .get(Uri.parse('$baseUrl/opd-services'), headers: headers)
+          .get(Uri.parse('${GlobalApi.baseUrl}/opd-services'), headers: headers)
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 401) {
@@ -71,7 +69,7 @@ class OpdReceiptApiService {
     try {
       final headers = await _authHeaders();
       final response = await http
-          .get(Uri.parse('$baseUrl/opd-receipts'), headers: headers)
+          .get(Uri.parse('${GlobalApi.baseUrl}/opd-patient-data'), headers: headers)
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 401) {
@@ -120,7 +118,7 @@ class OpdReceiptApiService {
       final headers = await _authHeaders();
       final response = await http
           .post(
-            Uri.parse('$baseUrl/opd-receipts'),
+            Uri.parse('${GlobalApi.baseUrl}/opd-patient-data'),
             headers: headers,
             body: jsonEncode(payload),
           )

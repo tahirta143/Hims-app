@@ -128,17 +128,87 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
   void _cancelRecord(OpdProvider prov, int idx) {
     final rec = prov.receipts[idx];
     if (rec['status'] == 'Cancelled') return;
-    prov.updateReceiptStatus(idx, 'Cancelled');
-    _snack('Receipt cancelled');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirm Cancel', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Text('Are you sure you want to cancel receipt ${rec['receiptNo']}?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('No')),
+          ElevatedButton(
+            onPressed: () {
+              prov.updateReceiptStatus(idx, 'Cancelled');
+              Navigator.pop(ctx);
+              _snack('Receipt cancelled');
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: const Text('Yes, Cancel'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _refundRecord(OpdProvider prov, int idx) {
     final rec = prov.receipts[idx];
     if (rec['status'] == 'Cancelled') {
-      _snack('Cannot refund a cancelled receipt', err: true); return;
+      _snack('Cannot refund a cancelled receipt', err: true);
+      return;
     }
-    prov.updateReceiptStatus(idx, 'Refunded');
-    _snack('Refund processed');
+
+    final amountCtrl = TextEditingController(text: (rec['paid'] ?? 0).toString());
+    final reasonCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Refund Process', style: TextStyle(fontWeight: FontWeight.bold)),
+            SizedBox(height: _sh * 0.005),
+            Text('${rec['patientName']} (${rec['mrNo']})',
+                style: TextStyle(fontSize: _fsS, color: Colors.grey.shade600, fontWeight: FontWeight.normal)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: amountCtrl,
+              decoration: const InputDecoration(labelText: 'Refund Amount', prefixText: 'PKR '),
+              keyboardType: TextInputType.number,
+              style: TextStyle(fontSize: _fs),
+            ),
+            SizedBox(height: _sh * 0.015),
+            TextField(
+              controller: reasonCtrl,
+              decoration: const InputDecoration(labelText: 'Refund Reason'),
+              maxLines: 2,
+              style: TextStyle(fontSize: _fs),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              if (reasonCtrl.text.trim().isEmpty) {
+                _snack('Please provide a reason', err: true);
+                return;
+              }
+              prov.updateReceiptStatus(idx, 'Refunded');
+              Navigator.pop(ctx);
+              _snack('Refund processed for PKR ${amountCtrl.text}');
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white),
+            child: const Text('Confirm Refund'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _snack(String msg, {bool err = false}) {

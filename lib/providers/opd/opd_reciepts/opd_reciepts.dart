@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/services/opd_receipt_api_service.dart';
+import '../../../core/services/consultation_api_service.dart';
+import '../../../core/services/consultant_payments_api_service.dart';
+import '../../../global/global_api.dart';
+import '../../shift_management/shift_management.dart';
+import '../../../models/consultation_model/doctor_model.dart';
 
 class OpdPatient {
   final String mrNo;
@@ -51,17 +56,25 @@ class OpdSelectedService {
   String? doctorName;
   String? doctorSpecialty;
   String? doctorAvatar;
+  String? doctorDepartment;
+  String? doctorSrlNo;
 
   OpdSelectedService({
     required this.service,
     this.doctorName,
     this.doctorSpecialty,
     this.doctorAvatar,
+    this.doctorDepartment,
+    this.doctorSrlNo,
   });
 }
 
 class OpdProvider extends ChangeNotifier {
   final OpdReceiptApiService _apiService = OpdReceiptApiService();
+  final ConsultantPaymentsApiService _paymentApiService =
+  ConsultantPaymentsApiService();
+
+  List<DoctorModel> _availableDoctorModels = [];
 
   // ── Loading / error state ──
   bool _loadingServices = false;
@@ -75,6 +88,7 @@ class OpdProvider extends ChangeNotifier {
   OpdProvider() {
     _initStaticServices();
     loadOpdServices();
+    loadDoctors();
     loadReceipts();
   }
 
@@ -90,7 +104,8 @@ class OpdProvider extends ChangeNotifier {
 
   // ── Mock Patients ──
   final List<OpdPatient> _patients = const [
-    OpdPatient(mrNo: '000001',
+    OpdPatient(
+        mrNo: '000001',
         fullName: 'Ahmed Hassan',
         phone: '0300-1234567',
         age: '35',
@@ -99,7 +114,8 @@ class OpdProvider extends ChangeNotifier {
         city: 'Lahore',
         panel: 'State Life',
         reference: 'General Physician'),
-    OpdPatient(mrNo: '000002',
+    OpdPatient(
+        mrNo: '000002',
         fullName: 'Fatima Malik',
         phone: '0321-9876543',
         age: '28',
@@ -108,7 +124,8 @@ class OpdProvider extends ChangeNotifier {
         city: 'Lahore',
         panel: 'EFU',
         reference: 'Specialist'),
-    OpdPatient(mrNo: '000003',
+    OpdPatient(
+        mrNo: '000003',
         fullName: 'Muhammad Ali Khan',
         phone: '0333-5554444',
         age: '52',
@@ -117,7 +134,8 @@ class OpdProvider extends ChangeNotifier {
         city: 'Islamabad',
         panel: 'SLIC',
         reference: 'General Physician'),
-    OpdPatient(mrNo: '000004',
+    OpdPatient(
+        mrNo: '000004',
         fullName: 'Ayesha Siddiqui',
         phone: '0345-7778888',
         age: '41',
@@ -126,7 +144,8 @@ class OpdProvider extends ChangeNotifier {
         city: 'Karachi',
         panel: 'Jubilee',
         reference: 'Emergency'),
-    OpdPatient(mrNo: '000005',
+    OpdPatient(
+        mrNo: '000005',
         fullName: 'Usman Tariq',
         phone: '0312-3334455',
         age: '19',
@@ -140,8 +159,7 @@ class OpdProvider extends ChangeNotifier {
   OpdPatient? lookupPatient(String mrNo) {
     try {
       return _patients.firstWhere((p) => p.mrNo == mrNo);
-    }
-    catch (_) {
+    } catch (_) {
       return null;
     }
   }
@@ -168,7 +186,7 @@ class OpdProvider extends ChangeNotifier {
     'Online',
   ];
 
-  // ── OPD Service Categories (Only the ones you want) ──
+  // ── OPD Service Categories ──
   final List<Map<String, dynamic>> serviceCategories = const [
     {
       'id': 'opd',
@@ -226,186 +244,184 @@ class OpdProvider extends ChangeNotifier {
   void _initStaticServices() {
     services.clear();
     services.addAll({
-      // 'opd' is loaded from API
-      'consultation': [
-      OpdService(id: 'con1',
-          name: 'Dr. Tahir (Neuro)',
-          category: 'consultation',
-          price: 1500,
-          icon: Icons.person_rounded,
-          color: Color(0xFF00B5AD)),
-      OpdService(id: 'con2',
-          name: 'Dr. Sara (Cardio)',
-          category: 'consultation',
-          price: 2000,
-          icon: Icons.person_rounded,
-          color: Color(0xFF00B5AD)),
-      OpdService(id: 'con3',
-          name: 'Dr. Raza (Ortho)',
-          category: 'consultation',
-          price: 1800,
-          icon: Icons.person_rounded,
-          color: Color(0xFF00B5AD)),
-      OpdService(id: 'con4',
-          name: 'Dr. Nida (Gynae)',
-          category: 'consultation',
-          price: 1200,
-          icon: Icons.person_rounded,
-          color: Color(0xFF00B5AD)),
-    ],
-    'xray': [
-      OpdService(id: 'xr1',
-          name: 'Chest X-Ray',
-          category: 'xray',
-          price: 800,
-          icon: Icons.radio_rounded,
-          color: Color(0xFF1E88E5)),
-      OpdService(id: 'xr2',
-          name: 'Spine X-Ray',
-          category: 'xray',
-          price: 1000,
-          icon: Icons.radio_rounded,
-          color: Color(0xFF1E88E5)),
-      OpdService(id: 'xr3',
-          name: 'Hand/Wrist X-Ray',
-          category: 'xray',
-          price: 600,
-          icon: Icons.radio_rounded,
-          color: Color(0xFF1E88E5)),
-    ],
-    'ctscan': [
-      OpdService(id: 'ct1',
-          name: 'CT Head',
-          category: 'ctscan',
-          price: 5000,
-          icon: Icons.document_scanner_rounded,
-          color: Color(0xFF8E24AA)),
-      OpdService(id: 'ct2',
-          name: 'CT Chest',
-          category: 'ctscan',
-          price: 6000,
-          icon: Icons.document_scanner_rounded,
-          color: Color(0xFF8E24AA)),
-      OpdService(id: 'ct3',
-          name: 'CT Abdomen',
-          category: 'ctscan',
-          price: 7000,
-          icon: Icons.document_scanner_rounded,
-          color: Color(0xFF8E24AA)),
-    ],
-    'mri': [
-      OpdService(id: 'mr1',
-          name: 'MRI Brain',
-          category: 'mri',
-          price: 8000,
-          icon: Icons.blur_circular_rounded,
-          color: Color(0xFF00ACC1)),
-      OpdService(id: 'mr2',
-          name: 'MRI Spine',
-          category: 'mri',
-          price: 9000,
-          icon: Icons.blur_circular_rounded,
-          color: Color(0xFF00ACC1)),
-      OpdService(id: 'mr3',
-          name: 'MRI Knee',
-          category: 'mri',
-          price: 7500,
-          icon: Icons.blur_circular_rounded,
-          color: Color(0xFF00ACC1)),
-    ],
-    'ultrasound': [
-      OpdService(id: 'us1',
-          name: 'Abdominal Ultrasound',
-          category: 'ultrasound',
-          price: 1500,
-          icon: Icons.sensors_rounded,
-          color: Color(0xFF43A047)),
-      OpdService(id: 'us2',
-          name: 'Pelvic Ultrasound',
-          category: 'ultrasound',
-          price: 1500,
-          icon: Icons.sensors_rounded,
-          color: Color(0xFF43A047)),
-      OpdService(id: 'us3',
-          name: 'Thyroid Ultrasound',
-          category: 'ultrasound',
-          price: 1200,
-          icon: Icons.sensors_rounded,
-          color: Color(0xFF43A047)),
-    ],
-    'laboratory': [
-      OpdService(id: 'lb1',
-          name: 'CBC (Complete Blood Count)',
-          category: 'laboratory',
-          price: 500,
-          icon: Icons.biotech_rounded,
-          color: Color(0xFFF4511E)),
-      OpdService(id: 'lb2',
-          name: 'LFTs (Liver Function Test)',
-          category: 'laboratory',
-          price: 800,
-          icon: Icons.biotech_rounded,
-          color: Color(0xFFF4511E)),
-      OpdService(id: 'lb3',
-          name: 'RFTs (Renal Function Test)',
-          category: 'laboratory',
-          price: 800,
-          icon: Icons.biotech_rounded,
-          color: Color(0xFFF4511E)),
-      OpdService(id: 'lb4',
-          name: 'Blood Sugar (Fasting)',
-          category: 'laboratory',
-          price: 200,
-          icon: Icons.biotech_rounded,
-          color: Color(0xFFF4511E)),
-      OpdService(id: 'lb5',
-          name: 'HbA1c',
-          category: 'laboratory',
-          price: 1200,
-          icon: Icons.biotech_rounded,
-          color: Color(0xFFF4511E)),
-      OpdService(id: 'lb6',
-          name: 'Lipid Profile',
-          category: 'laboratory',
-          price: 1000,
-          icon: Icons.biotech_rounded,
-          color: Color(0xFFF4511E)),
-      OpdService(id: 'lb7',
-          name: 'Urine Analysis',
-          category: 'laboratory',
-          price: 300,
-          icon: Icons.biotech_rounded,
-          color: Color(0xFFF4511E)),
-    ],
-    'emergency': [
-      OpdService(id: 'em1',
-          name: 'Emergency Consultation',
-          category: 'emergency',
-          price: 2500,
-          icon: Icons.emergency_rounded,
-          color: Color(0xFFE53935)),
-      OpdService(id: 'em2',
-          name: 'Trauma Care',
-          category: 'emergency',
-          price: 5000,
-          icon: Icons.emergency_rounded,
-          color: Color(0xFFE53935)),
-      OpdService(id: 'em3',
-          name: 'Resuscitation',
-          category: 'emergency',
-          price: 3500,
-          icon: Icons.emergency_rounded,
-          color: Color(0xFFE53935)),
-      OpdService(id: 'em4',
-          name: 'Emergency Surgery Prep',
-          category: 'emergency',
-          price: 4000,
-          icon: Icons.emergency_rounded,
-          color: Color(0xFFE53935)),
-    ],
+      'consultation': [],
+      'xray': [
+        OpdService(
+            id: 'xr1',
+            name: 'Chest X-Ray',
+            category: 'xray',
+            price: 800,
+            icon: Icons.radio_rounded,
+            color: Color(0xFF1E88E5)),
+        OpdService(
+            id: 'xr2',
+            name: 'Spine X-Ray',
+            category: 'xray',
+            price: 1000,
+            icon: Icons.radio_rounded,
+            color: Color(0xFF1E88E5)),
+        OpdService(
+            id: 'xr3',
+            name: 'Hand/Wrist X-Ray',
+            category: 'xray',
+            price: 600,
+            icon: Icons.radio_rounded,
+            color: Color(0xFF1E88E5)),
+      ],
+      'ctscan': [
+        OpdService(
+            id: 'ct1',
+            name: 'CT Head',
+            category: 'ctscan',
+            price: 5000,
+            icon: Icons.document_scanner_rounded,
+            color: Color(0xFF8E24AA)),
+        OpdService(
+            id: 'ct2',
+            name: 'CT Chest',
+            category: 'ctscan',
+            price: 6000,
+            icon: Icons.document_scanner_rounded,
+            color: Color(0xFF8E24AA)),
+        OpdService(
+            id: 'ct3',
+            name: 'CT Abdomen',
+            category: 'ctscan',
+            price: 7000,
+            icon: Icons.document_scanner_rounded,
+            color: Color(0xFF8E24AA)),
+      ],
+      'mri': [
+        OpdService(
+            id: 'mr1',
+            name: 'MRI Brain',
+            category: 'mri',
+            price: 8000,
+            icon: Icons.blur_circular_rounded,
+            color: Color(0xFF00ACC1)),
+        OpdService(
+            id: 'mr2',
+            name: 'MRI Spine',
+            category: 'mri',
+            price: 9000,
+            icon: Icons.blur_circular_rounded,
+            color: Color(0xFF00ACC1)),
+        OpdService(
+            id: 'mr3',
+            name: 'MRI Knee',
+            category: 'mri',
+            price: 7500,
+            icon: Icons.blur_circular_rounded,
+            color: Color(0xFF00ACC1)),
+      ],
+      'ultrasound': [
+        OpdService(
+            id: 'us1',
+            name: 'Abdominal Ultrasound',
+            category: 'ultrasound',
+            price: 1500,
+            icon: Icons.sensors_rounded,
+            color: Color(0xFF43A047)),
+        OpdService(
+            id: 'us2',
+            name: 'Pelvic Ultrasound',
+            category: 'ultrasound',
+            price: 1500,
+            icon: Icons.sensors_rounded,
+            color: Color(0xFF43A047)),
+        OpdService(
+            id: 'us3',
+            name: 'Thyroid Ultrasound',
+            category: 'ultrasound',
+            price: 1200,
+            icon: Icons.sensors_rounded,
+            color: Color(0xFF43A047)),
+      ],
+      'laboratory': [
+        OpdService(
+            id: 'lb1',
+            name: 'CBC (Complete Blood Count)',
+            category: 'laboratory',
+            price: 500,
+            icon: Icons.biotech_rounded,
+            color: Color(0xFFF4511E)),
+        OpdService(
+            id: 'lb2',
+            name: 'LFTs (Liver Function Test)',
+            category: 'laboratory',
+            price: 800,
+            icon: Icons.biotech_rounded,
+            color: Color(0xFFF4511E)),
+        OpdService(
+            id: 'lb3',
+            name: 'RFTs (Renal Function Test)',
+            category: 'laboratory',
+            price: 800,
+            icon: Icons.biotech_rounded,
+            color: Color(0xFFF4511E)),
+        OpdService(
+            id: 'lb4',
+            name: 'Blood Sugar (Fasting)',
+            category: 'laboratory',
+            price: 200,
+            icon: Icons.biotech_rounded,
+            color: Color(0xFFF4511E)),
+        OpdService(
+            id: 'lb5',
+            name: 'HbA1c',
+            category: 'laboratory',
+            price: 1200,
+            icon: Icons.biotech_rounded,
+            color: Color(0xFFF4511E)),
+        OpdService(
+            id: 'lb6',
+            name: 'Lipid Profile',
+            category: 'laboratory',
+            price: 1000,
+            icon: Icons.biotech_rounded,
+            color: Color(0xFFF4511E)),
+        OpdService(
+            id: 'lb7',
+            name: 'Urine Analysis',
+            category: 'laboratory',
+            price: 300,
+            icon: Icons.biotech_rounded,
+            color: Color(0xFFF4511E)),
+      ],
+      'emergency': [
+        OpdService(
+            id: 'em1',
+            name: 'Emergency Consultation',
+            category: 'emergency',
+            price: 2500,
+            icon: Icons.emergency_rounded,
+            color: Color(0xFFE53935)),
+        OpdService(
+            id: 'em2',
+            name: 'Trauma Care',
+            category: 'emergency',
+            price: 5000,
+            icon: Icons.emergency_rounded,
+            color: Color(0xFFE53935)),
+        OpdService(
+            id: 'em3',
+            name: 'Resuscitation',
+            category: 'emergency',
+            price: 3500,
+            icon: Icons.emergency_rounded,
+            color: Color(0xFFE53935)),
+        OpdService(
+            id: 'em4',
+            name: 'Emergency Surgery Prep',
+            category: 'emergency',
+            price: 4000,
+            icon: Icons.emergency_rounded,
+            color: Color(0xFFE53935)),
+      ],
     });
   }
 
+  // ── Load OPD Services from API ──
   Future<void> loadOpdServices() async {
     _loadingServices = true;
     _errorMessage = null;
@@ -414,12 +430,13 @@ class OpdProvider extends ChangeNotifier {
     final result = await _apiService.fetchOpdServices();
 
     if (result.success) {
-      // Map API services into our OPD category
       final apiServices = result.services
-          .where((s) => s.isActive == 1 && s.allowOpdService != 0)
+          .where((s) =>
+      s.isActive == 1 &&
+          (s.allowOpdService != 0 ||
+              s.serviceHead.toLowerCase() == 'opd'))
           .map((s) {
         final rate = double.tryParse(s.serviceRate) ?? 0.0;
-        // Map head to category color/icon
         Color color;
         IconData icon;
         switch (s.serviceHead.toLowerCase()) {
@@ -432,6 +449,13 @@ class OpdProvider extends ChangeNotifier {
             color = const Color(0xFFE53935);
             icon = Icons.local_hospital_rounded;
         }
+        final baseUrlRoot = GlobalApi.baseUrl.replaceAll('/api', '');
+        final imageUrl = s.imageUrl != null && s.imageUrl!.isNotEmpty
+            ? (s.imageUrl!.startsWith('http')
+            ? s.imageUrl
+            : '$baseUrlRoot${s.imageUrl}')
+            : null;
+
         return OpdService(
           id: s.serviceId,
           name: s.serviceName,
@@ -439,7 +463,7 @@ class OpdProvider extends ChangeNotifier {
           price: rate,
           icon: icon,
           color: color,
-          imageUrl: s.imageUrl,
+          imageUrl: imageUrl,
         );
       }).toList();
 
@@ -447,11 +471,61 @@ class OpdProvider extends ChangeNotifier {
       _errorMessage = null;
     } else {
       _errorMessage = result.message;
-      // keep any existing static OPD if present (none by default)
     }
 
     _loadingServices = false;
     notifyListeners();
+  }
+
+  // ── Load Doctors (Consultation category) ──
+  final ConsultationApiService _consultationApi = ConsultationApiService();
+
+  Future<void> loadDoctors() async {
+    final result = await _consultationApi.fetchDoctors();
+    if (result.success && result.doctors.isNotEmpty) {
+      final colors = [
+        const Color(0xFF00B5AD),
+        const Color(0xFF8E24AA),
+        const Color(0xFF1E88E5),
+        const Color(0xFFE53935),
+        const Color(0xFF43A047),
+        const Color(0xFFF4511E),
+        const Color(0xFF00897B),
+        const Color(0xFFD81B60),
+      ];
+      final doctorServices = result.doctors
+          .where((d) => d.isActive == 1)
+          .toList()
+          .asMap()
+          .entries
+          .map((entry) {
+        final i = entry.key;
+        final d = entry.value;
+        final fee = double.tryParse(d.consultationFee) ?? 0.0;
+        final spec = d.doctorSpecialization.isNotEmpty
+            ? ' (${d.doctorSpecialization})'
+            : '';
+        final baseUrlRoot = GlobalApi.baseUrl.replaceAll('/api', '');
+        final imageUrl = d.imageUrl != null && d.imageUrl!.isNotEmpty
+            ? (d.imageUrl!.startsWith('http')
+            ? d.imageUrl
+            : '$baseUrlRoot${d.imageUrl}')
+            : null;
+
+        return OpdService(
+          id: d.doctorId,
+          name: 'Dr. ${d.doctorName}$spec',
+          category: 'consultation',
+          price: fee,
+          icon: Icons.person_rounded,
+          color: colors[i % colors.length],
+          imageUrl: imageUrl,
+        );
+      }).toList();
+      services['consultation'] = doctorServices;
+      _availableDoctorModels = result.doctors;
+      notifyListeners();
+    }
   }
 
   // ── Selected Services ──
@@ -462,7 +536,26 @@ class OpdProvider extends ChangeNotifier {
 
   void addService(OpdService service) {
     if (!_selectedServices.any((s) => s.service.id == service.id)) {
-      _selectedServices.add(OpdSelectedService(service: service));
+      String? dept;
+      String? srl;
+      String? dName;
+
+      if (service.category == 'consultation') {
+        final doc = _availableDoctorModels.firstWhere(
+          (d) => d.doctorId == service.id,
+          orElse: () => _availableDoctorModels.firstWhere((d) => 'Dr. ${d.doctorName}' == service.name.split(' (')[0], orElse: () => _availableDoctorModels.first),
+        );
+        dept = doc.doctorDepartment;
+        srl = doc.srlNo.toString();
+        dName = doc.doctorName;
+      }
+
+      _selectedServices.add(OpdSelectedService(
+        service: service,
+        doctorName: dName,
+        doctorDepartment: dept,
+        doctorSrlNo: srl,
+      ));
       notifyListeners();
     }
   }
@@ -495,8 +588,7 @@ class OpdProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Admitted Emergency Patients (shared with EmergencyProvider) ──
-  // This list holds patients admitted from OPD receipt with emergency services
+  // ── Admitted Emergency Patients ──
   final List<Map<String, dynamic>> _admittedEmergencyPatients = [];
   List<Map<String, dynamic>> get admittedEmergencyPatients =>
       List.unmodifiable(_admittedEmergencyPatients);
@@ -506,7 +598,7 @@ class OpdProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Saved Receipts (from API, fallback seeded with mock data) ──
+  // ── Saved Receipts ──
   final List<Map<String, dynamic>> _receipts = [
     {
       'receiptNo': 'OPD71946',
@@ -719,7 +811,6 @@ class OpdProvider extends ChangeNotifier {
       _receipts
         ..clear()
         ..addAll(result.receipts.map((r) {
-          // Parse date string (YYYY-MM-DD) to DateTime for UI
           DateTime parsedDate;
           try {
             parsedDate = DateTime.parse(r.date);
@@ -734,9 +825,11 @@ class OpdProvider extends ChangeNotifier {
             'age': r.patientAge?.toString() ?? '',
             'gender': r.patientGender,
             'date': parsedDate,
-            'services': r.opdService.isNotEmpty
+            'services': r.serviceDetail.isNotEmpty
+                ? r.serviceDetail.split(',').map((e) => e.trim()).toList()
+                : (r.opdService.isNotEmpty
                 ? r.opdService.split(',').map((e) => e.trim()).toList()
-                : <String>[],
+                : <String>[]),
             'details': r.serviceDetail,
             'total': r.totalAmount,
             'discount': r.discount,
@@ -772,6 +865,7 @@ class OpdProvider extends ChangeNotifier {
     required List<OpdSelectedService> services,
     required double discount,
     required double amountPaid,
+    ShiftModel? currentShift,
   }) async {
     final now = DateTime.now();
     final dateStr =
@@ -779,27 +873,119 @@ class OpdProvider extends ChangeNotifier {
     final timeStr =
         '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
 
-    final servicesHeads = services.map((s) => s.service.category).toSet().toList();
+    // ── Snapshot totals BEFORE any clearing ──
+    final double totalAmount =
+    services.fold(0.0, (sum, s) => sum + s.service.price);
+    final double payableAmount =
+    (totalAmount - discount).clamp(0.0, double.infinity);
+    final double balanceAmount =
+    (payableAmount - amountPaid).clamp(0.0, double.infinity);
+
+    final servicesHeads =
+    services.map((s) => s.service.category).toSet().toList();
     final detailsList = services.map((s) => s.service.name).toList();
 
+    // ── Doctor info ──
+    String? firstDoctorId;
+    final consSvc =
+    services.where((s) => s.service.category == 'consultation').toList();
+    if (consSvc.isNotEmpty) {
+      firstDoctorId = consSvc.first.service.id;
+    }
+
+    // ── Average dr share (matches React logic) ──
+    double avgDrShare = 0;
+    if (consSvc.isNotEmpty) {
+      // Consultation services get 100% dr share by default
+      avgDrShare = 100.0;
+    }
+
+    // ── Dr share amount ──
+    double totalDrShare = 0;
+    final serviceDetails = services.map((s) {
+      double drShare = 0;
+      if (s.service.category == 'consultation') {
+        drShare = s.service.price; // full price goes to doctor
+      }
+      totalDrShare += drShare;
+
+      return {
+        'id': s.service.id,
+        'name': s.service.name,
+        'rate': s.service.price,
+        'qty': 1,
+        'total': s.service.price,
+        'type': s.service.category,
+        'drShare': drShare > 0 ? 100 : 0, // percentage
+      };
+    }).toList();
+
+    // ── Build payload exactly matching React's handleSubmit ──
     final payload = {
+      // NOTE: receipt_id is NOT sent — React does not send it
       'patient_mr_number': patient.mrNo,
       'patient_name': patient.fullName,
-      'phone_number': patient.phone,
-      'patient_age': patient.age,
+      'phone_number': patient.phone.isEmpty ? 'N/A' : patient.phone,
+      'patient_age': patient.age, // String — matches React's age.toString()
       'patient_gender': patient.gender,
-      'patient_address': patient.address,
+      'patient_address': patient.address.isEmpty ? 'N/A' : patient.address,
+      'city': patient.city.isEmpty ? 'N/A' : patient.city,
+      'panel': (patient.panel == 'None' || patient.panel.isEmpty)
+          ? 'Private'
+          : patient.panel,
+      'reference': (patient.reference == 'None' || patient.reference.isEmpty)
+          ? 'Self'
+          : patient.reference,
+      'doctor_id': firstDoctorId,
       'date': dateStr,
       'time': timeStr,
+      // ── Service fields ──
       'opd_service': servicesHeads.join(', '),
       'service_detail': detailsList.join(', '),
-      'total_amount': servicesTotal,
+      'service_details': serviceDetails,
+      // ── Amount fields (matches React exactly) ──
+      'total_amount': totalAmount,
+      'service_amount': totalAmount,
       'discount': discount,
-      'paid': amountPaid,
+      'payable': payableAmount,          // FIXED: was totalAmount, now after discount
+      'paid': amountPaid,                // FIXED: was paid_amount+paid, now just paid
+      'balance': balanceAmount,          // FIXED: correct calculation
+      // ── Dr share fields ──
+      'dr_share': avgDrShare,            // ADDED: was missing
+      'dr_share_amount': totalDrShare,
+      'hospital_share': totalAmount - totalDrShare,
+      // ── Discount meta fields (ADDED — React sends all these) ──
+      'opd_discount': discount > 0,
+      'discount_amount': discount,
+      'discount_reason': null,
+      'discount_id': null,
+      // ── Patient flags (ADDED — React sends all these) ──
+      'patient_token_appointment': false,
+      'patient_checked': false,
+      'patient_requested_discount': discount > 0,
+      // ── Status & payment ──
       'status': 'Active',
+      'payment_mode': 'Cash',
+      'receipt_type': 'Small',
+      // ── Shift ──
+      'shift_id': currentShift?.shiftId ?? 0,
+      'shift_type': currentShift?.shiftType ?? 'N/A',
+      'shift_date': currentShift?.shiftDate ?? dateStr,
+      // ── Emergency ──
+      'emergency_paid':
+      servicesHeads.any((h) => h.toLowerCase() == 'emergency'),
     };
 
+    // ── Debug: log request before sending ──
+    debugPrint('══ OPD RECEIPT PAYLOAD ══');
+    debugPrint(payload.toString());
+
     final apiResult = await _apiService.createOpdReceipt(payload);
+
+    // ── Debug: log response ──
+    debugPrint('══ OPD RECEIPT RESULT ══');
+    debugPrint('success: ${apiResult.success}');
+    debugPrint('message: ${apiResult.message}');
 
     if (!apiResult.success) {
       _errorMessage = apiResult.message;
@@ -807,32 +993,60 @@ class OpdProvider extends ChangeNotifier {
       return false;
     }
 
-    final receiptNo =
-        apiResult.receipt?.receiptId ?? 'OPD$_receiptCounter';
+    // ── Create consultant payment records if applicable ──
+    for (var svc in services) {
+      double drShareAmount = 0;
+      if (svc.service.category == 'consultation') {
+        drShareAmount = svc.service.price; // 100% share for consultation in this logic
+      }
 
+      if (drShareAmount > 0) {
+        // Use either svc specific doctor metadata OR fallback to firstDoctorId info
+        final dName = svc.doctorName ?? (services.firstWhere((s) => s.doctorName != null, orElse: () => services.first).doctorName ?? 'Unknown');
+        final dDept = svc.doctorDepartment ?? '';
+        final dId = svc.doctorSrlNo ?? firstDoctorId;
+
+        await _paymentApiService.createConsultantPayment({
+          'payment_date': dateStr,
+          'payment_time': timeStr,
+          'doctor_name': dName,
+          'payment_department': dDept,
+          'total': svc.service.price,
+          'payment_share': 100, // percentage
+          'payment_amount': drShareAmount,
+          'patient_id': patient.mrNo,
+          'patient_date': dateStr,
+          'patient_service': svc.service.name,
+          'patient_name': patient.fullName,
+          'shift_id': currentShift?.shiftId ?? 0,
+          'shift_type': currentShift?.shiftType ?? 'N/A',
+          'shift_date': currentShift?.shiftDate ?? dateStr,
+        });
+      }
+    }
+
+    final receiptNo = apiResult.receipt?.receiptId ?? 'OPD$_receiptCounter';
+
+    // ── Add to local receipts list BEFORE clearing state ──
     _receipts.add({
-      'receiptNo': 'OPD$_receiptCounter',
+      'receiptNo': receiptNo,
       'mrNo': patient.mrNo,
       'patientName': patient.fullName,
       'age': patient.age,
       'gender': patient.gender,
       'date': DateTime.now(),
-      'services': services.map((s) => s.service.category).toSet().toList(),
-      'details': services.map((s) {
-        if (s.service.category == 'consultation') {
-          return s.service.name;
-        }
-        return s.service.name;
-      }).join(', '),
-      'total': servicesTotal,
+      'services': services.map((s) => s.service.name).toList(),
+      'details': detailsList.join(', '),
+      'total': totalAmount,        // uses snapshotted value — safe
       'discount': discount,
       'paid': amountPaid,
       'status': 'Active',
     });
     _receiptCounter++;
 
-    // ── If emergency admission is checked AND emergency services selected → add to emergency queue ──
-    if (_emergencyAdmission && services.any((s) => s.service.category == 'emergency')) {
+    // ── Emergency admission ──
+    if (_emergencyAdmission &&
+        services.any((s) => s.service.category == 'emergency')) {
       _admittedEmergencyPatients.add({
         'mrNo': patient.mrNo,
         'name': patient.fullName,
@@ -841,7 +1055,7 @@ class OpdProvider extends ChangeNotifier {
         'phone': patient.phone,
         'address': patient.address,
         'admittedSince': DateTime.now(),
-        'receiptNo': 'OPD${_receiptCounter - 1}',
+        'receiptNo': receiptNo,
         'emergencyServices': services
             .where((s) => s.service.category == 'emergency')
             .map((s) => s.service.name)
@@ -849,6 +1063,7 @@ class OpdProvider extends ChangeNotifier {
       });
     }
 
+    // ── Clear state AFTER all local mutations ──
     _emergencyAdmission = false;
     incrementMrNo();
     _selectedServices.clear();

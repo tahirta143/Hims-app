@@ -3,9 +3,10 @@ import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../core/services/auth_storage_service.dart';
+import '../../global/global_api.dart';
 import '../../models/appointment_model/appointments_model.dart';
 class AppointmentsProvider extends ChangeNotifier {
-  static const String _baseUrl = 'http://10.0.2.2:3001/api/appointments';
+  static const String _baseUrl = '${GlobalApi.baseUrl}/appointments';
 
   final AuthStorageService _storage = AuthStorageService();
 
