@@ -1,6 +1,8 @@
 // voucher_model.dart
 // Pure model/entity classes for Discount Voucher Approval
 
+import 'dart:convert';
+
 class ServiceItem {
   final int srNo;
   final String service;
@@ -34,37 +36,38 @@ class ServiceItem {
     );
   }
 
-  Map<String, dynamic> toMap() => {
-    'srNo': srNo,
-    'service': service,
-    'type': type,
-    'rate': rate,
-    'qty': qty,
-  };
-
-  factory ServiceItem.fromMap(Map<String, dynamic> map) => ServiceItem(
-    srNo: map['srNo'] as int,
-    service: map['service'] as String,
-    type: map['type'] as String,
-    rate: (map['rate'] as num).toDouble(),
-    qty: map['qty'] as int,
-  );
+  factory ServiceItem.fromJson(Map<String, dynamic> json, int index) {
+    return ServiceItem(
+      srNo: index + 1,
+      service: json['name'] as String? ?? 'Unknown',
+      type: json['type'] as String? ?? json['head'] as String? ?? '',
+      rate: double.tryParse(json['rate']?.toString() ?? '0') ?? 0.0,
+      qty: int.tryParse(json['qty']?.toString() ?? '1') ?? 1,
+    );
+  }
 }
 
 class VoucherDetail {
+  final int srlNo;
   final String invoiceId;
   final String date;
   final String time;
   final String patientName;
-  final int age;
+  final String age;
   final String gender;
   final String phone;
   final String address;
+  final String patientMrNumber;
   final List<ServiceItem> services;
-  final double discountPercentage;
+  final double discountAmountValue;
+  final double totalAmount;
+  final double payableAmt;
+  final String discountReason;
+  final String opdService;
   final VoucherStatus status;
 
   const VoucherDetail({
+    required this.srlNo,
     required this.invoiceId,
     required this.date,
     required this.time,
@@ -73,123 +76,136 @@ class VoucherDetail {
     required this.gender,
     required this.phone,
     required this.address,
+    required this.patientMrNumber,
     required this.services,
-    required this.discountPercentage,
+    required this.discountAmountValue,
+    required this.totalAmount,
+    required this.payableAmt,
+    required this.discountReason,
+    required this.opdService,
     this.status = VoucherStatus.pending,
   });
 
-  double get total => services.fold(0, (sum, s) => sum + s.total);
-  double get discountAmount => total * discountPercentage / 100;
-  double get payable => total - discountAmount;
+  double get total => totalAmount;
+  double get discountAmount => discountAmountValue;
+  double get payable => payableAmt;
+  double get discountPercentage => total > 0 ? (discountAmount / total) * 100 : 0.0;
 
   VoucherDetail copyWith({
-    String? invoiceId,
-    String? date,
-    String? time,
-    String? patientName,
-    int? age,
-    String? gender,
-    String? phone,
-    String? address,
-    List<ServiceItem>? services,
-    double? discountPercentage,
     VoucherStatus? status,
   }) {
     return VoucherDetail(
-      invoiceId: invoiceId ?? this.invoiceId,
-      date: date ?? this.date,
-      time: time ?? this.time,
-      patientName: patientName ?? this.patientName,
-      age: age ?? this.age,
-      gender: gender ?? this.gender,
-      phone: phone ?? this.phone,
-      address: address ?? this.address,
-      services: services ?? this.services,
-      discountPercentage: discountPercentage ?? this.discountPercentage,
+      srlNo: srlNo,
+      invoiceId: invoiceId,
+      date: date,
+      time: time,
+      patientName: patientName,
+      age: age,
+      gender: gender,
+      phone: phone,
+      address: address,
+      patientMrNumber: patientMrNumber,
+      services: services,
+      discountAmountValue: discountAmountValue,
+      totalAmount: totalAmount,
+      payableAmt: payableAmt,
+      discountReason: discountReason,
+      opdService: opdService,
       status: status ?? this.status,
     );
   }
 
-  Map<String, dynamic> toMap() => {
-    'invoiceId': invoiceId,
-    'date': date,
-    'time': time,
-    'patientName': patientName,
-    'age': age,
-    'gender': gender,
-    'phone': phone,
-    'address': address,
-    'services': services.map((s) => s.toMap()).toList(),
-    'discountPercentage': discountPercentage,
-    'status': status.name,
-  };
+  factory VoucherDetail.fromJson(Map<String, dynamic> json) {
+    List<ServiceItem> parsedServices = [];
+    final svDetails = json['service_details'];
+    if (svDetails != null) {
+      try {
+        List<dynamic> list;
+        if (svDetails is String) {
+          list = jsonDecode(svDetails);
+        } else if (svDetails is List) {
+          list = svDetails;
+        } else {
+          list = [];
+        }
+        for (var i = 0; i < list.length; i++) {
+          final item = list[i];
+          if (item is Map<String, dynamic>) {
+            parsedServices.add(ServiceItem.fromJson(item, i));
+          }
+        }
+      } catch (_) {}
+    }
 
-  factory VoucherDetail.fromMap(Map<String, dynamic> map) => VoucherDetail(
-    invoiceId: map['invoiceId'] as String,
-    date: map['date'] as String,
-    time: map['time'] as String,
-    patientName: map['patientName'] as String,
-    age: map['age'] as int,
-    gender: map['gender'] as String,
-    phone: map['phone'] as String,
-    address: map['address'] as String,
-    services: (map['services'] as List)
-        .map((s) => ServiceItem.fromMap(s as Map<String, dynamic>))
-        .toList(),
-    discountPercentage: (map['discountPercentage'] as num).toDouble(),
-    status: VoucherStatus.values.byName(map['status'] as String),
-  );
+    return VoucherDetail(
+      srlNo: json['srl_no'] ?? 0,
+      invoiceId: json['receipt_id']?.toString() ?? '',
+      date: json['date']?.toString() ?? '',
+      time: json['time']?.toString() ?? '',
+      patientName: json['patient_name']?.toString() ?? '',
+      age: json['patient_age']?.toString() ?? '',
+      gender: json['patient_gender']?.toString() ?? '',
+      phone: json['phone_number']?.toString() ?? '',
+      address: json['patient_address']?.toString() ?? '',
+      patientMrNumber: json['patient_mr_number']?.toString() ?? '',
+      services: parsedServices,
+      discountAmountValue: double.tryParse(json['discount_amount']?.toString() ?? json['discount']?.toString() ?? '0') ?? 0.0,
+      totalAmount: double.tryParse(json['total_amount']?.toString() ?? '0') ?? 0.0,
+      payableAmt: double.tryParse(json['payable']?.toString() ?? '0') ?? 0.0,
+      discountReason: json['discount_reason']?.toString() ?? '',
+      opdService: json['opd_service']?.toString() ?? '',
+      status: VoucherStatus.pending,
+    );
+  }
 }
 
 enum VoucherStatus { pending, approved, rejected }
 
-class DiscountAuthority {
-  final String id;
-  final String name;
-  final String department;
-  final double totalLimit;
-  final double usedLimit;
+class DiscountType {
+  final int srlNo;
+  final String discountName;
+  final int isActive;
 
-  const DiscountAuthority({
-    required this.id,
-    required this.name,
-    required this.department,
-    required this.totalLimit,
-    required this.usedLimit,
+  DiscountType({
+    required this.srlNo,
+    required this.discountName,
+    required this.isActive,
   });
 
-  double get availableLimit => totalLimit - usedLimit;
-
-  DiscountAuthority copyWith({
-    String? id,
-    String? name,
-    String? department,
-    double? totalLimit,
-    double? usedLimit,
-  }) {
-    return DiscountAuthority(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      department: department ?? this.department,
-      totalLimit: totalLimit ?? this.totalLimit,
-      usedLimit: usedLimit ?? this.usedLimit,
+  factory DiscountType.fromJson(Map<String, dynamic> json) {
+    return DiscountType(
+      srlNo: json['srl_no'] ?? 0,
+      discountName: json['discount_name'] ?? '',
+      isActive: json['is_active'] ?? 0,
     );
   }
+}
 
-  Map<String, dynamic> toMap() => {
-    'id': id,
-    'name': name,
-    'department': department,
-    'totalLimit': totalLimit,
-    'usedLimit': usedLimit,
-  };
+class DiscountAuthorityModel {
+  final int srlNo;
+  final String employeeName;
+  final String departmentName;
+  final double discountLimit;
+  final double usedLimit;
+  final int isActive;
 
-  factory DiscountAuthority.fromMap(Map<String, dynamic> map) =>
-      DiscountAuthority(
-        id: map['id'] as String,
-        name: map['name'] as String,
-        department: map['department'] as String,
-        totalLimit: (map['totalLimit'] as num).toDouble(),
-        usedLimit: (map['usedLimit'] as num).toDouble(),
-      );
+  DiscountAuthorityModel({
+    required this.srlNo,
+    required this.employeeName,
+    required this.departmentName,
+    required this.discountLimit,
+    required this.usedLimit,
+    required this.isActive,
+  });
+
+  factory DiscountAuthorityModel.fromJson(Map<String, dynamic> json) {
+    return DiscountAuthorityModel(
+      srlNo: json['srl_no'] ?? 0,
+      employeeName: json['employee_name'] ?? json['authority_name'] ?? '',
+      departmentName: json['department_name'] ?? json['designation'] ?? '',
+      discountLimit: double.tryParse(json['discount_limit']?.toString() ?? '0') ?? 0.0,
+      usedLimit: double.tryParse(json['used_limit']?.toString() ?? '0') ?? 0.0,
+      isActive: json['is_active'] ?? 0,
+    );
+  }
 }

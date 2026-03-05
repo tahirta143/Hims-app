@@ -251,6 +251,50 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
     prov.clearAll();
   }
 
+  Future<void> _handleGenerateBill(EmergencyProvider prov) async {
+    if (_mrCtrl.text.isEmpty) {
+      _snack('Please select a patient from the queue first', err: true);
+      return;
+    }
+    if (prov.selectedServices.isEmpty) {
+      _snack('Please select at least one service', err: true);
+      return;
+    }
+
+    // 1. Fetch current shift
+    final shiftResult = await prov.fetchCurrentShift();
+    if (!shiftResult.success || shiftResult.shift == null) {
+      _snack(shiftResult.message ?? 'No active shift found. Please open a shift first.', err: true);
+      return;
+    }
+
+    final shift = shiftResult.shift!;
+
+    // 2. Prepare payload exactly like React
+    final payload = {
+      'patient_name': _nameCtrl.text,
+      'shift_date': shift.shiftDate,
+      'shift_type': shift.shiftType,
+      'shift_id': shift.shiftId,
+      'items': prov.selectedServices.map((s) => {
+        'service_head': s.name,
+        'amount': s.price,
+      }).toList(),
+    };
+
+    // 3. Create bill
+    final result = await prov.createBill(payload);
+    if (result.success) {
+      _snack('Bill generated successfully! ${result.message ?? ""}');
+      prov.clearAll(); // Clears selected services
+      setState(() {
+        _selectedDropdownService = null;
+      });
+    } else {
+      _snack(result.message ?? 'Failed to generate bill', err: true);
+    }
+  }
+
   Future<void> _saveAndPrint(EmergencyProvider prov) async {
     if (_nameCtrl.text.trim().isEmpty) {
       _snack('Please fill patient name', err: true);
@@ -820,51 +864,93 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
                     fontStyle: FontStyle.italic)),
           );
         }
-        return Wrap(
-          spacing: _sw * 0.02,
-          runSpacing: _sh * 0.008,
-          children: p.selectedServices.map((svc) => Container(
-            padding: EdgeInsets.symmetric(horizontal: _sw * 0.025, vertical: _sh * 0.007),
-            decoration: BoxDecoration(
-              color: svc.color.withOpacity(0.09),
-              borderRadius: BorderRadius.circular(_sw * 0.04),
-              border: Border.all(color: svc.color.withOpacity(0.4), width: 1.5),
-            ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Container(
-                width: _sw * 0.06,
-                height: _sw * 0.06,
+        return Column(
+          children: [
+            Wrap(
+              spacing: _sw * 0.02,
+              runSpacing: _sh * 0.008,
+              children: p.selectedServices.map((svc) => Container(
+                padding: EdgeInsets.symmetric(horizontal: _sw * 0.025, vertical: _sh * 0.007),
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white,
+                  color: svc.color.withOpacity(0.09),
+                  borderRadius: BorderRadius.circular(_sw * 0.04),
+                  border: Border.all(color: svc.color.withOpacity(0.4), width: 1.5),
                 ),
-                clipBehavior: Clip.antiAlias,
-                child: svc.imageUrl != null
-                    ? Image.network(svc.imageUrl!, fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Icon(svc.icon, color: svc.color, size: _sw * 0.03))
-                    : Icon(svc.icon, color: svc.color, size: _sw * 0.03),
-              ),
-              SizedBox(width: _sw * 0.012),
-              Text(svc.name,
-                  style: TextStyle(fontSize: _fsS, fontWeight: FontWeight.w600,
-                      color: Colors.black87)),
-              SizedBox(width: _sw * 0.008),
-              Text('PKR ${svc.price.toStringAsFixed(0)}',
-                  style: TextStyle(fontSize: _fsXS, color: Colors.grey.shade500)),
-              SizedBox(width: _sw * 0.012),
-              GestureDetector(
-                onTap: () => p.removeSelectedService(svc.id),
-                child: Container(
-                  padding: EdgeInsets.all(_sw * 0.008),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    shape: BoxShape.circle,
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Container(
+                    width: _sw * 0.06,
+                    height: _sw * 0.06,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white,
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: svc.imageUrl != null
+                        ? Image.network(svc.imageUrl!, fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Icon(svc.icon, color: svc.color, size: _sw * 0.03))
+                        : Icon(svc.icon, color: svc.color, size: _sw * 0.03),
                   ),
-                  child: Icon(Icons.close_rounded, color: Colors.red.shade400, size: _sw * 0.028),
-                ),
+                  SizedBox(width: _sw * 0.012),
+                  Text(svc.name,
+                      style: TextStyle(fontSize: _fsS, fontWeight: FontWeight.w600,
+                          color: Colors.black87)),
+                  SizedBox(width: _sw * 0.008),
+                  Text('PKR ${svc.price.toStringAsFixed(0)}',
+                      style: TextStyle(fontSize: _fsXS, color: Colors.grey.shade500)),
+                  SizedBox(width: _sw * 0.012),
+                  GestureDetector(
+                    onTap: () => p.removeSelectedService(svc.id),
+                    child: Container(
+                      padding: EdgeInsets.all(_sw * 0.008),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.close_rounded, color: Colors.red.shade400, size: _sw * 0.028),
+                    ),
+                  ),
+                ]),
+              )).toList(),
+            ),
+            SizedBox(height: _sh * 0.016),
+            // ── Bill Generate Button ──
+            Container(
+              padding: EdgeInsets.all(_sw * 0.03),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(_sw * 0.025),
+                border: Border.all(color: Colors.green.withOpacity(0.3)),
               ),
-            ]),
-          )).toList(),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Total Bill Amount',
+                            style: TextStyle(fontSize: _fsXS, color: Colors.grey.shade600)),
+                        Text('PKR ${p.servicesTotalPrice.toStringAsFixed(0)}',
+                            style: TextStyle(fontSize: _fsL, fontWeight: FontWeight.bold, color: Colors.green.shade700)),
+                      ],
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () => _handleGenerateBill(p),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green.shade600,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(horizontal: _sw * 0.04, vertical: _sh * 0.012),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_sw * 0.02)),
+                      elevation: 0,
+                    ),
+                    icon: Icon(Icons.receipt_long_rounded, size: _sw * 0.042),
+                    label: Text('Generate Bill',
+                        style: TextStyle(fontSize: _fs, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
+          ],
         );
       }),
     ]));

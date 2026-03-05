@@ -151,7 +151,7 @@ class PendingApprovalTile extends StatelessWidget {
               const SizedBox(height: 2),
               Text(voucher.patientName,
                   style: TextStyle(fontSize: 12, color: isSelected ? kPrimary : kSubText)),
-              Text('MR: ${voucher.invoiceId.substring(3)}',
+              Text('MR: ${voucher.patientMrNumber}',
                   style: const TextStyle(fontSize: 10, color: kSubText)),
             ]),
           ),
@@ -293,8 +293,9 @@ class _DiscountVoucherApprovalScreenState
   }
 
   // ── Approve logic ──────────────────────────────────────────────────────────
-  void _handleApprove(VoucherProvider p) {
-    final ok = p.approveDiscount();
+  void _handleApprove(VoucherProvider p) async {
+    final ok = await p.approveDiscount();
+    if (!mounted) return;
     if (!ok) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(p.errorMessage ?? 'Validation failed'),
@@ -542,25 +543,25 @@ class _DiscountVoucherApprovalScreenState
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         AmountSummaryRow(label: 'Total', value: v.total.toInt().toString()),
         const SizedBox(height: 12),
-        VoucherDropdown<DiscountAuthority>(
+        VoucherDropdown<DiscountAuthorityModel>(
           label: 'DISCOUNT BY', hint: 'Select Authority', value: auth,
           items: p.authorities
               .map((a) => DropdownMenuItem(
               value: a,
-              child: Text(a.name, style: const TextStyle(fontSize: 13))))
+              child: Text(a.employeeName, style: const TextStyle(fontSize: 13))))
               .toList(),
           onChanged: p.selectAuthority,
         ),
         const SizedBox(height: 10),
         if (auth != null) ...[
-          VoucherInfoField(label: 'DEPARTMENT NAME', value: auth.department),
+          VoucherInfoField(label: 'DEPARTMENT NAME', value: auth.departmentName),
           const SizedBox(height: 10),
           Row(children: [
             Expanded(child: VoucherInfoField(
-                label: 'TOTAL LIMIT', value: 'Rs. ${auth.totalLimit.toInt()}')),
+                label: 'TOTAL LIMIT', value: 'Rs. ${auth.discountLimit.toInt()}')),
             const SizedBox(width: 10),
             Expanded(child: VoucherInfoField(
-                label: 'AVAILABLE LIMIT', value: 'Rs. ${auth.availableLimit.toInt()}')),
+                label: 'AVAILABLE LIMIT', value: 'Rs. ${(auth.discountLimit - auth.usedLimit).toInt()}')),
           ]),
         ] else ...[
           Row(children: [
@@ -572,14 +573,9 @@ class _DiscountVoucherApprovalScreenState
           ]),
         ],
         const SizedBox(height: 10),
-        VoucherDropdown<String>(
-          label: 'DISCOUNT REASON', hint: 'Select Reason', value: p.selectedReason,
-          items: p.discountReasons
-              .map((r) => DropdownMenuItem(
-              value: r,
-              child: Text(r, style: const TextStyle(fontSize: 13))))
-              .toList(),
-          onChanged: p.selectReason,
+        VoucherInfoField(
+          label: 'DISCOUNT REASON',
+          value: v.discountReason.isEmpty ? '—' : v.discountReason,
         ),
         const SizedBox(height: 16),
         const Divider(),
@@ -616,10 +612,12 @@ class _DiscountVoucherApprovalScreenState
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
-            onPressed: () => _showApproveDialog(p),
-            icon: const Icon(Icons.check_circle_rounded, size: 18),
-            label: const Text('Approve Discount',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+            onPressed: p.isApproving ? null : () => _showApproveDialog(p),
+            icon: p.isApproving 
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) 
+              : const Icon(Icons.check_circle_rounded, size: 18),
+            label: Text(p.isApproving ? 'Approving...' : 'Approve Discount',
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
             style: ElevatedButton.styleFrom(
               backgroundColor: kPrimary,
               foregroundColor: Colors.white,

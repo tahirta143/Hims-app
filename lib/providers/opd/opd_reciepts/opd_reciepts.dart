@@ -430,25 +430,49 @@ class OpdProvider extends ChangeNotifier {
     final result = await _apiService.fetchOpdServices();
 
     if (result.success) {
-      final apiServices = result.services
-          .where((s) =>
-      s.isActive == 1 &&
-          (s.allowOpdService != 0 ||
-              s.serviceHead.toLowerCase() == 'opd'))
-          .map((s) {
+      // Clear existing API services but keep consultation (loaded separately)
+      services.removeWhere((key, value) => key != 'consultation');
+
+      for (var s in result.services) {
+        if (s.isActive != 1) continue;
+
         final rate = double.tryParse(s.serviceRate) ?? 0.0;
-        Color color;
-        IconData icon;
-        switch (s.serviceHead.toLowerCase()) {
-          case 'emergency':
-            color = const Color(0xFFE53935);
-            icon = Icons.emergency_rounded;
-            break;
-          case 'opd':
-          default:
-            color = const Color(0xFFE53935);
-            icon = Icons.local_hospital_rounded;
+        String category = 'opd'; // Default
+        Color color = const Color(0xFFE53935);
+        IconData icon = Icons.local_hospital_rounded;
+
+        final head = s.serviceHead.toLowerCase();
+
+        if (head.contains('x-ray') || head.contains('xray')) {
+          category = 'xray';
+          color = const Color(0xFF1E88E5);
+          icon = Icons.radio_rounded;
+        } else if (head.contains('ct scan') || head.contains('ctscan')) {
+          category = 'ctscan';
+          color = const Color(0xFF8E24AA);
+          icon = Icons.document_scanner_rounded;
+        } else if (head.contains('mri')) {
+          category = 'mri';
+          color = const Color(0xFF00ACC1);
+          icon = Icons.blur_circular_rounded;
+        } else if (head.contains('ultrasound')) {
+          category = 'ultrasound';
+          color = const Color(0xFF43A047);
+          icon = Icons.sensors_rounded;
+        } else if (head.contains('laboratory') || head.contains('lab')) {
+          category = 'laboratory';
+          color = const Color(0xFFF4511E);
+          icon = Icons.biotech_rounded;
+        } else if (head.contains('emergency')) {
+          category = 'emergency';
+          color = const Color(0xFFE53935);
+          icon = Icons.emergency_rounded;
+        } else if (head.contains('opd')) {
+          category = 'opd';
+          color = const Color(0xFFE53935);
+          icon = Icons.local_hospital_rounded;
         }
+
         final baseUrlRoot = GlobalApi.baseUrl.replaceAll('/api', '');
         final imageUrl = s.imageUrl != null && s.imageUrl!.isNotEmpty
             ? (s.imageUrl!.startsWith('http')
@@ -456,18 +480,25 @@ class OpdProvider extends ChangeNotifier {
             : '$baseUrlRoot${s.imageUrl}')
             : null;
 
-        return OpdService(
+        final service = OpdService(
           id: s.serviceId,
           name: s.serviceName,
-          category: 'opd',
+          category: category,
           price: rate,
           icon: icon,
           color: color,
           imageUrl: imageUrl,
         );
-      }).toList();
 
-      services['opd'] = apiServices;
+        if (!services.containsKey(category)) {
+          services[category] = [];
+        }
+        
+        // Avoid duplicates if merging with static
+        if (!services[category]!.any((existing) => existing.id == service.id)) {
+          services[category]!.add(service);
+        }
+      }
       _errorMessage = null;
     } else {
       _errorMessage = result.message;
