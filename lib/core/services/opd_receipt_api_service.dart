@@ -162,12 +162,12 @@ class OpdReceiptApiService {
     }
   }
 
-  // GET /pending-discount-receipts
+  // GET /opd-patient-data/pending-discounts
   Future<PendingDiscountReceiptsResult> fetchPendingDiscountReceipts() async {
     try {
       final headers = await _authHeaders();
       final response = await http
-          .get(Uri.parse('${GlobalApi.baseUrl}/pending-discount-receipts'), headers: headers)
+          .get(Uri.parse('${GlobalApi.baseUrl}/opd-patient-data/pending-discounts'), headers: headers)
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 401) {
@@ -190,18 +190,17 @@ class OpdReceiptApiService {
     }
   }
 
-  // POST /approve-discount
+  // PUT /opd-patient-data/{id}/approve-discount
   Future<ApproveDiscountResult> approveDiscount(int receiptSrlNo, int authoritySrlNo) async {
     try {
       final headers = await _authHeaders();
       final payload = {
-        'receipt_srl_no': receiptSrlNo,
-        'authority_srl_no': authoritySrlNo,
+        'authority_id': authoritySrlNo,
       };
 
       final response = await http
-          .post(
-            Uri.parse('${GlobalApi.baseUrl}/approve-discount'),
+          .put(
+            Uri.parse('${GlobalApi.baseUrl}/opd-patient-data/$receiptSrlNo/approve-discount'),
             headers: headers,
             body: jsonEncode(payload),
           )
