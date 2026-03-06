@@ -493,7 +493,7 @@ class OpdProvider extends ChangeNotifier {
         if (!services.containsKey(category)) {
           services[category] = [];
         }
-        
+
         // Avoid duplicates if merging with static
         if (!services[category]!.any((existing) => existing.id == service.id)) {
           services[category]!.add(service);
@@ -831,66 +831,169 @@ class OpdProvider extends ChangeNotifier {
 
   List<Map<String, dynamic>> get receipts => List.unmodifiable(_receipts);
 
+  // In OpdProvider class
+  // In OpdProvider class
+  // In OpdProvider class
   Future<void> loadReceipts() async {
     _loadingReceipts = true;
     _errorMessage = null;
     notifyListeners();
 
-    final result = await _apiService.fetchOpdReceipts();
+    try {
+      final result = await _apiService.fetchOpdReceipts();
 
-    if (result.success && result.receipts.isNotEmpty) {
-      _receipts
-        ..clear()
-        ..addAll(result.receipts.map((r) {
-          DateTime parsedDate;
-          try {
-            parsedDate = DateTime.parse(r.date);
-          } catch (_) {
-            parsedDate = DateTime.now();
-          }
+      if (result.success && result.receipts.isNotEmpty) {
+        _receipts
+          ..clear()
+          ..addAll(result.receipts.map((r) {
+            DateTime parsedDate;
+            try {
+              parsedDate = DateTime.parse(r.date);
+            } catch (_) {
+              parsedDate = DateTime.now();
+            }
 
-          return {
-            'receiptNo': r.receiptId,
-            'mrNo': r.patientMrNumber,
-            'patientName': r.patientName,
-            'age': r.patientAge?.toString() ?? '',
-            'gender': r.patientGender,
-            'date': parsedDate,
-            'services': r.serviceDetail.isNotEmpty
-                ? r.serviceDetail.split(',').map((e) => e.trim()).toList()
-                : (r.opdService.isNotEmpty
-                ? r.opdService.split(',').map((e) => e.trim()).toList()
-                : <String>[]),
-            'details': r.serviceDetail,
-            'total': r.totalAmount,
-            'discount': r.discount,
-            'paid': r.paid,
-            'status': r.status,
-          };
-        }));
-      _errorMessage = null;
-    } else if (!result.success) {
-      _errorMessage = result.message;
+            // Safely handle all fields with null checks
+            final receiptData = {
+              'srl_no': r.srlNo,
+              'receipt_id': r.receiptId,
+              'receiptNo': r.receiptId,
+              'mrNo': r.patientMrNumber,
+              'patient_mr_number': r.patientMrNumber,
+              'patient_name': r.patientName,
+              'patientName': r.patientName,
+              'age': r.patientAge?.toString() ?? '',
+              'patient_age': r.patientAge,
+              'gender': r.patientGender,
+              'patient_gender': r.patientGender,
+              'date': parsedDate,
+              'shift_date': parsedDate,
+              'services': r.serviceDetail.isNotEmpty
+                  ? r.serviceDetail.split(',').map((e) => e.trim()).toList()
+                  : (r.opdService.isNotEmpty
+                  ? r.opdService.split(',').map((e) => e.trim()).toList()
+                  : <String>[]),
+              'details': r.serviceDetail,
+              'service_detail': r.serviceDetail,
+              'total': r.totalAmount,
+              'total_amount': r.totalAmount,
+              'discount': r.discount,
+              'paid': r.paid,
+              'payable': r.payable ?? (r.totalAmount - r.discount), // Calculate if null
+              'status': r.status,
+              'opd_cancelled': r.opdCancelled ?? false,
+              'paid_to_doctor': r.paidToDoctor ?? false,
+              'phone_number': r.phoneNumber,
+            };
+
+            debugPrint('✅ Stored receipt with srl_no: ${receiptData['srl_no']} for ${r.patientName}');
+            return receiptData;
+          }));
+        _errorMessage = null;
+      } else if (!result.success) {
+        _errorMessage = result.message;
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading receipts: $e');
+      _errorMessage = 'Failed to load receipts: $e';
     }
 
     _loadingReceipts = false;
     notifyListeners();
   }
-
-  // ── Update receipt status (cancel / refund) ──
-  void updateReceiptStatus(int index, String status) {
-    if (index < 0 || index >= _receipts.length) return;
-    _receipts[index]['status'] = status;
-    if (status == 'Cancelled') {
-      _receipts[index]['details'] =
-      'CANCELLED - ${_receipts[index]['details']}';
-    }
-    notifyListeners();
-  }
-
   // ── Save new receipt ──
   int _receiptCounter = 71960;
+// In OpdProvider class
+  Future<bool> cancelReceipt(int index, String cancelReason) async {
+    if (index < 0 || index >= _receipts.length) return false;
 
+    final receipt = _receipts[index];
+    final receiptSrlNo = receipt['srl_no'] ?? 0; // You need the actual srl_no from API
+
+    if (receiptSrlNo == 0) {
+      _errorMessage = 'Cannot cancel: Missing receipt serial number';
+      notifyListeners();
+      return false;
+    }
+
+    _loadingReceipts = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    final result = await _apiService.cancelOpdReceipt(receiptSrlNo, cancelReason);
+
+    if (result.success) {
+      // Update local state after successful API call
+      _receipts[index]['status'] = 'Cancelled';
+      _receipts[index]['details'] = 'CANCELLED - ${_receipts[index]['details']}';
+      _errorMessage = null;
+    } else {
+      _errorMessage = result.message;
+    }
+
+    _loadingReceipts = false;
+    notifyListeners();
+    return result.success;
+  }
+  // In OpdProvider class
+  // In OpdProvider class
+  // In OpdProvider class
+  Future<bool> refundReceipt(int index, double refundAmount, String refundReason) async {
+    if (index < 0 || index >= _receipts.length) return false;
+
+    final receipt = _receipts[index];
+
+    debugPrint('💰 Attempting to refund receipt at index $index: $receipt');
+
+    // CRITICAL: Get srl_no exactly as React does
+    int? receiptSrlNo;
+
+    if (receipt.containsKey('srl_no') && receipt['srl_no'] != null) {
+      receiptSrlNo = receipt['srl_no'] is int
+          ? receipt['srl_no'] as int
+          : int.tryParse(receipt['srl_no'].toString());
+      debugPrint('💰 Found srl_no: $receiptSrlNo');
+    }
+
+    if (receiptSrlNo == null || receiptSrlNo == 0) {
+      _errorMessage = 'Cannot refund: Missing receipt serial number (srl_no). Please refresh data.';
+      debugPrint('❌ ERROR: Missing srl_no in receipt: $receipt');
+      notifyListeners();
+      return false;
+    }
+
+    _loadingReceipts = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    // Call API with srl_no exactly like React
+    final result = await _apiService.refundOpdReceipt(receiptSrlNo, refundAmount, refundReason);
+
+    if (result.success) {
+      // Update local state
+      _receipts[index]['status'] = 'Refunded';
+      _receipts[index]['discount'] = (receipt['discount'] as double) + refundAmount;
+      _receipts[index]['paid'] = (receipt['paid'] as double) - refundAmount;
+
+      // If API returns updated receipt, use it
+      if (result.receipt != null) {
+        _receipts[index]['total_amount'] = result.receipt!.totalAmount;
+        _receipts[index]['discount'] = result.receipt!.discount;
+        _receipts[index]['paid'] = result.receipt!.paid;
+        _receipts[index]['payable'] = result.receipt!.payable;
+      }
+
+      debugPrint('✅ Refund successful for receipt srl_no: $receiptSrlNo');
+      _errorMessage = null;
+    } else {
+      debugPrint('❌ Refund failed: ${result.message}');
+      _errorMessage = result.message;
+    }
+
+    _loadingReceipts = false;
+    notifyListeners();
+    return result.success;
+  }
   Future<bool> saveReceipt({
     required OpdPatient patient,
     required List<OpdSelectedService> services,

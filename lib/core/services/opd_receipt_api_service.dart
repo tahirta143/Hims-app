@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/cupertino.dart';
 import 'package:http/http.dart' as http;
 
 import '../../global/global_api.dart';
@@ -18,7 +19,75 @@ class OpdReceiptApiService {
       if (token != null) 'Authorization': 'Bearer $token',
     };
   }
+// Add to opd_receipt_api_service.dart
 
+// PUT /opd-patient-data/{id}/refund
+  // In OpdReceiptApiService
+  Future<RefundReceiptResult> refundOpdReceipt(
+      int receiptSrlNo, // This matches React's srl_no
+      double refundAmount,
+      String refundReason
+      ) async {
+    try {
+      final headers = await _authHeaders();
+
+      // CRITICAL: Payload must match React exactly
+      final payload = {
+        'refund_amount': refundAmount,  // Matches React
+        'refund_reason': refundReason,  // Matches React
+      };
+
+      debugPrint('📤 Calling refund API: ${GlobalApi.baseUrl}/opd-patient-data/$receiptSrlNo/refund');
+      debugPrint('📤 Payload: $payload');
+
+      final response = await http
+          .put(
+        Uri.parse('${GlobalApi.baseUrl}/opd-patient-data/$receiptSrlNo/refund'),
+        headers: headers,
+        body: jsonEncode(payload),
+      )
+          .timeout(const Duration(seconds: 15));
+
+      debugPrint('📥 Response status: ${response.statusCode}');
+      debugPrint('📥 Response body: ${response.body}');
+
+      if (response.statusCode == 401) {
+        return RefundReceiptResult(
+            success: false,
+            message: 'Session expired. Please log in again.'
+        );
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+      // React checks for 200 or 201 status codes
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        if (data['success'] == true) {
+          final recJson = data['data'] as Map<String, dynamic>?;
+          OpdReceiptApiModel? rec;
+          if (recJson != null) {
+            rec = OpdReceiptApiModel.fromJson(recJson);
+          }
+          return RefundReceiptResult(
+            success: true,
+            message: data['message'] as String? ?? 'Refund processed successfully',
+            receipt: rec,
+          );
+        }
+      }
+
+      return RefundReceiptResult(
+        success: false,
+        message: data['message'] as String? ?? 'Failed to process refund',
+      );
+    } catch (e) {
+      debugPrint('❌ Refund error: $e');
+      return RefundReceiptResult(
+        success: false,
+        message: 'Failed to process refund: $e',
+      );
+    }
+  }
   // GET /api/opd-services
   Future<OpdServicesResult> fetchOpdServices() async {
     try {
@@ -161,6 +230,62 @@ class OpdReceiptApiService {
       );
     }
   }
+// In OpdReceiptApiService class
+  // In OpdReceiptApiService
+  Future<CancelReceiptResult> cancelOpdReceipt(
+      int receiptSrlNo,
+      String cancelReason
+      ) async {
+    try {
+      final headers = await _authHeaders();
+
+      // CRITICAL: Payload must match React exactly
+      final payload = {
+        'cancel_details': cancelReason,  // React uses cancel_details
+      };
+
+      debugPrint('📤 Calling cancel API: ${GlobalApi.baseUrl}/opd-patient-data/$receiptSrlNo/cancel');
+      debugPrint('📤 Payload: $payload');
+
+      final response = await http
+          .put(
+        Uri.parse('${GlobalApi.baseUrl}/opd-patient-data/$receiptSrlNo/cancel'),
+        headers: headers,
+        body: jsonEncode(payload),
+      )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 401) {
+        return CancelReceiptResult(
+            success: false,
+            message: 'Session expired. Please log in again.'
+        );
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        if (data['success'] == true) {
+          return CancelReceiptResult(
+            success: true,
+            message: data['message'] as String? ?? 'Receipt cancelled successfully',
+          );
+        }
+      }
+
+      return CancelReceiptResult(
+        success: false,
+        message: data['message'] as String? ?? 'Failed to cancel receipt',
+      );
+    } catch (e) {
+      debugPrint('❌ Cancel error: $e');
+      return CancelReceiptResult(
+        success: false,
+        message: 'Failed to cancel receipt: $e',
+      );
+    }
+  }
+// Add result class
 
   // GET /opd-patient-data/pending-discounts
   Future<PendingDiscountReceiptsResult> fetchPendingDiscountReceipts() async {
@@ -248,7 +373,24 @@ class OpdReceiptsResult {
     this.message,
   });
 }
+class CancelReceiptResult {
+  final bool success;
+  final String? message;
 
+  CancelReceiptResult({required this.success, this.message});
+}
+
+class RefundReceiptResult {
+  final bool success;
+  final String? message;
+  final OpdReceiptApiModel? receipt;
+
+  RefundReceiptResult({
+    required this.success,
+    this.message,
+    this.receipt,
+  });
+}
 class CreateOpdReceiptResult {
   final bool success;
   final String? message;

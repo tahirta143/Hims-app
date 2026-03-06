@@ -233,9 +233,12 @@ class ConsultationProvider extends ChangeNotifier {
   }
 
   String _formatTime(TimeOfDay t) {
-    final h = t.hourOfPeriod == 0 ? 12 : t.hourOfPeriod;
-    final m = t.minute.toString().padLeft(2, '0');
-    final p = t.period == DayPeriod.am ? 'AM' : 'PM';
-    return '$h:$m $p';
+    int hour = t.hour % 12;
+    if (hour == 0) hour = 12;
+
+    final minute = t.minute.toString().padLeft(2, '0');
+    final period = t.hour < 12 ? 'AM' : 'PM';
+
+    return '$hour:$minute $period';
   }
 }

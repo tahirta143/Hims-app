@@ -46,101 +46,101 @@ class _ConsultationScreenState extends State<ConsultationScreen> {
             child: prov.isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : prov.errorMessage != null
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.error_outline,
-                                size: sw * 0.15, color: Colors.red.shade300),
-                            SizedBox(height: sh * 0.02),
-                            Text(prov.errorMessage!,
-                                style: TextStyle(
-                                    fontSize: sw * 0.04,
-                                    color: Colors.red.shade400)),
-                            SizedBox(height: sh * 0.02),
-                            ElevatedButton.icon(
-                              onPressed: () => prov.loadDoctors(),
-                              icon: const Icon(Icons.refresh_rounded),
-                              label: const Text('Retry'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: primary,
-                                foregroundColor: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : SingleChildScrollView(
-                        physics: const BouncingScrollPhysics(),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Summary cards
-                            _buildSummary(prov, sw, sh),
+                ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline,
+                      size: sw * 0.15, color: Colors.red.shade300),
+                  SizedBox(height: sh * 0.02),
+                  Text(prov.errorMessage!,
+                      style: TextStyle(
+                          fontSize: sw * 0.04,
+                          color: Colors.red.shade400)),
+                  SizedBox(height: sh * 0.02),
+                  ElevatedButton.icon(
+                    onPressed: () => prov.loadDoctors(),
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Retry'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primary,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            )
+                : SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Summary cards
+                  _buildSummary(prov, sw, sh),
 
-                            // Section heading
-                            Padding(
-                              padding: EdgeInsets.fromLTRB(
-                                  sw * 0.04, sh * 0.018, sw * 0.04, sh * 0.012),
-                              child: Row(children: [
-                                Icon(Icons.people_alt_rounded,
-                                    color: primary, size: sw * 0.045),
-                                SizedBox(width: sw * 0.02),
-                                Text('Our Consultants',
-                                    style: TextStyle(
-                                        fontSize: sw * 0.042,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87)),
-                              ]),
-                            ),
+                  // Section heading
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                        sw * 0.04, sh * 0.018, sw * 0.04, sh * 0.012),
+                    child: Row(children: [
+                      Icon(Icons.people_alt_rounded,
+                          color: primary, size: sw * 0.045),
+                      SizedBox(width: sw * 0.02),
+                      Text('Our Consultants',
+                          style: TextStyle(
+                              fontSize: sw * 0.042,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87)),
+                    ]),
+                  ),
 
-                            // Doctor grid — 2 per row, column layout cards
-                            prov.doctors.isEmpty
-                                ? Center(
-                                    child: Padding(
-                                      padding: EdgeInsets.all(sw * 0.1),
-                                      child: Text('No doctors available',
-                                          style: TextStyle(
-                                              fontSize: sw * 0.04,
-                                              color: Colors.grey.shade500)),
-                                    ),
-                                  )
-                                : Padding(
-                                    padding: EdgeInsets.symmetric(
-                                        horizontal: sw * 0.04),
-                                    child: GridView.builder(
-                                      shrinkWrap: true,
-                                      physics:
-                                          const NeverScrollableScrollPhysics(),
-                                      itemCount: prov.doctors.length,
-                                      gridDelegate:
-                                          SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: 2,
-                                        crossAxisSpacing: sw * 0.03,
-                                        mainAxisSpacing: sw * 0.03,
-                                        // Column layout is taller — lower ratio = taller cells
-                                        childAspectRatio: sw >= 600
-                                            ? 0.72
-                                            : sw >= 400
-                                                ? 0.68
-                                                : 0.65,
-                                      ),
-                                      itemBuilder: (_, i) => _DoctorCard(
-                                        doctor: prov.doctors[i],
-                                        availableSlots:
-                                            prov.availableSlotsForDoctor(
-                                                prov.doctors[i].name,
-                                                DateTime.now()),
-                                        onTap: () => _showDialog(context, prov,
-                                            prov.doctors[i], sw, sh),
-                                      ),
-                                    ),
-                                  ),
-
-                            SizedBox(height: sh * 0.04),
-                          ],
-                        ),
+                  // Doctor grid — 2 per row, column layout cards
+                  prov.doctors.isEmpty
+                      ? Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(sw * 0.1),
+                      child: Text('No doctors available',
+                          style: TextStyle(
+                              fontSize: sw * 0.04,
+                              color: Colors.grey.shade500)),
+                    ),
+                  )
+                      : Padding(
+                    padding: EdgeInsets.symmetric(
+                        horizontal: sw * 0.04),
+                    child: GridView.builder(
+                      shrinkWrap: true,
+                      physics:
+                      const NeverScrollableScrollPhysics(),
+                      itemCount: prov.doctors.length,
+                      gridDelegate:
+                      SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: sw * 0.03,
+                        mainAxisSpacing: sw * 0.03,
+                        // Column layout is taller — lower ratio = taller cells
+                        childAspectRatio: sw >= 600
+                            ? 0.72
+                            : sw >= 400
+                            ? 0.68
+                            : 0.65,
                       ),
+                      itemBuilder: (_, i) => _DoctorCard(
+                        doctor: prov.doctors[i],
+                        availableSlots:
+                        prov.availableSlotsForDoctor(
+                            prov.doctors[i].name,
+                            DateTime.now()),
+                        onTap: () => _showDialog(context, prov,
+                            prov.doctors[i], sw, sh),
+                      ),
+                    ),
+                  ),
+
+                  SizedBox(height: sh * 0.04),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -153,11 +153,7 @@ class _ConsultationScreenState extends State<ConsultationScreen> {
   Widget _buildHeader(double sw, double sh, double tp) {
     return Container(
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF00B5AD), Color(0xFF00897B)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: Color(0xFF00B5AD)
       ),
       padding: EdgeInsets.only(
           top: tp + sh * 0.016,
@@ -308,7 +304,27 @@ class _DoctorCard extends StatelessWidget {
       final cw   = constraints.maxWidth;
       final pad  = cw * 0.06;
       final avSz = cw * 0.30; // avatar diameter
+      String _formatTo12Hour(String timeRange) {
+        try {
+          final parts = timeRange.split('-');
 
+          String convert(String time) {
+            final t = time.trim().split(':');
+            int hour = int.parse(t[0]);
+            String minute = t[1];
+
+            String period = hour >= 12 ? 'PM' : 'AM';
+            hour = hour % 12;
+            if (hour == 0) hour = 12;
+
+            return '$hour:$minute $period';
+          }
+
+          return '${convert(parts[0])} - ${convert(parts[1])}';
+        } catch (e) {
+          return timeRange;
+        }
+      }
       return GestureDetector(
         onTap: onTap,
         child: Container(
@@ -388,10 +404,13 @@ class _DoctorCard extends StatelessWidget {
                         doctor.hospital, cw),
                     _detailRow(Icons.payments_rounded,
                         'PKR ${doctor.consultationFee}', cw),
-                    _detailRow(Icons.repeat_rounded,
-                        'F/U: PKR ${doctor.followUpCharges}', cw),
-                    _detailRow(Icons.access_time_rounded,
-                        doctor.timings, cw),
+                    // _detailRow(Icons.repeat_rounded,
+                    //     'F/U: PKR ${doctor.followUpCharges}', cw),
+                    _detailRow(
+                      Icons.access_time_rounded,
+                      _formatTo12Hour(doctor.timings),
+                      cw,
+                    ),
 
                     // Stats
                     Divider(height: cw * 0.04, color: Colors.grey.shade100),
@@ -641,7 +660,7 @@ class _AppointmentDialogState extends State<_AppointmentDialog> {
     if (_selectedSlot == null)     { _snack('Please select a time slot', err: true); return; }
 
     final prov = Provider.of<ConsultationProvider>(context, listen: false);
-    
+
     // Show loading indicator
     showDialog(
       context: context,
@@ -856,15 +875,6 @@ class _AppointmentDialogState extends State<_AppointmentDialog> {
                                     color: widget.doctor.avatarColor,
                                     fontWeight: FontWeight.w700)),
                           ),
-                          // SizedBox(height: sh * 0.01),
-                          // _infoRow(Icons.local_hospital_rounded,
-                          //     widget.doctor.hospital, fsS, sw),
-                          // _infoRow(Icons.payments_rounded,
-                          //     'Fee: PKR ${widget.doctor.consultationFee}', fsS, sw),
-                          // _infoRow(Icons.repeat_rounded,
-                          //     'Follow-up: PKR ${widget.doctor.followUpCharges}', fsS, sw),
-                          // _infoRow(Icons.access_time_rounded,
-                          //     widget.doctor.timings, fsS, sw),
                           SizedBox(height: sh * 0.008),
                           Wrap(spacing: sw * 0.015, runSpacing: sh * 0.005,
                               children: widget.doctor.availableDays.map((d) =>
@@ -906,7 +916,6 @@ class _AppointmentDialogState extends State<_AppointmentDialog> {
                 SizedBox(height: sw * 0.03),
 
                 // TIME SLOT DROPDOWN
-                // TIME SLOT DROPDOWN - EXTRA SMALL WITH VERTICAL SCROLL AND MIN WIDTH
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -925,86 +934,67 @@ class _AppointmentDialogState extends State<_AppointmentDialog> {
                           color: Colors.black87)),
                       const Spacer(),
                       if (allSlots.isNotEmpty) ...[
-                        // AVAILABLE BADGE - HIGHLIGHTED
+                        // AVAILABLE BADGE
                         Container(
                           padding: EdgeInsets.symmetric(
                               horizontal: sw * 0.025, vertical: sw * 0.012),
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                const Color(0xFF43A047),
-                                const Color(0xFF2E7D32),
-                              ],
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF43A047), Color(0xFF2E7D32)],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
                             borderRadius: BorderRadius.circular(sw * 0.025),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF43A047).withOpacity(0.3),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
+                            boxShadow: [BoxShadow(
+                              color: const Color(0xFF43A047).withOpacity(0.3),
+                              blurRadius: 6, offset: const Offset(0, 2),
+                            )],
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.check_circle_rounded,
-                                  color: Colors.white, size: sw * 0.022),
-                              SizedBox(width: sw * 0.006),
-                              Text('${allSlots.length - booked.length} Available',
-                                  style: TextStyle(
-                                      fontSize: fsXS * 0.85,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
-                                      letterSpacing: 0.3)),
-                            ],
-                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            Icon(Icons.check_circle_rounded,
+                                color: Colors.white, size: sw * 0.022),
+                            SizedBox(width: sw * 0.006),
+                            Text('${allSlots.length - booked.length} Available',
+                                style: TextStyle(
+                                    fontSize: fsXS * 0.85,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                    letterSpacing: 0.3)),
+                          ]),
                         ),
                         SizedBox(width: sw * 0.008),
-                        // BOOKED BADGE - HIGHLIGHTED
+                        // BOOKED BADGE
                         Container(
                           padding: EdgeInsets.symmetric(
                               horizontal: sw * 0.025, vertical: sw * 0.012),
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
-                              colors: [
-                                Colors.red.shade600,
-                                Colors.red.shade800,
-                              ],
+                              colors: [Colors.red.shade600, Colors.red.shade800],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
                             borderRadius: BorderRadius.circular(sw * 0.025),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.red.shade600.withOpacity(0.3),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
+                            boxShadow: [BoxShadow(
+                              color: Colors.red.shade600.withOpacity(0.3),
+                              blurRadius: 6, offset: const Offset(0, 2),
+                            )],
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.event_busy_rounded,
-                                  color: Colors.white, size: sw * 0.022),
-                              SizedBox(width: sw * 0.006),
-                              Text('${booked.length} Booked',
-                                  style: TextStyle(
-                                      fontSize: fsXS * 0.85,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
-                                      letterSpacing: 0.3)),
-                            ],
-                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            Icon(Icons.event_busy_rounded,
+                                color: Colors.white, size: sw * 0.022),
+                            SizedBox(width: sw * 0.006),
+                            Text('${booked.length} Booked',
+                                style: TextStyle(
+                                    fontSize: fsXS * 0.85,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                    letterSpacing: 0.3)),
+                          ]),
                         ),
                       ],
                     ]),
                     SizedBox(height: sh * 0.006),
 
-                    // SMALL DROPDOWN WITH VERTICAL SCROLL AND MIN WIDTH
                     if (allSlots.isEmpty)
                       Center(child: Padding(
                         padding: EdgeInsets.symmetric(vertical: sh * 0.006),
@@ -1016,10 +1006,8 @@ class _AppointmentDialogState extends State<_AppointmentDialog> {
                       ))
                     else
                       Container(
-                        constraints: BoxConstraints(
-                          minWidth: sw * 0.25,
-                        ),
-                        height: sh * 0.04, // Slightly increased height for better touch target
+                        constraints: BoxConstraints(minWidth: sw * 0.25),
+                        height: sh * 0.04,
                         decoration: BoxDecoration(
                           color: Colors.grey.shade50,
                           borderRadius: BorderRadius.circular(sw * 0.014),
@@ -1051,15 +1039,14 @@ class _AppointmentDialogState extends State<_AppointmentDialog> {
                                 borderRadius: BorderRadius.circular(sw * 0.02),
                               ),
                               child: Icon(Icons.keyboard_arrow_down_rounded,
-                                  color: _selectedSlot != null ? primary : Colors.grey.shade500,
+                                  color: _selectedSlot != null
+                                      ? primary : Colors.grey.shade500,
                                   size: sw * 0.03),
                             ),
-
                             dropdownColor: Colors.white,
                             menuMaxHeight: sh * 0.3,
                             borderRadius: BorderRadius.circular(sw * 0.02),
                             menuWidth: sw * 0.45,
-
                             items: allSlots
                                 .where((slot) => !booked.contains(slot))
                                 .map((slot) {
@@ -1069,9 +1056,7 @@ class _AppointmentDialogState extends State<_AppointmentDialog> {
                                   padding: EdgeInsets.symmetric(
                                       horizontal: sw * 0.02,
                                       vertical: sh * 0.006),
-                                  constraints: BoxConstraints(
-                                    minWidth: sw * 0.4,
-                                  ),
+                                  constraints: BoxConstraints(minWidth: sw * 0.4),
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(sw * 0.01),
                                   ),
@@ -1094,87 +1079,16 @@ class _AppointmentDialogState extends State<_AppointmentDialog> {
                                               color: Colors.black87,
                                               fontWeight: FontWeight.w500)),
                                     ),
-                                    // Container(
-                                    //   padding: EdgeInsets.symmetric(
-                                    //       horizontal: sw * 0.018,
-                                    //       vertical: sh * 0.003),
-                                    //   decoration: BoxDecoration(
-                                    //     gradient: LinearGradient(
-                                    //       colors: [
-                                    //         const Color(0xFF43A047),
-                                    //         const Color(0xFF2E7D32),
-                                    //       ],
-                                    //     ),
-                                    //     borderRadius: BorderRadius.circular(sw * 0.02),
-                                    //     boxShadow: [
-                                    //       BoxShadow(
-                                    //         color: const Color(0xFF43A047).withOpacity(0.2),
-                                    //         blurRadius: 4,
-                                    //         offset: const Offset(0, 1),
-                                    //       ),
-                                    //     ],
-                                    //   ),
-                                    //   child: Text('Free',
-                                    //       style: TextStyle(
-                                    //           fontSize: fsXS * 0.7,
-                                    //           color: Colors.white,
-                                    //           fontWeight: FontWeight.w700)),
-                                    // ),
                                   ]),
                                 ),
                               );
                             }).toList(),
-
                             onChanged: (v) {
                               if (v != null) setState(() => _selectedSlot = v);
                             },
                           ),
                         ),
                       ),
-
-                    if (_selectedSlot != null) ...[
-                      SizedBox(height: sh * 0.006),
-                      Container(
-                        constraints: BoxConstraints(
-                          minWidth: sw * 0.25,
-                        ),
-                        padding: EdgeInsets.symmetric(
-                            horizontal: sw * 0.02, vertical: sh * 0.004),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              primary.withOpacity(0.1),
-                              primary.withOpacity(0.05),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(sw * 0.016),
-                          border: Border.all(color: primary.withOpacity(0.3)),
-                        ),
-                        child: Row(children: [
-                          Container(
-                            padding: EdgeInsets.all(sw * 0.004),
-                            decoration: BoxDecoration(
-                              color: primary,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(Icons.check_rounded,
-                                color: Colors.white, size: sw * 0.016),
-                          ),
-                          SizedBox(width: sw * 0.01),
-                          Expanded(
-                            child: Text('$_selectedSlot',
-                                style: TextStyle(
-                                    fontSize: fs * 0.85,
-                                    color: primary,
-                                    fontWeight: FontWeight.w600),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1),
-                          ),
-                        ]),
-                      ),
-                    ],
                   ]),
                 ),
                 SizedBox(height: sw * 0.03),

@@ -125,24 +125,58 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
       '${d.day.toString().padLeft(2,'0')} ${_months[d.month].substring(0,3)} ${d.year}';
 
   // ── Cancel / Refund actions on provider records ──
-  void _cancelRecord(OpdProvider prov, int idx) {
+  void _cancelRecord(OpdProvider prov, int idx) async {
     final rec = prov.receipts[idx];
     if (rec['status'] == 'Cancelled') return;
+
+    final reasonCtrl = TextEditingController();
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Confirm Cancel', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Text('Are you sure you want to cancel receipt ${rec['receiptNo']}?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Are you sure you want to cancel receipt ${rec['receiptNo']}?'),
+            SizedBox(height: _sh * 0.015),
+            TextField(
+              controller: reasonCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Cancellation Reason',
+                hintText: 'Enter reason...',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
+            ),
+          ],
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('No')),
           ElevatedButton(
-            onPressed: () {
-              prov.updateReceiptStatus(idx, 'Cancelled');
+            onPressed: () async {
+              if (reasonCtrl.text.trim().isEmpty) {
+                _snack('Please enter a reason', err: true);
+                return;
+              }
+
               Navigator.pop(ctx);
-              _snack('Receipt cancelled');
+
+              // Show loading
+              _snack('Processing cancellation...');
+
+              final success = await prov.cancelReceipt(idx, reasonCtrl.text.trim());
+
+              if (success) {
+                _snack('Receipt cancelled successfully');
+              } else {
+                _snack('Failed to cancel receipt: ${prov.errorMessage}', err: true);
+              }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white
+            ),
             child: const Text('Yes, Cancel'),
           ),
         ],
@@ -150,7 +184,7 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
     );
   }
 
-  void _refundRecord(OpdProvider prov, int idx) {
+  void _refundRecord(OpdProvider prov, int idx) async {
     final rec = prov.receipts[idx];
     if (rec['status'] == 'Cancelled') {
       _snack('Cannot refund a cancelled receipt', err: true);
@@ -170,7 +204,7 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
             const Text('Refund Process', style: TextStyle(fontWeight: FontWeight.bold)),
             SizedBox(height: _sh * 0.005),
             Text('${rec['patientName']} (${rec['mrNo']})',
-                style: TextStyle(fontSize: _fsS, color: Colors.grey.shade600, fontWeight: FontWeight.normal)),
+                style: TextStyle(fontSize: _fsS, color: Colors.grey.shade600)),
           ],
         ),
         content: Column(
@@ -178,39 +212,63 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
           children: [
             TextField(
               controller: amountCtrl,
-              decoration: const InputDecoration(labelText: 'Refund Amount', prefixText: 'PKR '),
+              decoration: const InputDecoration(
+                labelText: 'Refund Amount',
+                prefixText: 'PKR ',
+                border: OutlineInputBorder(),
+              ),
               keyboardType: TextInputType.number,
-              style: TextStyle(fontSize: _fs),
             ),
             SizedBox(height: _sh * 0.015),
             TextField(
               controller: reasonCtrl,
-              decoration: const InputDecoration(labelText: 'Refund Reason'),
+              decoration: const InputDecoration(
+                labelText: 'Refund Reason',
+                hintText: 'Enter reason...',
+                border: OutlineInputBorder(),
+              ),
               maxLines: 2,
-              style: TextStyle(fontSize: _fs),
             ),
           ],
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               if (reasonCtrl.text.trim().isEmpty) {
                 _snack('Please provide a reason', err: true);
                 return;
               }
-              prov.updateReceiptStatus(idx, 'Refunded');
+
+              final amount = double.tryParse(amountCtrl.text) ?? 0;
+              if (amount <= 0) {
+                _snack('Please enter a valid amount', err: true);
+                return;
+              }
+
               Navigator.pop(ctx);
-              _snack('Refund processed for PKR ${amountCtrl.text}');
+
+              // Show loading
+              _snack('Processing refund...');
+
+              final success = await prov.refundReceipt(idx, amount, reasonCtrl.text.trim());
+
+              if (success) {
+                _snack('Refund processed for PKR $amount');
+              } else {
+                _snack('Failed to process refund: ${prov.errorMessage}', err: true);
+              }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white
+            ),
             child: const Text('Confirm Refund'),
           ),
         ],
       ),
     );
   }
-
   void _snack(String msg, {bool err = false}) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg, style: const TextStyle(color: Colors.white)),

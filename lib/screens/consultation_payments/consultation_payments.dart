@@ -65,7 +65,9 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
 
           return Column(
             children: [
-              _buildHeader(), // Custom header with menu button
+              _buildHeader(), // Custom header with menu button only
+              // Filters and Stats now outside header
+              _buildFiltersAndStats(provider),
               Expanded(
                 child: _isWide
                     ? _buildWideLayout(provider)
@@ -90,7 +92,7 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
     String? paid;
     if (_statusFilter == 'Paid') paid = 'Paid';
     if (_statusFilter == 'Unpaid') paid = 'Unpaid';
-    
+
     Provider.of<ConsultantPaymentsProvider>(context, listen: false).loadDashboardData(
       fromDate: _fromDate,
       toDate: _toDate,
@@ -99,16 +101,16 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
   }
 
   List<DoctorBreakdownModel> _getFilteredBreakdown(List<DoctorBreakdownModel> list) {
-    return list.where((d) => 
-      d.doctorName.toLowerCase().contains(_searchQuery.toLowerCase()) &&
-      (_statusFilter == 'All' || d.status.toLowerCase() == _statusFilter.toLowerCase())
+    return list.where((d) =>
+    d.doctorName.toLowerCase().contains(_searchQuery.toLowerCase()) &&
+        (_statusFilter == 'All' || d.status.toLowerCase() == _statusFilter.toLowerCase())
     ).toList();
   }
 
   List<PayoutRecordModel> _getFilteredRecords(List<PayoutRecordModel> list) {
-    return list.where((r) => 
-      (r.doctorName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-       r.patientName.toLowerCase().contains(_searchQuery.toLowerCase()))
+    return list.where((r) =>
+    (r.doctorName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+        r.patientName.toLowerCase().contains(_searchQuery.toLowerCase()))
     ).toList();
   }
 
@@ -150,109 +152,108 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
     );
   }
 
+  // New widget combining filters and stats outside header
+  Widget _buildFiltersAndStats(ConsultantPaymentsProvider provider) {
+    return Container(
+      color: bgColor, // Light background to separate from header
+      padding: EdgeInsets.fromLTRB(_pad, _sh * 0.015, _pad, _sh * 0.01),
+      child: Column(
+        children: [
+          // Stats cards
+          _buildStatsRow(provider.analytics),
+          SizedBox(height: _sh * 0.015),
+          // Filters row
+          _buildFiltersRow(),
+        ],
+      ),
+    );
+  }
 
-  // Custom header with menu button (same pattern as OPD Receipt)
+  // Custom header with ONLY menu button and title - NO stats or filters
   Widget _buildHeader() {
     final now = DateTime.now();
 
     return Container(
-      color: cardBg,
+      color: primary, // Teal background
       padding: EdgeInsets.only(
         top: _tp + _sh * 0.012,
         bottom: _sh * 0.014,
         left: _pad,
         right: _pad,
       ),
-      child: Column(
+      child: Row(
         children: [
-          // Top row with menu button (exactly like OPD Receipt)
-          Row(
-            children: [
-              // Menu button - opens drawer (same as OPD Receipt)
-              GestureDetector(
-                onTap: () {
-                  _scaffoldKey.currentState?.openDrawer();
-                },
-                child: Container(
-                  padding: EdgeInsets.all(_sw * 0.022),
-                  decoration: BoxDecoration(
-                    color: primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(_sw * 0.022),
-                  ),
-                  child: Icon(Icons.menu_rounded, color: primary, size: _sw * 0.04),
-                ),
-              ),
-              SizedBox(width: _sp),
-              // Title
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Consultant Payments',
-                      style: TextStyle(
-                        fontSize: _fsL,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      'Doctor share tracking and management',
-                      style: TextStyle(
-                        fontSize: _fsS,
-                        color: Colors.grey.shade500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Date pill (like OPD Receipt)
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: _sw * 0.022,
-                  vertical: _sh * 0.007,
-                ),
-                decoration: BoxDecoration(
-                  color: primary.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(_sw * 0.025),
-                  border: Border.all(color: primary.withOpacity(0.25)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.calendar_today_rounded,
-                      color: primary,
-                      size: _sw * 0.033,
-                    ),
-                    SizedBox(width: _sw * 0.012),
-                    Text(
-                      DateFormat('MMM dd, yyyy').format(now),
-                      style: TextStyle(
-                        fontSize: _fsS,
-                        color: primary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: _sh * 0.02),
-
-          // Stats cards (horizontally scrollable)
-          Consumer<ConsultantPaymentsProvider>(
-            builder: (context, prov, child) {
-              return _buildStatsRow(prov.analytics);
+          // Menu button - opens drawer
+          GestureDetector(
+            onTap: () {
+              _scaffoldKey.currentState?.openDrawer();
             },
+            child: Container(
+              padding: EdgeInsets.all(_sw * 0.022),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(_sw * 0.022),
+              ),
+              child: Icon(Icons.menu_rounded, color: Colors.white, size: _sw * 0.04),
+            ),
           ),
-          SizedBox(height: _sh * 0.02),
-
-          // Filters row
-          _buildFiltersRow(),
+          SizedBox(width: _sp),
+          // Title
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Consultant Payments',
+                  style: TextStyle(
+                    fontSize: _fsL,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  'Doctor share tracking and management',
+                  style: TextStyle(
+                    fontSize: _fsS,
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Date pill
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: _sw * 0.022,
+              vertical: _sh * 0.007,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(_sw * 0.025),
+              border: Border.all(color: Colors.white.withOpacity(0.3)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.calendar_today_rounded,
+                  color: Colors.white,
+                  size: _sw * 0.033,
+                ),
+                SizedBox(width: _sw * 0.012),
+                Text(
+                  DateFormat('MMM dd, yyyy').format(now),
+                  style: TextStyle(
+                    fontSize: _fsS,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -380,8 +381,9 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
             width: _isWide ? _sw * 0.4 : _sw * 0.6,
             padding: EdgeInsets.symmetric(horizontal: _sw * 0.02),
             decoration: BoxDecoration(
-              color: bgColor,
+              color: Colors.white,
               borderRadius: BorderRadius.circular(_sw * 0.02),
+              border: Border.all(color: Colors.grey.shade200),
             ),
             child: TextField(
               onChanged: (v) => setState(() => _searchQuery = v),
@@ -407,8 +409,9 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
           Container(
             padding: EdgeInsets.symmetric(horizontal: _sw * 0.02),
             decoration: BoxDecoration(
-              color: bgColor,
+              color: Colors.white,
               borderRadius: BorderRadius.circular(_sw * 0.02),
+              border: Border.all(color: Colors.grey.shade200),
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
@@ -454,7 +457,7 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: _sw * 0.02, vertical: _sh * 0.01),
         decoration: BoxDecoration(
-          color: bgColor,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(_sw * 0.02),
           border: Border.all(color: Colors.grey.shade200),
         ),
@@ -567,7 +570,7 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
                             ),
                           ),
                         ),
-                         SizedBox(
+                        SizedBox(
                           width: _sw * 0.2,
                           child: Text('ACTION',
                             style: TextStyle(
