@@ -18,6 +18,7 @@ class MrDataViewScreen extends StatelessWidget {
   }
 }
 
+// ─── Body ─────────────────────────────────────────────────────────────────────
 class _MrDataViewBody extends StatelessWidget {
   const _MrDataViewBody();
 
@@ -28,101 +29,109 @@ class _MrDataViewBody extends StatelessWidget {
     final provider = context.watch<MrProvider>();
 
     return Container(
-      color: const Color(0xFFF0F4F8), // Light background
+      color: const Color(0xFFF0F4F8),
       child: provider.isLoading
           ? const Center(child: CircularProgressIndicator())
           : provider.errorMessage != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.error_outline,
-                          size: screenWidth * 0.15, color: Colors.red.shade300),
-                      SizedBox(height: screenHeight * 0.02),
-                      Text(provider.errorMessage!,
+          ? Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline,
+                size: screenWidth * 0.15,
+                color: Colors.red.shade300),
+            SizedBox(height: screenHeight * 0.02),
+            Text(provider.errorMessage!,
+                style: TextStyle(
+                    fontSize: screenWidth * 0.04,
+                    color: Colors.red.shade400)),
+            SizedBox(height: screenHeight * 0.02),
+            ElevatedButton.icon(
+              onPressed: () => provider.loadPatients(),
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Retry'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00B5AD),
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      )
+          : SingleChildScrollView(
+        padding: EdgeInsets.symmetric(
+          horizontal: screenWidth * 0.04,
+          vertical: screenHeight * 0.02,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSubHeader(context),
+            const SizedBox(height: 16),
+            _buildSearchBar(context),
+            const SizedBox(height: 16),
+            _buildStatsBar(context),
+            const SizedBox(height: 16),
+
+            // Table card
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      mainAxisAlignment:
+                      MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Registered Patients',
                           style: TextStyle(
-                              fontSize: screenWidth * 0.04,
-                              color: Colors.red.shade400)),
-                      SizedBox(height: screenHeight * 0.02),
-                      ElevatedButton.icon(
-                        onPressed: () => provider.loadPatients(),
-                        icon: const Icon(Icons.refresh_rounded),
-                        label: const Text('Retry'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF00B5AD),
-                          foregroundColor: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1A202C),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                )
-              : SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: screenWidth * 0.04,
-                    vertical: screenHeight * 0.02,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Teal sub-header (redesigned as card)
-                      _buildSubHeader(context),
-                      const SizedBox(height: 16),
-
-                      // Search bar card
-                      _buildSearchBar(context),
-                      const SizedBox(height: 16),
-
-                      // Stats card
-                      _buildStatsBar(context),
-                      const SizedBox(height: 16),
-
-                      // Table card
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 10,
-                              offset: const Offset(0, 2),
+                        if (provider.isFetchingMore)
+                          const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Color(0xFF00B5AD),
                             ),
-                          ],
-                        ),
-                        child: const Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Table header with title
-                            Padding(
-                              padding: EdgeInsets.all(16),
-                              child: Text(
-                                'Registered Patients',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF1A202C),
-                                ),
-                              ),
-                            ),
-                            Divider(height: 1, color: Color(0xFFE2E8F0)),
-                            // Table
-                            SizedBox(
-                              height: 400, // Fixed height for mobile
-                              child: _PatientTable(),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
+                          ),
+                      ],
+                    ),
                   ),
-                ),
+                  const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                  const SizedBox(
+                    height: 500,
+                    child: _PatientTable(),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildSubHeader(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-
     return Container(
       padding: EdgeInsets.all(screenWidth * 0.05),
       decoration: BoxDecoration(
@@ -186,7 +195,6 @@ class _MrDataViewBody extends StatelessWidget {
 
   Widget _buildSearchBar(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-
     return Container(
       padding: EdgeInsets.all(screenWidth * 0.04),
       decoration: BoxDecoration(
@@ -214,9 +222,7 @@ class _MrDataViewBody extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(
-                child: _SearchField(),
-              ),
+              Expanded(child: _SearchField()),
               const SizedBox(width: 8),
               _IconActionButton(
                 icon: Icons.refresh_rounded,
@@ -257,6 +263,7 @@ class _MrDataViewBody extends StatelessWidget {
       ),
       child: Row(
         children: [
+          // ── Icon ──
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
@@ -270,6 +277,8 @@ class _MrDataViewBody extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
+
+          // ── Total count + loaded count ──
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -283,29 +292,58 @@ class _MrDataViewBody extends StatelessWidget {
                 ),
               ),
               Text(
-                _formatNumber(provider.totalPatients),
+                _formatNumber(provider.totalCount), // real total from API
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
-                  fontSize: 24,
+                  fontSize: 28,
+                ),
+              ),
+              Text(
+                '${_formatNumber(provider.totalPatients)} loaded', // how many fetched
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
           ),
+
           const Spacer(),
+
+          // ── Status badge ──
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.15),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Text(
-              'Page 1',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.9),
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (provider.isFetchingMore) ...[
+                  const SizedBox(
+                    width: 10,
+                    height: 10,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                ],
+                Text(
+                  provider.hasMorePages
+                      ? 'Scroll to load more'
+                      : 'All loaded ✓',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.9),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -347,9 +385,10 @@ class _SearchFieldState extends State<_SearchField> {
       style: const TextStyle(fontSize: 14),
       decoration: InputDecoration(
         hintText: 'Search by MR No, Name, Phone...',
-        hintStyle: const TextStyle(color: Color(0xFFBDBDBD), fontSize: 13),
-        prefixIcon: const Icon(Icons.search,
-            color: Color(0xFFBDBDBD), size: 20),
+        hintStyle:
+        const TextStyle(color: Color(0xFFBDBDBD), fontSize: 13),
+        prefixIcon:
+        const Icon(Icons.search, color: Color(0xFFBDBDBD), size: 20),
         contentPadding:
         const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         border: OutlineInputBorder(
@@ -377,10 +416,7 @@ class _IconActionButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
 
-  const _IconActionButton({
-    required this.icon,
-    required this.onTap,
-  });
+  const _IconActionButton({required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -399,13 +435,40 @@ class _IconActionButton extends StatelessWidget {
   }
 }
 
-// ─── Patient Table ────────────────────────────────────────────────────────────
-class _PatientTable extends StatelessWidget {
+// ─── Patient Table with Infinite Scroll ──────────────────────────────────────
+class _PatientTable extends StatefulWidget {
   const _PatientTable();
 
   @override
+  State<_PatientTable> createState() => _PatientTableState();
+}
+
+class _PatientTableState extends State<_PatientTable> {
+  final _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      context.read<MrProvider>().loadMorePatients();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final patients = context.watch<MrProvider>().patients;
+    final provider = context.watch<MrProvider>();
+    final patients = provider.patients;
 
     if (patients.isEmpty) {
       return const Center(
@@ -427,62 +490,121 @@ class _PatientTable extends StatelessWidget {
 
     return Container(
       color: Colors.white,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Column(
-          children: [
-            // Fixed header that doesn't scroll vertically
-            Container(
+      child: Column(
+        children: [
+          // ── Fixed Header ──
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Container(
+              width: 1000,
               color: const Color(0xFFF7FAFC),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: SizedBox(
-                  width: 1000, // Reduced width for mobile
-                  child: const Row(
-                    children: [
-                      _HeaderCell('#', flex: 1),
-                      _HeaderCell('MR No', flex: 2),
-                      _HeaderCell('Patient', flex: 3),
-                      _HeaderCell('Guardian', flex: 2),
-                      _HeaderCell('Phone', flex: 2),
-                      _HeaderCell('CNIC', flex: 2),
-                      _HeaderCell('Age', flex: 1),
-                      _HeaderCell('Gender', flex: 1),
-                      _HeaderCell('City', flex: 2),
-                      _HeaderCell('Actions', flex: 2, align: TextAlign.center),
-                    ],
-                  ),
-                ),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 12, vertical: 12),
+              child: const Row(
+                children: [
+                  _HeaderCell('#', flex: 1),
+                  _HeaderCell('MR No', flex: 2),
+                  _HeaderCell('Patient', flex: 3),
+                  _HeaderCell('Guardian', flex: 2),
+                  _HeaderCell('Phone', flex: 2),
+                  _HeaderCell('CNIC', flex: 2),
+                  _HeaderCell('Age', flex: 1),
+                  _HeaderCell('Gender', flex: 1),
+                  _HeaderCell('City', flex: 2),
+                  _HeaderCell('Actions',
+                      flex: 2, align: TextAlign.center),
+                ],
               ),
             ),
-        
-            // Scrollable content (both vertical and horizontal)
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.vertical,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: SizedBox(
-                    width: 1000, // Match header width
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: patients.asMap().entries.map(
-                            (e) => _PatientRow(
-                          index: e.key + 1,
-                          patient: e.value,
-                          isEven: e.key % 2 == 0,
+          ),
+
+          const Divider(height: 1, color: Color(0xFFE2E8F0)),
+
+          // ── Scrollable Rows ──
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: 1000,
+                child: ListView.builder(
+                  controller: _scrollController,
+                  itemCount: patients.length +
+                      (provider.isFetchingMore ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    // Bottom loading spinner
+                    if (index == patients.length) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Color(0xFF00B5AD),
+                                ),
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                'Loading more patients...',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF718096),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ).toList(),
-                    ),
+                      );
+                    }
+
+                    return _PatientRow(
+                      index: index + 1,
+                      patient: patients[index],
+                      isEven: index % 2 == 0,
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+
+          // ── Footer: all loaded ──
+          if (!provider.hasMorePages && patients.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF7FAFC),
+                border:
+                Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+              ),
+              child: Center(
+                child: Text(
+                  'All ${_formatNumber(provider.totalCount)} patients loaded',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF718096),
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
+  }
+
+  String _formatNumber(int n) {
+    if (n >= 1000) {
+      final s = n.toString();
+      final thousands = s.substring(0, s.length - 3);
+      final rest = s.substring(s.length - 3);
+      return '$thousands,$rest';
+    }
+    return n.toString();
   }
 }
 
@@ -532,15 +654,12 @@ class _PatientRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       child: Row(
         children: [
-          // Sr #
           Expanded(
             flex: 1,
             child: Text('$index',
                 style: const TextStyle(
                     fontSize: 13, color: Color(0xFF718096))),
           ),
-
-          // MR Number
           Expanded(
             flex: 2,
             child: Text(
@@ -552,8 +671,6 @@ class _PatientRow extends StatelessWidget {
               ),
             ),
           ),
-
-          // Patient Name
           Expanded(
             flex: 3,
             child: Text(
@@ -565,8 +682,6 @@ class _PatientRow extends StatelessWidget {
               ),
             ),
           ),
-
-          // Guardian Name
           Expanded(
             flex: 2,
             child: Text(
@@ -575,8 +690,6 @@ class _PatientRow extends StatelessWidget {
                   fontSize: 13, color: Color(0xFF4A5568)),
             ),
           ),
-
-          // Phone
           Expanded(
             flex: 2,
             child: Text(
@@ -585,8 +698,6 @@ class _PatientRow extends StatelessWidget {
                   fontSize: 13, color: Color(0xFF4A5568)),
             ),
           ),
-
-          // CNIC
           Expanded(
             flex: 2,
             child: Text(
@@ -595,8 +706,6 @@ class _PatientRow extends StatelessWidget {
                   fontSize: 13, color: Color(0xFF4A5568)),
             ),
           ),
-
-          // Age
           Expanded(
             flex: 1,
             child: Text(
@@ -605,14 +714,10 @@ class _PatientRow extends StatelessWidget {
                   fontSize: 13, color: Color(0xFF4A5568)),
             ),
           ),
-
-          // Gender badge
           Expanded(
             flex: 1,
             child: _GenderBadge(gender: patient.gender),
           ),
-
-          // City
           Expanded(
             flex: 2,
             child: Text(
@@ -621,8 +726,6 @@ class _PatientRow extends StatelessWidget {
                   fontSize: 13, color: Color(0xFF4A5568)),
             ),
           ),
-
-          // Actions
           Expanded(
             flex: 2,
             child: Row(
@@ -656,11 +759,11 @@ class _PatientRow extends StatelessWidget {
         height: MediaQuery.of(context).size.height * 0.7,
         decoration: const BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius:
+          BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
           children: [
-            // Handle bar
             Container(
               margin: const EdgeInsets.only(top: 8),
               width: 40,
@@ -670,7 +773,6 @@ class _PatientRow extends StatelessWidget {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            // Header
             Padding(
               padding: const EdgeInsets.all(20),
               child: Row(
@@ -679,7 +781,8 @@ class _PatientRow extends StatelessWidget {
                     width: 50,
                     height: 50,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF00B5AD).withOpacity(0.12),
+                      color:
+                      const Color(0xFF00B5AD).withOpacity(0.12),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(Icons.person_outline,
@@ -698,9 +801,12 @@ class _PatientRow extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 2),
-                        Text('MR Number: ${p.mrNumber}',
-                            style: const TextStyle(
-                                fontSize: 13, color: Color(0xFF718096))),
+                        Text(
+                          'MR Number: ${p.mrNumber}',
+                          style: const TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF718096)),
+                        ),
                       ],
                     ),
                   ),
@@ -712,18 +818,23 @@ class _PatientRow extends StatelessWidget {
               ),
             ),
             const Divider(color: Color(0xFFE2E8F0)),
-            // Details
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.all(20),
                 children: [
                   _buildDetailTile(Icons.person, 'Gender', p.gender),
-                  _buildDetailTile(Icons.cake, 'Age', p.age?.toString() ?? '-'),
-                  _buildDetailTile(Icons.phone, 'Phone', p.phoneNumber.isEmpty ? '-' : p.phoneNumber),
-                  _buildDetailTile(Icons.badge, 'CNIC', p.cnic.isEmpty ? '-' : p.cnic),
-                  _buildDetailTile(Icons.family_restroom, 'Guardian', p.guardianName.isEmpty ? '-' : p.guardianName),
-                  _buildDetailTile(Icons.location_city, 'City', p.city.isEmpty ? '-' : p.city),
-                  _buildDetailTile(Icons.bloodtype, 'Blood Group', p.bloodGroup.isEmpty ? '-' : p.bloodGroup),
+                  _buildDetailTile(
+                      Icons.cake, 'Age', p.age?.toString() ?? '-'),
+                  _buildDetailTile(Icons.phone, 'Phone',
+                      p.phoneNumber.isEmpty ? '-' : p.phoneNumber),
+                  _buildDetailTile(Icons.badge, 'CNIC',
+                      p.cnic.isEmpty ? '-' : p.cnic),
+                  _buildDetailTile(Icons.family_restroom, 'Guardian',
+                      p.guardianName.isEmpty ? '-' : p.guardianName),
+                  _buildDetailTile(Icons.location_city, 'City',
+                      p.city.isEmpty ? '-' : p.city),
+                  _buildDetailTile(Icons.bloodtype, 'Blood Group',
+                      p.bloodGroup.isEmpty ? '-' : p.bloodGroup),
                 ],
               ),
             ),
@@ -745,20 +856,17 @@ class _PatientRow extends StatelessWidget {
               color: const Color(0xFFF7FAFC),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, size: 18, color: const Color(0xFF718096)),
+            child:
+            Icon(icon, size: 18, color: const Color(0xFF718096)),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF718096),
-                  ),
-                ),
+                Text(label,
+                    style: const TextStyle(
+                        fontSize: 11, color: Color(0xFF718096))),
                 const SizedBox(height: 2),
                 Text(
                   value,
@@ -780,7 +888,8 @@ class _PatientRow extends StatelessWidget {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16)),
         title: const Text('Delete Patient?'),
         content: Text(
             'Are you sure you want to remove ${p.fullName.isEmpty ? p.mrNumber : p.fullName}?'),
@@ -788,26 +897,22 @@ class _PatientRow extends StatelessWidget {
           TextButton(
             onPressed: () => Navigator.pop(context),
             style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF718096),
-            ),
+                foregroundColor: const Color(0xFF718096)),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
-              
-              // Show loading
               showDialog(
                 context: context,
                 barrierDismissible: false,
-                builder: (_) => const Center(child: CircularProgressIndicator()),
+                builder: (_) => const Center(
+                    child: CircularProgressIndicator()),
               );
-
-              final success = await context.read<MrProvider>().deletePatient(p.mrNumber);
-
-              // Close loading
+              final success = await context
+                  .read<MrProvider>()
+                  .deletePatient(p.mrNumber);
               if (context.mounted) Navigator.pop(context);
-
               if (success) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -820,7 +925,9 @@ class _PatientRow extends StatelessWidget {
                 }
               } else {
                 if (context.mounted) {
-                  final errorMsg = context.read<MrProvider>().errorMessage ?? 'Failed to delete patient';
+                  final errorMsg =
+                      context.read<MrProvider>().errorMessage ??
+                          'Failed to delete patient';
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(errorMsg),
@@ -849,13 +956,14 @@ class _PatientRow extends StatelessWidget {
 // ─── Gender Badge ─────────────────────────────────────────────────────────────
 class _GenderBadge extends StatelessWidget {
   final String gender;
-
   const _GenderBadge({required this.gender});
 
   @override
   Widget build(BuildContext context) {
-    final isFemale = gender.toLowerCase() == 'female' || gender.toLowerCase() == 'f';
-    final isMale = gender.toLowerCase() == 'male' || gender.toLowerCase() == 'm';
+    final isFemale =
+        gender.toLowerCase() == 'female' || gender.toLowerCase() == 'f';
+    final isMale =
+        gender.toLowerCase() == 'male' || gender.toLowerCase() == 'm';
 
     Color color;
     if (isFemale) {

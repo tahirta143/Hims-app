@@ -107,4 +107,6 @@ class PayoutRecordModel {
       opdCancelled: (json['opd_cancelled'] == 1 || json['opd_cancelled'] == true),
     );
   }
+
+  get shiftClosed => null;
 }

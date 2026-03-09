@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../custum widgets/drawer/base_scaffold.dart'; // Add this import
+import '../../custum widgets/drawer/base_scaffold.dart';
 import '../../providers/opd/opd_reciepts/opd_reciepts.dart';
 
 class OpdRecordsScreen extends StatefulWidget {
@@ -14,8 +14,10 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
   static const Color primary = Color(0xFF00B5AD);
   static const Color bgColor = Color(0xFFF0F4F8);
 
-  // Add GlobalKey for drawer access
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  // ── Scroll controller for infinite scroll ──
+  final ScrollController _scrollController = ScrollController();
 
   // ── Filter controllers ──
   final _nameCtrl    = TextEditingController();
@@ -26,7 +28,7 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
   String _selectedYear  = 'All';
   String _selectedMonth = 'All';
 
-  // ── Active filters (applied on Search) ──
+  // ── Active filters ──
   String _fName    = '';
   String _fMr      = '';
   String _fService = '';
@@ -52,25 +54,48 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
   void dispose() {
-    _nameCtrl.dispose(); _mrCtrl.dispose(); _serviceCtrl.dispose();
+    _scrollController.dispose();
+    _nameCtrl.dispose();
+    _mrCtrl.dispose();
+    _serviceCtrl.dispose();
     super.dispose();
+  }
+
+  // ── Infinite scroll trigger ──
+  void _onScroll() {
+    if (!mounted) return;
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 300) {
+      // Only paginate when no filters active (server-side data)
+      if (_fName.isEmpty && _fMr.isEmpty && _fService.isEmpty &&
+          _fStart == null && _fEnd == null &&
+          _fYear == 'All' && _fMonth == 'All') {
+        context.read<OpdProvider>().loadMoreReceipts();
+      }
+    }
   }
 
   // ── Filter logic ──
   List<Map<String, dynamic>> _applyFilters(List<Map<String, dynamic>> all) {
     return all.where((r) {
-      final name    = (r['patientName'] as String).toLowerCase();
-      final mr      = (r['mrNo']        as String).toLowerCase();
-      final svcList = (r['services']    as List).join(' ').toLowerCase();
-      final date    = r['date']         as DateTime;
+      final name    = (r['patientName'] as String? ?? '').toLowerCase();
+      final mr      = (r['mrNo']        as String? ?? '').toLowerCase();
+      final svcList = (r['services']    as List? ?? []).join(' ').toLowerCase();
+      final date    = r['date']         as DateTime? ?? DateTime.now();
 
-      if (_fName.isNotEmpty    && !name.contains(_fName.toLowerCase()))    return false;
-      if (_fMr.isNotEmpty      && !mr.contains(_fMr.toLowerCase()))        return false;
+      if (_fName.isNotEmpty    && !name.contains(_fName.toLowerCase()))       return false;
+      if (_fMr.isNotEmpty      && !mr.contains(_fMr.toLowerCase()))           return false;
       if (_fService.isNotEmpty && !svcList.contains(_fService.toLowerCase())) return false;
-      if (_fStart != null      && date.isBefore(_fStart!))                 return false;
+      if (_fStart != null      && date.isBefore(_fStart!))                    return false;
       if (_fEnd   != null      && date.isAfter(_fEnd!.add(const Duration(days: 1)))) return false;
-      if (_fYear  != 'All'     && date.year.toString() != _fYear)          return false;
+      if (_fYear  != 'All'     && date.year.toString() != _fYear)             return false;
       if (_fMonth != 'All') {
         final mIdx = _months.indexOf(_fMonth);
         if (date.month != mIdx) return false;
@@ -102,7 +127,6 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
     });
   }
 
-  // ── Date picker ──
   Future<void> _pickDate(bool isStart) async {
     final picked = await showDatePicker(
       context: context,
@@ -116,7 +140,7 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
         child: child!,
       ),
     );
-    if (picked != null) {
+    if (picked != null && mounted) {
       setState(() { if (isStart) _startDate = picked; else _endDate = picked; });
     }
   }
@@ -124,9 +148,9 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
   String _fmtDate(DateTime d) =>
       '${d.day.toString().padLeft(2,'0')} ${_months[d.month].substring(0,3)} ${d.year}';
 
-  // ── Cancel / Refund actions on provider records ──
-  void _cancelRecord(OpdProvider prov, int idx) async {
-    final rec = prov.receipts[idx];
+  // ── Cancel ──
+  void _cancelRecord(OpdProvider prov, int realIdx) {
+    final rec = prov.receipts[realIdx];
     if (rec['status'] == 'Cancelled') return;
 
     final reasonCtrl = TextEditingController();
@@ -138,7 +162,7 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Are you sure you want to cancel receipt ${rec['receiptNo']}?'),
+            Text('Cancel receipt ${rec['receiptNo']}?'),
             SizedBox(height: _sh * 0.015),
             TextField(
               controller: reasonCtrl,
@@ -159,23 +183,18 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
                 _snack('Please enter a reason', err: true);
                 return;
               }
-
               Navigator.pop(ctx);
-
-              // Show loading
               _snack('Processing cancellation...');
-
-              final success = await prov.cancelReceipt(idx, reasonCtrl.text.trim());
-
+              final success = await prov.cancelReceipt(realIdx, reasonCtrl.text.trim());
+              if (!mounted) return;
               if (success) {
                 _snack('Receipt cancelled successfully');
               } else {
-                _snack('Failed to cancel receipt: ${prov.errorMessage}', err: true);
+                _snack('Failed: ${prov.errorMessage}', err: true);
               }
             },
             style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white
+              backgroundColor: Colors.red, foregroundColor: Colors.white,
             ),
             child: const Text('Yes, Cancel'),
           ),
@@ -184,8 +203,9 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
     );
   }
 
-  void _refundRecord(OpdProvider prov, int idx) async {
-    final rec = prov.receipts[idx];
+  // ── Refund ──
+  void _refundRecord(OpdProvider prov, int realIdx) {
+    final rec = prov.receipts[realIdx];
     if (rec['status'] == 'Cancelled') {
       _snack('Cannot refund a cancelled receipt', err: true);
       return;
@@ -213,8 +233,7 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
             TextField(
               controller: amountCtrl,
               decoration: const InputDecoration(
-                labelText: 'Refund Amount',
-                prefixText: 'PKR ',
+                labelText: 'Refund Amount', prefixText: 'PKR ',
                 border: OutlineInputBorder(),
               ),
               keyboardType: TextInputType.number,
@@ -223,8 +242,7 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
             TextField(
               controller: reasonCtrl,
               decoration: const InputDecoration(
-                labelText: 'Refund Reason',
-                hintText: 'Enter reason...',
+                labelText: 'Refund Reason', hintText: 'Enter reason...',
                 border: OutlineInputBorder(),
               ),
               maxLines: 2,
@@ -239,29 +257,23 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
                 _snack('Please provide a reason', err: true);
                 return;
               }
-
               final amount = double.tryParse(amountCtrl.text) ?? 0;
               if (amount <= 0) {
                 _snack('Please enter a valid amount', err: true);
                 return;
               }
-
               Navigator.pop(ctx);
-
-              // Show loading
               _snack('Processing refund...');
-
-              final success = await prov.refundReceipt(idx, amount, reasonCtrl.text.trim());
-
+              final success = await prov.refundReceipt(realIdx, amount, reasonCtrl.text.trim());
+              if (!mounted) return;
               if (success) {
                 _snack('Refund processed for PKR $amount');
               } else {
-                _snack('Failed to process refund: ${prov.errorMessage}', err: true);
+                _snack('Failed: ${prov.errorMessage}', err: true);
               }
             },
             style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white
+              backgroundColor: Colors.orange, foregroundColor: Colors.white,
             ),
             child: const Text('Confirm Refund'),
           ),
@@ -269,7 +281,9 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
       ),
     );
   }
+
   void _snack(String msg, {bool err = false}) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg, style: const TextStyle(color: Colors.white)),
       backgroundColor: err ? Colors.red.shade400 : primary,
@@ -291,39 +305,97 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
     return BaseScaffold(
       scaffoldKey: _scaffoldKey,
       title: 'OPD Records',
-      drawerIndex: 4, // Index for OPD Records screen
-      showAppBar: false, // We'll use custom header
+      drawerIndex: 4,
+      showAppBar: false,
       body: Consumer<OpdProvider>(builder: (_, prov, __) {
-        final filtered = _applyFilters(prov.receipts.toList().reversed.toList());
+        // Show initial load spinner
+        if (prov.isLoadingReceipts && prov.receipts.isEmpty) {
+          return Column(children: [
+            _buildTopBar(),
+            const Expanded(child: Center(child: CircularProgressIndicator())),
+          ]);
+        }
+
+        final allReceipts = prov.receipts.toList().reversed.toList();
+        final filtered = _applyFilters(allReceipts);
+
         return Column(children: [
           _buildTopBar(),
-          Expanded(child: CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              SliverToBoxAdapter(child: Padding(
-                padding: EdgeInsets.all(_pad),
-                child: Column(children: [
-                  _filterCard(),
-                  SizedBox(height: _pad * 0.8),
-                  _statsBar(filtered.length),
-                  SizedBox(height: _pad * 0.8),
-                ]),
-              )),
-              filtered.isEmpty
-                  ? SliverFillRemaining(child: _emptyState())
-                  : _isWide
-                  ? _wideTable(filtered, prov)
-                  : _narrowList(filtered, prov),
-              SliverToBoxAdapter(child: SizedBox(height: _bp + _pad)),
-            ],
-          )),
+          Expanded(
+            child: CustomScrollView(
+              controller: _scrollController,
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(child: Padding(
+                  padding: EdgeInsets.all(_pad),
+                  child: Column(children: [
+                    _filterCard(),
+                    SizedBox(height: _pad * 0.8),
+                    _statsBar(filtered.length, prov),
+                    SizedBox(height: _pad * 0.8),
+                  ]),
+                )),
+
+                if (filtered.isEmpty)
+                  SliverFillRemaining(child: _emptyState())
+                else if (_isWide)
+                  _wideTable(filtered, prov)
+                else
+                  _narrowList(filtered, prov),
+
+                // ── Bottom loading indicator ──
+                if (prov.isFetchingMore)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: _sh * 0.025),
+                      child: const Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 24, height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2, color: primary,
+                              ),
+                            ),
+                            SizedBox(height: 8),
+                            Text('Loading more records...',
+                              style: TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // ── All loaded footer ──
+                if (!prov.hasMorePages && prov.receipts.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: _sh * 0.015),
+                      child: Center(
+                        child: Text(
+                          'All ${prov.totalReceiptsCount} records loaded',
+                          style: TextStyle(
+                            fontSize: _fsS, color: Colors.grey.shade400,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                SliverToBoxAdapter(child: SizedBox(height: _bp + _pad)),
+              ],
+            ),
+          ),
         ]);
       }),
     );
   }
 
   // ════════════════════════════════════
-  //  TOP BAR - Modified to include menu button
+  //  TOP BAR
   // ════════════════════════════════════
   Widget _buildTopBar() {
     return Container(
@@ -338,19 +410,15 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
         left: _pad, right: _pad,
       ),
       child: Row(children: [
-        // Menu button to open drawer
         GestureDetector(
-          onTap: () {
-            _scaffoldKey.currentState?.openDrawer();
-          },
+          onTap: () => _scaffoldKey.currentState?.openDrawer(),
           child: Container(
             padding: EdgeInsets.all(_sw * 0.022),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.2),
               borderRadius: BorderRadius.circular(_sw * 0.022),
             ),
-            child: Icon(Icons.menu_rounded, // Changed to menu icon
-                color: Colors.white, size: _sw * 0.042),
+            child: Icon(Icons.menu_rounded, color: Colors.white, size: _sw * 0.042),
           ),
         ),
         SizedBox(width: _sp),
@@ -385,12 +453,11 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
       ),
       padding: EdgeInsets.all(_pad),
       child: Column(children: [
-        // Row 1: Name | MR/Receipt | Service
         _isWide
             ? Row(children: [
-          Expanded(child: _filterField(_nameCtrl,    'Patient Name...',        Icons.person_outline_rounded)),
+          Expanded(child: _filterField(_nameCtrl, 'Patient Name...',           Icons.person_outline_rounded)),
           SizedBox(width: _sp),
-          Expanded(child: _filterField(_mrCtrl,      'MR or Receipt...',       Icons.tag_rounded)),
+          Expanded(child: _filterField(_mrCtrl,   'MR or Receipt...',          Icons.tag_rounded)),
           SizedBox(width: _sp),
           Expanded(child: _filterField(_serviceCtrl, 'Service or Doctor name...', Icons.medical_services_outlined)),
         ])
@@ -402,8 +469,6 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
           _filterField(_serviceCtrl, 'Service or Doctor name...', Icons.medical_services_outlined),
         ]),
         SizedBox(height: _sp * 0.8),
-
-        // Row 2: Date Range | Year | Month | Buttons
         _isWide
             ? Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
           Expanded(flex: 3, child: _dateRangeRow()),
@@ -435,12 +500,9 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
 
   Widget _filterField(TextEditingController ctrl, String hint, IconData icon) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      if (hint.contains('Name'))
-        _filterLabel('Patient Name')
-      else if (hint.contains('MR'))
-        _filterLabel('MR / Receipt No')
-      else
-        _filterLabel('Service / Doctor'),
+      if (hint.contains('Name'))      _filterLabel('Patient Name')
+      else if (hint.contains('MR'))   _filterLabel('MR / Receipt No')
+      else                            _filterLabel('Service / Doctor'),
       SizedBox(height: _sh * 0.005),
       TextField(
         controller: ctrl,
@@ -450,8 +512,7 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
           hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: _fs * 0.92),
           prefixIcon: Icon(icon, color: Colors.grey.shade400, size: _sw * 0.042),
           filled: true, fillColor: bgColor,
-          contentPadding: EdgeInsets.symmetric(
-              horizontal: _sw * 0.025, vertical: _sh * 0.012),
+          contentPadding: EdgeInsets.symmetric(horizontal: _sw * 0.025, vertical: _sh * 0.012),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(_sw * 0.025),
               borderSide: BorderSide(color: Colors.grey.shade200)),
           enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(_sw * 0.025),
@@ -485,8 +546,7 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
     return GestureDetector(
       onTap: () => _pickDate(isStart),
       child: Container(
-        padding: EdgeInsets.symmetric(
-            horizontal: _sw * 0.025, vertical: _sh * 0.013),
+        padding: EdgeInsets.symmetric(horizontal: _sw * 0.025, vertical: _sh * 0.013),
         decoration: BoxDecoration(
           color: bgColor,
           borderRadius: BorderRadius.circular(_sw * 0.025),
@@ -495,10 +555,8 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
         child: Row(children: [
           Expanded(child: Text(
             date != null ? _fmtDate(date) : hint,
-            style: TextStyle(
-              fontSize: _fs * 0.9,
-              color: date != null ? Colors.black87 : Colors.grey.shade400,
-            ),
+            style: TextStyle(fontSize: _fs * 0.9,
+                color: date != null ? Colors.black87 : Colors.grey.shade400),
           )),
           Icon(Icons.calendar_today_outlined,
               color: Colors.grey.shade400, size: _sw * 0.038),
@@ -525,8 +583,7 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
             style: TextStyle(fontSize: _fs, color: Colors.black87),
             icon: Icon(Icons.keyboard_arrow_down_rounded,
                 color: Colors.grey, size: _sw * 0.042),
-            items: items.map((i) =>
-                DropdownMenuItem(value: i, child: Text(i))).toList(),
+            items: items.map((i) => DropdownMenuItem(value: i, child: Text(i))).toList(),
             onChanged: onChange,
           ),
         ),
@@ -536,63 +593,50 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
 
   Widget _actionButtons() {
     return Row(mainAxisSize: MainAxisSize.min, children: [
-      // Search
       ElevatedButton.icon(
         onPressed: _doSearch,
         style: ElevatedButton.styleFrom(
           backgroundColor: primary, foregroundColor: Colors.white,
-          padding: EdgeInsets.symmetric(
-              horizontal: _sw * 0.04, vertical: _sh * 0.014),
+          padding: EdgeInsets.symmetric(horizontal: _sw * 0.04, vertical: _sh * 0.014),
           elevation: 0,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(_sw * 0.025)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_sw * 0.025)),
         ),
         icon: Icon(Icons.search_rounded, size: _sw * 0.042),
-        label: Text('Search',
-            style: TextStyle(fontSize: _fs, fontWeight: FontWeight.bold)),
+        label: Text('Search', style: TextStyle(fontSize: _fs, fontWeight: FontWeight.bold)),
       ),
       SizedBox(width: _sp * 0.6),
-      // Clear
       OutlinedButton.icon(
         onPressed: _doClear,
         style: OutlinedButton.styleFrom(
           foregroundColor: Colors.grey.shade600,
           side: BorderSide(color: Colors.grey.shade300),
-          padding: EdgeInsets.symmetric(
-              horizontal: _sw * 0.032, vertical: _sh * 0.014),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(_sw * 0.025)),
+          padding: EdgeInsets.symmetric(horizontal: _sw * 0.032, vertical: _sh * 0.014),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_sw * 0.025)),
         ),
         icon: Icon(Icons.refresh_rounded, size: _sw * 0.038),
-        label: Text('Clear',
-            style: TextStyle(fontSize: _fs, fontWeight: FontWeight.w600)),
+        label: Text('Clear', style: TextStyle(fontSize: _fs, fontWeight: FontWeight.w600)),
       ),
       SizedBox(width: _sp * 0.6),
-      // Print
       OutlinedButton.icon(
         onPressed: () => _snack('Printing...'),
         style: OutlinedButton.styleFrom(
           foregroundColor: Colors.grey.shade600,
           side: BorderSide(color: Colors.grey.shade300),
-          padding: EdgeInsets.symmetric(
-              horizontal: _sw * 0.032, vertical: _sh * 0.014),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(_sw * 0.025)),
+          padding: EdgeInsets.symmetric(horizontal: _sw * 0.032, vertical: _sh * 0.014),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_sw * 0.025)),
         ),
         icon: Icon(Icons.print_rounded, size: _sw * 0.038),
-        label: Text('Print',
-            style: TextStyle(fontSize: _fs, fontWeight: FontWeight.w600)),
+        label: Text('Print', style: TextStyle(fontSize: _fs, fontWeight: FontWeight.w600)),
       ),
     ]);
   }
 
   // ════════════════════════════════════
-  //  STATS BAR
+  //  STATS BAR — shows real total from API
   // ════════════════════════════════════
-  Widget _statsBar(int count) {
+  Widget _statsBar(int filteredCount, OpdProvider prov) {
     return Container(
-      padding: EdgeInsets.symmetric(
-          horizontal: _pad, vertical: _sh * 0.016),
+      padding: EdgeInsets.symmetric(horizontal: _pad, vertical: _sh * 0.016),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [Color(0xFF00B5AD), Color(0xFF00897B)],
@@ -611,19 +655,55 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
         ),
         SizedBox(width: _sp),
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('TOTAL RECORDS FOUND',
+          Text('TOTAL RECORDS',
               style: TextStyle(fontSize: _fsXS, color: Colors.white70,
                   fontWeight: FontWeight.w600, letterSpacing: 0.5)),
-          Text(count.toString().replaceAllMapped(
-              RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},'),
-              style: TextStyle(fontSize: _sw * 0.055, fontWeight: FontWeight.bold,
-                  color: Colors.white)),
+          // Show real total from API
+          Text(
+            _formatNumber(prov.totalReceiptsCount),
+            style: TextStyle(fontSize: _sw * 0.055,
+                fontWeight: FontWeight.bold, color: Colors.white),
+          ),
+          // Show how many loaded so far
+          Text(
+            '${_formatNumber(prov.receipts.length)} loaded',
+            style: const TextStyle(fontSize: 11, color: Colors.white70,
+                fontWeight: FontWeight.w500),
+          ),
         ]),
         const Spacer(),
-        Text('Showing page 1',
-            style: TextStyle(fontSize: _fsS, color: Colors.white70)),
+        // Status badge
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            if (prov.isFetchingMore) ...[
+              const SizedBox(
+                width: 10, height: 10,
+                child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white),
+              ),
+              const SizedBox(width: 6),
+            ],
+            Text(
+              prov.hasMorePages ? 'Scroll for more' : 'All loaded ✓',
+              style: TextStyle(fontSize: _fsS, color: Colors.white.withOpacity(0.9),
+                  fontWeight: FontWeight.w500),
+            ),
+          ]),
+        ),
       ]),
     );
+  }
+
+  String _formatNumber(int n) {
+    if (n >= 1000) {
+      final s = n.toString();
+      return '${s.substring(0, s.length - 3)},${s.substring(s.length - 3)}';
+    }
+    return n.toString();
   }
 
   // ════════════════════════════════════
@@ -641,10 +721,8 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
                 blurRadius: 10, offset: const Offset(0, 3))],
           ),
           child: Column(children: [
-            // Table header
             _tableHeader(),
             Divider(height: _sh * 0.001, color: const Color(0xFFEEEEEE)),
-            // Rows
             ...records.asMap().entries.map((e) =>
                 _tableRow(e.key, e.value, prov, records)),
           ]),
@@ -654,13 +732,11 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
   }
 
   Widget _tableHeader() {
-    final cols = ['Sr #','Receipt No','MR No','Date','Patient Name',
-      'Service','Details','Total','Discount','Age','Gender',
-      'Refund','Cancel'];
-    final flexes = [1, 2, 2, 2, 3, 2, 3, 2, 2, 1, 1, 2, 2];
+    const cols = ['Sr #','Receipt No','MR No','Date','Patient Name',
+      'Service','Details','Total','Discount','Age','Gender','Refund','Cancel'];
+    const flexes = [1, 2, 2, 2, 3, 2, 3, 2, 2, 1, 1, 2, 2];
     return Container(
-      padding: EdgeInsets.symmetric(
-          horizontal: _pad, vertical: _sh * 0.014),
+      padding: EdgeInsets.symmetric(horizontal: _pad, vertical: _sh * 0.014),
       child: Row(children: List.generate(cols.length, (i) => Expanded(
         flex: flexes[i],
         child: Text(cols[i],
@@ -672,43 +748,35 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
 
   Widget _tableRow(int index, Map<String, dynamic> rec,
       OpdProvider prov, List<Map<String, dynamic>> all) {
-    final status    = rec['status'] as String? ?? 'Active';
+    final status      = rec['status'] as String? ?? 'Active';
     final isCancelled = status == 'Cancelled';
-    final isRefunded  = status == 'Refunded';
-    final services  = rec['services'] as List;
-    final date      = rec['date'] as DateTime;
+    final services    = rec['services'] as List? ?? [];
+    final date        = rec['date'] as DateTime? ?? DateTime.now();
+
+    // Find real index in provider's receipts list
+    final realIdx = _findRealIndex(prov, rec);
 
     return Column(children: [
       Container(
         color: index.isOdd ? bgColor.withOpacity(0.5) : Colors.white,
-        padding: EdgeInsets.symmetric(
-            horizontal: _pad, vertical: _sh * 0.013),
+        padding: EdgeInsets.symmetric(horizontal: _pad, vertical: _sh * 0.013),
         child: Row(children: [
-          // Sr #
           Expanded(flex: 1, child: Text('${index + 1}',
               style: TextStyle(fontSize: _fsS, color: Colors.black54))),
-          // Receipt No
-          Expanded(flex: 2, child: Text(rec['receiptNo'] ?? 'OPD${70000 + index}',
-              style: TextStyle(fontSize: _fsS, fontWeight: FontWeight.w600,
-                  color: Colors.black87))),
-          // MR No
+          Expanded(flex: 2, child: Text(rec['receiptNo'] ?? '',
+              style: TextStyle(fontSize: _fsS, fontWeight: FontWeight.w600, color: Colors.black87))),
           Expanded(flex: 2, child: Text(rec['mrNo'] ?? '',
               style: TextStyle(fontSize: _fsS, color: Colors.black87))),
-          // Date
           Expanded(flex: 2, child: Text(_fmtDate(date),
               style: TextStyle(fontSize: _fsS, color: Colors.black87))),
-          // Patient Name
           Expanded(flex: 3, child: Text(
-              (rec['patientName'] as String).toUpperCase(),
-              style: TextStyle(fontSize: _fsS, fontWeight: FontWeight.bold,
-                  color: Colors.black87),
+              ((rec['patientName'] as String?) ?? '').toUpperCase(),
+              style: TextStyle(fontSize: _fsS, fontWeight: FontWeight.bold, color: Colors.black87),
               maxLines: 1, overflow: TextOverflow.ellipsis)),
-          // Service
           Expanded(flex: 2, child: Text(
-              services.isNotEmpty ? services.first : '',
+              services.isNotEmpty ? services.first.toString() : '',
               style: TextStyle(fontSize: _fsS, color: Colors.black87),
               maxLines: 1, overflow: TextOverflow.ellipsis)),
-          // Details
           Expanded(flex: 3, child: Text(
               isCancelled
                   ? 'CANCELLED - ${services.isNotEmpty ? services.first : ''}'
@@ -716,24 +784,17 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
               style: TextStyle(fontSize: _fsS,
                   color: isCancelled ? Colors.red.shade400 : Colors.black54),
               maxLines: 2, overflow: TextOverflow.ellipsis)),
-          // Total
           Expanded(flex: 2, child: Text(
-              (rec['total'] as double).toStringAsFixed(2),
-              style: TextStyle(fontSize: _fsS, fontWeight: FontWeight.bold,
-                  color: primary))),
-          // Discount
+              (rec['total'] as double? ?? 0.0).toStringAsFixed(2),
+              style: TextStyle(fontSize: _fsS, fontWeight: FontWeight.bold, color: primary))),
           Expanded(flex: 2, child: Text(
-              (rec['discount'] as double).toStringAsFixed(0),
+              (rec['discount'] as double? ?? 0.0).toStringAsFixed(0),
               style: TextStyle(fontSize: _fsS, color: Colors.black54))),
-          // Age
           Expanded(flex: 1, child: Text(rec['age'] ?? '-',
               style: TextStyle(fontSize: _fsS, color: Colors.black87))),
-          // Gender badge
           Expanded(flex: 1, child: _genderBadge(rec['gender'] ?? 'M')),
-          // Refund button
-          Expanded(flex: 2, child: _refundBtn(prov, rec, all)),
-          // Cancel button
-          Expanded(flex: 2, child: _cancelBtn(prov, rec, all, status)),
+          Expanded(flex: 2, child: _refundBtn(prov, rec, realIdx)),
+          Expanded(flex: 2, child: _cancelBtn(prov, rec, realIdx, status)),
         ]),
       ),
       Divider(height: _sh * 0.001, color: const Color(0xFFF5F5F5)),
@@ -741,24 +802,24 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
   }
 
   // ════════════════════════════════════
-  //  NARROW LIST (mobile cards)
+  //  NARROW LIST
   // ════════════════════════════════════
   Widget _narrowList(List<Map<String, dynamic>> records, OpdProvider prov) {
     return SliverPadding(
       padding: EdgeInsets.symmetric(horizontal: _pad),
       sliver: SliverList(delegate: SliverChildBuilderDelegate(
-            (_, i) => _mobileCard(i, records[i], prov, records),
+            (_, i) => _mobileCard(i, records[i], prov),
         childCount: records.length,
       )),
     );
   }
 
-  Widget _mobileCard(int index, Map<String, dynamic> rec,
-      OpdProvider prov, List<Map<String, dynamic>> all) {
+  Widget _mobileCard(int index, Map<String, dynamic> rec, OpdProvider prov) {
     final status      = rec['status'] as String? ?? 'Active';
     final isCancelled = status == 'Cancelled';
-    final services    = rec['services'] as List;
-    final date        = rec['date'] as DateTime;
+    final services    = rec['services'] as List? ?? [];
+    final date        = rec['date'] as DateTime? ?? DateTime.now();
+    final realIdx     = _findRealIndex(prov, rec);
 
     return Container(
       margin: EdgeInsets.only(bottom: _sh * 0.012),
@@ -772,60 +833,72 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
       ),
       padding: EdgeInsets.all(_sw * 0.038),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Header row
         Row(children: [
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text((rec['patientName'] as String).toUpperCase(),
-                style: TextStyle(fontSize: _fs, fontWeight: FontWeight.bold,
-                    color: Colors.black87)),
+            Text(((rec['patientName'] as String?) ?? '').toUpperCase(),
+                style: TextStyle(fontSize: _fs, fontWeight: FontWeight.bold, color: Colors.black87)),
             SizedBox(height: _sh * 0.003),
-            Text('${rec['receiptNo'] ?? 'OPD${70000+index}'}  •  MR: ${rec['mrNo']}',
+            Text('${rec['receiptNo'] ?? ''}  •  MR: ${rec['mrNo'] ?? ''}',
                 style: TextStyle(fontSize: _fsS, color: Colors.grey.shade500)),
           ])),
-          // Status chip
           _statusBadge(status),
         ]),
         SizedBox(height: _sh * 0.01),
         Divider(height: _sh * 0.001, color: const Color(0xFFEEEEEE)),
         SizedBox(height: _sh * 0.01),
-
-        // Info grid
         Wrap(spacing: _sw * 0.04, runSpacing: _sh * 0.007, children: [
           _infoChip(Icons.calendar_today_outlined, _fmtDate(date)),
           _infoChip(Icons.medical_services_outlined,
-              services.isNotEmpty ? services.first : '-'),
+              services.isNotEmpty ? services.first.toString() : '-'),
           _infoChip(Icons.monetization_on_outlined,
-              'PKR ${(rec['total'] as double).toStringAsFixed(0)}'),
+              'PKR ${(rec['total'] as double? ?? 0.0).toStringAsFixed(0)}'),
           _infoChip(Icons.discount_outlined,
-              'Disc: ${(rec['discount'] as double).toStringAsFixed(0)}'),
+              'Disc: ${(rec['discount'] as double? ?? 0.0).toStringAsFixed(0)}'),
           _infoChip(Icons.person_outline_rounded,
               '${rec['gender'] ?? '-'} / ${rec['age'] ?? '-'}y'),
         ]),
         SizedBox(height: _sh * 0.012),
-
-        // Action buttons
         Row(children: [
-          Expanded(child: _refundBtn(prov, rec, all)),
+          Expanded(child: _refundBtn(prov, rec, realIdx)),
           SizedBox(width: _sp * 0.6),
-          Expanded(child: _cancelBtn(prov, rec, all, status)),
+          Expanded(child: _cancelBtn(prov, rec, realIdx, status)),
         ]),
       ]),
     );
   }
 
+  // ── Find real index in provider's receipt list (by srl_no or receiptNo) ──
+  int _findRealIndex(OpdProvider prov, Map<String, dynamic> rec) {
+    final allReceipts = prov.receipts;
+
+    // Try matching by srl_no first (most reliable)
+    final srlNo = rec['srl_no'];
+    if (srlNo != null) {
+      final idx = allReceipts.indexWhere((r) => r['srl_no'] == srlNo);
+      if (idx != -1) return idx;
+    }
+
+    // Fallback: match by receiptNo
+    final receiptNo = rec['receiptNo'];
+    if (receiptNo != null) {
+      final idx = allReceipts.indexWhere((r) => r['receiptNo'] == receiptNo);
+      if (idx != -1) return idx;
+    }
+
+    return -1;
+  }
+
   // ════════════════════════════════════
-  //  SHARED ROW WIDGETS
+  //  SHARED WIDGETS
   // ════════════════════════════════════
   Widget _genderBadge(String gender) {
     final isM = gender.toUpperCase().startsWith('M');
     return Container(
-      width: _sw * 0.06,
-      height: _sw * 0.06,
+      width: _sw * 0.06, height: _sw * 0.06,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: (isM ? Colors.blue : Colors.pink).withOpacity(0.12),
-        border: Border.all(
-            color: isM ? Colors.blue : Colors.pink, width: 1.5),
+        border: Border.all(color: isM ? Colors.blue : Colors.pink, width: 1.5),
       ),
       child: Center(child: Text(isM ? 'M' : 'F',
           style: TextStyle(fontSize: _fsXS, fontWeight: FontWeight.bold,
@@ -833,21 +906,17 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
     );
   }
 
-  Widget _refundBtn(OpdProvider prov, Map<String, dynamic> rec,
-      List<Map<String, dynamic>> all) {
-    final status = rec['status'] as String? ?? 'Active';
+  Widget _refundBtn(OpdProvider prov, Map<String, dynamic> rec, int realIdx) {
+    final status     = rec['status'] as String? ?? 'Active';
     final isRefunded = status == 'Refunded';
-    final idx = prov.receipts.toList().reversed.toList().indexOf(rec);
-    final realIdx = prov.receipts.length - 1 - idx;
 
     return OutlinedButton(
-      onPressed: isRefunded ? null : () => _refundRecord(prov, realIdx),
+      onPressed: (isRefunded || realIdx == -1) ? null : () => _refundRecord(prov, realIdx),
       style: OutlinedButton.styleFrom(
         foregroundColor: isRefunded ? Colors.grey : primary,
         side: BorderSide(color: isRefunded ? Colors.grey.shade300 : primary),
         padding: EdgeInsets.symmetric(vertical: _sh * 0.009),
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(_sw * 0.02)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_sw * 0.02)),
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
@@ -856,14 +925,11 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
     );
   }
 
-  Widget _cancelBtn(OpdProvider prov, Map<String, dynamic> rec,
-      List<Map<String, dynamic>> all, String status) {
+  Widget _cancelBtn(OpdProvider prov, Map<String, dynamic> rec, int realIdx, String status) {
     final isCancelled = status == 'Cancelled';
-    final idx = prov.receipts.toList().reversed.toList().indexOf(rec);
-    final realIdx = prov.receipts.length - 1 - idx;
 
     return ElevatedButton(
-      onPressed: isCancelled ? null : () => _cancelRecord(prov, realIdx),
+      onPressed: (isCancelled || realIdx == -1) ? null : () => _cancelRecord(prov, realIdx),
       style: ElevatedButton.styleFrom(
         backgroundColor: isCancelled ? Colors.grey.shade300 : Colors.red,
         foregroundColor: Colors.white,
@@ -871,8 +937,7 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
         disabledForegroundColor: Colors.grey,
         padding: EdgeInsets.symmetric(vertical: _sh * 0.009),
         elevation: 0,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(_sw * 0.02)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_sw * 0.02)),
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
@@ -884,8 +949,8 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
   Widget _statusBadge(String status) {
     Color c; IconData icon;
     switch (status) {
-      case 'Cancelled': c = Colors.red;    icon = Icons.cancel_rounded; break;
-      case 'Refunded':  c = Colors.orange; icon = Icons.undo_rounded;   break;
+      case 'Cancelled': c = Colors.red;    icon = Icons.cancel_rounded;        break;
+      case 'Refunded':  c = Colors.orange; icon = Icons.undo_rounded;          break;
       default:          c = primary;       icon = Icons.check_circle_rounded;
     }
     return Container(
@@ -898,8 +963,7 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(icon, color: c, size: _sw * 0.032),
         SizedBox(width: _sw * 0.01),
-        Text(status, style: TextStyle(fontSize: _fsXS,
-            color: c, fontWeight: FontWeight.w700)),
+        Text(status, style: TextStyle(fontSize: _fsXS, color: c, fontWeight: FontWeight.w700)),
       ]),
     );
   }
@@ -919,11 +983,10 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
         Icon(Icons.inbox_rounded, color: Colors.grey.shade300, size: _sw * 0.18),
         SizedBox(height: _sh * 0.015),
         Text('No records found', style: TextStyle(
-            fontSize: _fs * 1.1, color: Colors.grey.shade400,
-            fontWeight: FontWeight.w600)),
+            fontSize: _fs * 1.1, color: Colors.grey.shade400, fontWeight: FontWeight.w600)),
         SizedBox(height: _sh * 0.006),
-        Text('Try adjusting your filters', style: TextStyle(
-            fontSize: _fsS, color: Colors.grey.shade400)),
+        Text('Try adjusting your filters',
+            style: TextStyle(fontSize: _fsS, color: Colors.grey.shade400)),
       ],
     ));
   }

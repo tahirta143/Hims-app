@@ -19,22 +19,89 @@ class OpdReceiptApiService {
       if (token != null) 'Authorization': 'Bearer $token',
     };
   }
-// Add to opd_receipt_api_service.dart
 
-// PUT /opd-patient-data/{id}/refund
-  // In OpdReceiptApiService
+  // ─── GET /api/opd-patient-data (with pagination) ────────────────────────────
+  Future<OpdReceiptsResult> fetchOpdReceipts({
+    int page = 1,
+    int limit = 50,
+  }) async {
+    try {
+      final headers = await _authHeaders();
+      final uri = Uri.parse('${GlobalApi.baseUrl}/opd-patient-data').replace(
+        queryParameters: {
+          'page': page.toString(),
+          'limit': limit.toString(),
+        },
+      );
+
+      final response = await http
+          .get(uri, headers: headers)
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 401) {
+        return OpdReceiptsResult(
+          success: false,
+          message: 'Session expired. Please log in again.',
+        );
+      }
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data['success'] == true) {
+          final list = data['data'] as List<dynamic>;
+          final receipts = list
+              .map((e) => OpdReceiptApiModel.fromJson(e as Map<String, dynamic>))
+              .toList();
+
+          // Support both paginated and non-paginated API responses
+          final totalCount = data['count'] as int? ??
+              data['total'] as int? ??
+              data['totalCount'] as int? ??
+              receipts.length;
+          final currentPage = data['currentPage'] as int? ??
+              data['page'] as int? ??
+              page;
+          final totalPages = data['totalPages'] as int? ??
+              data['pages'] as int? ??
+              ((totalCount / limit).ceil());
+
+          return OpdReceiptsResult(
+            success: true,
+            receipts: receipts,
+            totalCount: totalCount,
+            currentPage: currentPage,
+            totalPages: totalPages,
+          );
+        }
+        return OpdReceiptsResult(
+          success: false,
+          message: data['message'] as String? ?? 'Failed to fetch OPD receipts',
+        );
+      }
+
+      return OpdReceiptsResult(
+        success: false,
+        message: 'Server error: ${response.statusCode}',
+      );
+    } catch (e) {
+      return OpdReceiptsResult(
+        success: false,
+        message: 'Failed to fetch OPD receipts: $e',
+      );
+    }
+  }
+
+  // ─── PUT /opd-patient-data/:id/refund ───────────────────────────────────────
   Future<RefundReceiptResult> refundOpdReceipt(
-      int receiptSrlNo, // This matches React's srl_no
+      int receiptSrlNo,
       double refundAmount,
-      String refundReason
+      String refundReason,
       ) async {
     try {
       final headers = await _authHeaders();
-
-      // CRITICAL: Payload must match React exactly
       final payload = {
-        'refund_amount': refundAmount,  // Matches React
-        'refund_reason': refundReason,  // Matches React
+        'refund_amount': refundAmount,
+        'refund_reason': refundReason,
       };
 
       debugPrint('📤 Calling refund API: ${GlobalApi.baseUrl}/opd-patient-data/$receiptSrlNo/refund');
@@ -53,14 +120,13 @@ class OpdReceiptApiService {
 
       if (response.statusCode == 401) {
         return RefundReceiptResult(
-            success: false,
-            message: 'Session expired. Please log in again.'
+          success: false,
+          message: 'Session expired. Please log in again.',
         );
       }
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
 
-      // React checks for 200 or 201 status codes
       if (response.statusCode == 200 || response.statusCode == 201) {
         if (data['success'] == true) {
           final recJson = data['data'] as Map<String, dynamic>?;
@@ -88,7 +154,8 @@ class OpdReceiptApiService {
       );
     }
   }
-  // GET /api/opd-services
+
+  // ─── GET /api/opd-services ───────────────────────────────────────────────────
   Future<OpdServicesResult> fetchOpdServices() async {
     try {
       final headers = await _authHeaders();
@@ -108,11 +175,7 @@ class OpdReceiptApiService {
         if (data['success'] == true) {
           final list = data['data'] as List<dynamic>;
           final services = list
-              .map(
-                (e) => OpdServiceApiModel.fromJson(
-                  e as Map<String, dynamic>,
-                ),
-              )
+              .map((e) => OpdServiceApiModel.fromJson(e as Map<String, dynamic>))
               .toList();
           return OpdServicesResult(success: true, services: services);
         }
@@ -134,64 +197,18 @@ class OpdReceiptApiService {
     }
   }
 
-  // GET /api/opd-receipts
-  Future<OpdReceiptsResult> fetchOpdReceipts() async {
-    try {
-      final headers = await _authHeaders();
-      final response = await http
-          .get(Uri.parse('${GlobalApi.baseUrl}/opd-patient-data'), headers: headers)
-          .timeout(const Duration(seconds: 15));
-
-      if (response.statusCode == 401) {
-        return OpdReceiptsResult(
-          success: false,
-          message: 'Session expired. Please log in again.',
-        );
-      }
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        if (data['success'] == true) {
-          final list = data['data'] as List<dynamic>;
-          final receipts = list
-              .map(
-                (e) => OpdReceiptApiModel.fromJson(
-                  e as Map<String, dynamic>,
-                ),
-              )
-              .toList();
-          return OpdReceiptsResult(success: true, receipts: receipts);
-        }
-        return OpdReceiptsResult(
-          success: false,
-          message: data['message'] as String? ?? 'Failed to fetch OPD receipts',
-        );
-      }
-
-      return OpdReceiptsResult(
-        success: false,
-        message: 'Server error: ${response.statusCode}',
-      );
-    } catch (e) {
-      return OpdReceiptsResult(
-        success: false,
-        message: 'Failed to fetch OPD receipts: $e',
-      );
-    }
-  }
-
-  // POST /api/opd-receipts
+  // ─── POST /api/opd-patient-data ──────────────────────────────────────────────
   Future<CreateOpdReceiptResult> createOpdReceipt(
-    Map<String, dynamic> payload,
-  ) async {
+      Map<String, dynamic> payload,
+      ) async {
     try {
       final headers = await _authHeaders();
       final response = await http
           .post(
-            Uri.parse('${GlobalApi.baseUrl}/opd-patient-data'),
-            headers: headers,
-            body: jsonEncode(payload),
-          )
+        Uri.parse('${GlobalApi.baseUrl}/opd-patient-data'),
+        headers: headers,
+        body: jsonEncode(payload),
+      )
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 401) {
@@ -212,8 +229,7 @@ class OpdReceiptApiService {
           }
           return CreateOpdReceiptResult(
             success: true,
-            message:
-                data['message'] as String? ?? 'OPD receipt created successfully',
+            message: data['message'] as String? ?? 'OPD receipt created successfully',
             receipt: rec,
           );
         }
@@ -230,18 +246,16 @@ class OpdReceiptApiService {
       );
     }
   }
-// In OpdReceiptApiService class
-  // In OpdReceiptApiService
+
+  // ─── PUT /opd-patient-data/:id/cancel ───────────────────────────────────────
   Future<CancelReceiptResult> cancelOpdReceipt(
       int receiptSrlNo,
-      String cancelReason
+      String cancelReason,
       ) async {
     try {
       final headers = await _authHeaders();
-
-      // CRITICAL: Payload must match React exactly
       final payload = {
-        'cancel_details': cancelReason,  // React uses cancel_details
+        'cancel_details': cancelReason,
       };
 
       debugPrint('📤 Calling cancel API: ${GlobalApi.baseUrl}/opd-patient-data/$receiptSrlNo/cancel');
@@ -257,8 +271,8 @@ class OpdReceiptApiService {
 
       if (response.statusCode == 401) {
         return CancelReceiptResult(
-            success: false,
-            message: 'Session expired. Please log in again.'
+          success: false,
+          message: 'Session expired. Please log in again.',
         );
       }
 
@@ -285,70 +299,108 @@ class OpdReceiptApiService {
       );
     }
   }
-// Add result class
 
-  // GET /opd-patient-data/pending-discounts
+  // ─── GET /opd-patient-data/pending-discounts ────────────────────────────────
   Future<PendingDiscountReceiptsResult> fetchPendingDiscountReceipts() async {
     try {
       final headers = await _authHeaders();
       final response = await http
-          .get(Uri.parse('${GlobalApi.baseUrl}/opd-patient-data/pending-discounts'), headers: headers)
+          .get(
+        Uri.parse('${GlobalApi.baseUrl}/opd-patient-data/pending-discounts'),
+        headers: headers,
+      )
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 401) {
-        return PendingDiscountReceiptsResult(success: false, message: 'Session expired. Please log in again.');
+        return PendingDiscountReceiptsResult(
+          success: false,
+          message: 'Session expired. Please log in again.',
+        );
       }
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         if (data['success'] == true) {
           final list = data['data'] ?? [];
-          final receipts = (list as List).map((e) => VoucherDetail.fromJson(e)).toList();
-          return PendingDiscountReceiptsResult(success: true, receipts: receipts);
+          final receipts =
+          (list as List).map((e) => VoucherDetail.fromJson(e)).toList();
+          return PendingDiscountReceiptsResult(
+            success: true,
+            receipts: receipts,
+          );
         }
-        return PendingDiscountReceiptsResult(success: false, message: data['message'] as String? ?? 'Failed to fetch pending discounts');
+        return PendingDiscountReceiptsResult(
+          success: false,
+          message: data['message'] as String? ?? 'Failed to fetch pending discounts',
+        );
       }
 
-      return PendingDiscountReceiptsResult(success: false, message: 'Server error: ${response.statusCode}');
+      return PendingDiscountReceiptsResult(
+        success: false,
+        message: 'Server error: ${response.statusCode}',
+      );
     } catch (e) {
-      return PendingDiscountReceiptsResult(success: false, message: 'Failed to fetch pending discounts: $e');
+      return PendingDiscountReceiptsResult(
+        success: false,
+        message: 'Failed to fetch pending discounts: $e',
+      );
     }
   }
 
-  // PUT /opd-patient-data/{id}/approve-discount
-  Future<ApproveDiscountResult> approveDiscount(int receiptSrlNo, int authoritySrlNo) async {
+  // ─── PUT /opd-patient-data/:id/approve-discount ─────────────────────────────
+  Future<ApproveDiscountResult> approveDiscount(
+      int receiptSrlNo,
+      int authoritySrlNo,
+      ) async {
     try {
       final headers = await _authHeaders();
-      final payload = {
-        'authority_id': authoritySrlNo,
-      };
+      final payload = {'authority_id': authoritySrlNo};
 
       final response = await http
           .put(
-            Uri.parse('${GlobalApi.baseUrl}/opd-patient-data/$receiptSrlNo/approve-discount'),
-            headers: headers,
-            body: jsonEncode(payload),
-          )
+        Uri.parse(
+          '${GlobalApi.baseUrl}/opd-patient-data/$receiptSrlNo/approve-discount',
+        ),
+        headers: headers,
+        body: jsonEncode(payload),
+      )
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 401) {
-        return ApproveDiscountResult(success: false, message: 'Session expired. Please log in again.');
+        return ApproveDiscountResult(
+          success: false,
+          message: 'Session expired. Please log in again.',
+        );
       }
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         if (data['success'] == true) {
-          return ApproveDiscountResult(success: true, message: data['message'] as String? ?? 'Discount approved successfully');
+          return ApproveDiscountResult(
+            success: true,
+            message: data['message'] as String? ?? 'Discount approved successfully',
+          );
         }
-        return ApproveDiscountResult(success: false, message: data['message'] as String? ?? 'Failed to approve discount');
+        return ApproveDiscountResult(
+          success: false,
+          message: data['message'] as String? ?? 'Failed to approve discount',
+        );
       }
 
-      return ApproveDiscountResult(success: false, message: 'Server error: ${response.statusCode}');
+      return ApproveDiscountResult(
+        success: false,
+        message: 'Server error: ${response.statusCode}',
+      );
     } catch (e) {
-      return ApproveDiscountResult(success: false, message: 'Failed to approve discount: $e');
+      return ApproveDiscountResult(
+        success: false,
+        message: 'Failed to approve discount: $e',
+      );
     }
   }
 }
+
+// ─── Result Classes ───────────────────────────────────────────────────────────
 
 class OpdServicesResult {
   final bool success;
@@ -366,13 +418,20 @@ class OpdReceiptsResult {
   final bool success;
   final List<OpdReceiptApiModel> receipts;
   final String? message;
+  final int totalCount;
+  final int currentPage;
+  final int totalPages;
 
   OpdReceiptsResult({
     required this.success,
     this.receipts = const [],
     this.message,
+    this.totalCount = 0,
+    this.currentPage = 1,
+    this.totalPages = 1,
   });
 }
+
 class CancelReceiptResult {
   final bool success;
   final String? message;
@@ -391,6 +450,7 @@ class RefundReceiptResult {
     this.receipt,
   });
 }
+
 class CreateOpdReceiptResult {
   final bool success;
   final String? message;
@@ -421,4 +481,3 @@ class ApproveDiscountResult {
 
   ApproveDiscountResult({required this.success, this.message});
 }
-
