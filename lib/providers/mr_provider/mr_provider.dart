@@ -20,7 +20,7 @@ class MrProvider extends ChangeNotifier {
   List<PatientModel> _patients = [];
   String _searchQuery = '';
   PatientModel? _selectedPatient;
-  int _totalCount = 0; // real total from API
+  int _totalCount = 0;
 
   // ── Getters ──
   bool get isLoading => _isLoading;
@@ -30,8 +30,8 @@ class MrProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   String? get nextMrNumber => _nextMrNumber;
   PatientModel? get selectedPatient => _selectedPatient;
-  int get totalPatients => _patients.length; // loaded so far
-  int get totalCount => _totalCount;         // real total from API
+  int get totalPatients => _patients.length;
+  int get totalCount => _totalCount;
   String get searchQuery => _searchQuery;
 
   // ── Constructor ──
@@ -40,7 +40,7 @@ class MrProvider extends ChangeNotifier {
     fetchNextMR();
   }
 
-  // ── Filtered patients list ──
+  // ── Filtered patients list (local search fallback) ──
   List<PatientModel> get patients {
     if (_searchQuery.isEmpty) return List.from(_patients);
     final q = _searchQuery.toLowerCase();
@@ -81,7 +81,7 @@ class MrProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Load Next Page (called by scroll listener) ──
+  // ── Load Next Page ──
   Future<void> loadMorePatients() async {
     if (_isFetchingMore || !hasMorePages || _searchQuery.isNotEmpty) return;
 
@@ -106,7 +106,7 @@ class MrProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Fetch Next MR Number ──
+  // ── ✅ Fetch Next MR Number (auto-generate for new patient) ──
   Future<void> fetchNextMR() async {
     final result = await _apiService.fetchNextMRNumber();
     if (result.success && result.nextMR != null) {
@@ -115,17 +115,36 @@ class MrProvider extends ChangeNotifier {
     }
   }
 
+  // ── ✅ Live Search patients by name or phone (calls API with search param) ──
+  Future<List<PatientModel>> searchPatients(String query) async {
+    if (query.trim().length < 2) return [];
+
+    final result = await _apiService.fetchAllPatients(
+      page: 1,
+      limit: 20,
+      search: query.trim(),
+    );
+
+    if (result.success) {
+      return result.patients.map((p) => p.toPatientModel()).toList();
+    }
+    return [];
+  }
+
   // ── MR number lookup (local cache first, then API) ──
   Future<PatientModel?> findByMrNumber(String input) async {
     final trimmed = input.trim();
     if (trimmed.isEmpty) return null;
 
     final normalised = _normalizeMrNumber(trimmed);
+
+    // Try local cache first
     try {
       return _patients.firstWhere(
             (p) => p.mrNumber.toUpperCase() == normalised,
       );
     } catch (_) {
+      // Not in cache — hit the API
       final result = await _apiService.fetchPatientByMR(normalised);
       if (result.success && result.patient != null) {
         final patient = result.patient!.toPatientModel();
@@ -162,7 +181,7 @@ class MrProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Register new patient via API ──
+  // ── ✅ Register new patient via API ──
   Future<PatientModel?> registerPatient({
     String mrNumber = '',
     required String firstName,
@@ -184,10 +203,13 @@ class MrProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
+    // ✅ If mrNumber is empty, use the auto-generated next MR
+    final resolvedMr = mrNumber.trim().isEmpty
+        ? (_nextMrNumber ?? '00001')
+        : mrNumber.trim();
+
     final patient = PatientModel(
-      mrNumber: mrNumber.trim().isEmpty
-          ? (_nextMrNumber ?? '00001')
-          : mrNumber.trim(),
+      mrNumber: resolvedMr,
       firstName: firstName.trim().toUpperCase(),
       lastName: lastName.trim().toUpperCase(),
       guardianName: guardianName.trim(),
@@ -215,6 +237,7 @@ class MrProvider extends ChangeNotifier {
       _selectedPatient = createdPatient;
       _errorMessage = null;
       notifyListeners();
+      // ✅ Refresh next MR after successful registration
       fetchNextMR();
       return createdPatient;
     } else {

@@ -7,13 +7,31 @@ import 'package:hims_app/screens/mr_details/mr_details.dart';
 import 'package:hims_app/screens/mr_details/mr_view/mr_view.dart';
 import 'package:hims_app/screens/opd_reciepts/opd_reciept.dart';
 import 'package:hims_app/screens/opd_reciepts/opd_records.dart';
-import 'package:hims_app/screens/consultation_payments/consultation_payments.dart' hide TextStyle;
+import 'package:hims_app/screens/consultation_payments/consultation_payments.dart'
+    hide TextStyle;
 import 'package:hims_app/screens/shift_management/shift_management.dart';
 import '../../screens/add_expenses/add_expenses.dart';
 import '../../screens/dashboard/dashboard.dart';
 import 'drawer.dart';
 
-class BaseScaffold extends StatelessWidget {
+// ─── FIX: Convert BaseScaffold from StatelessWidget to StatefulWidget ─────────
+//
+// ROOT CAUSE of the keyboard bug:
+//   BaseScaffold was a StatelessWidget, so its build() ran on every parent
+//   setState(). Inside build() it did:
+//
+//     final effectiveKey = scaffoldKey ?? GlobalKey<ScaffoldState>();
+//
+//   This created a BRAND NEW GlobalKey on every build. Flutter sees a new key
+//   → treats the Scaffold as a completely new widget → tears down and recreates
+//   the IME (keyboard) connection → keyboard flickers hide/show on every
+//   keystroke in the child form.
+//
+// FIX: Move the fallback GlobalKey into State so it is created exactly once
+//   and survives rebuilds.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class BaseScaffold extends StatefulWidget {
   final Widget body;
   final String title;
   final int drawerIndex;
@@ -23,13 +41,11 @@ class BaseScaffold extends StatelessWidget {
   final Widget? bottomNavigationBar;
   final Widget? floatingActionButton;
   final FloatingActionButtonLocation? floatingActionButtonLocation;
-
-  // Make this nullable and don't create it here
   final GlobalKey<ScaffoldState>? scaffoldKey;
 
   static const Color primaryColor = Color(0xFF00B5AD);
 
-  BaseScaffold({
+  const BaseScaffold({
     super.key,
     required this.body,
     required this.title,
@@ -40,48 +56,61 @@ class BaseScaffold extends StatelessWidget {
     this.bottomNavigationBar,
     this.floatingActionButton,
     this.floatingActionButtonLocation,
-    this.scaffoldKey, // Add this parameter
+    this.scaffoldKey,
   });
 
   @override
+  State<BaseScaffold> createState() => _BaseScaffoldState();
+}
+
+class _BaseScaffoldState extends State<BaseScaffold> {
+  // ✅ Created once in State — survives every rebuild triggered by child setState()
+  late final GlobalKey<ScaffoldState> _fallbackKey;
+
+  @override
+  void initState() {
+    super.initState();
+    _fallbackKey = GlobalKey<ScaffoldState>();
+  }
+
+  GlobalKey<ScaffoldState> get _effectiveKey =>
+      widget.scaffoldKey ?? _fallbackKey;
+
   @override
   Widget build(BuildContext context) {
-    final effectiveKey = scaffoldKey ?? GlobalKey<ScaffoldState>();
-
     return Scaffold(
-      key: effectiveKey,
-      extendBody: true, // keep this
+      key: _effectiveKey,
+      extendBody: true,
 
       drawer: CustomDrawer(
-        selectedIndex: drawerIndex,
+        selectedIndex: widget.drawerIndex,
         onMenuItemTap: (index) {
           Navigator.pop(context);
-          if (index != drawerIndex) {
+          if (index != widget.drawerIndex) {
             _navigateToScreen(context, index);
           }
         },
       ),
 
-      floatingActionButton: floatingActionButton,
-      floatingActionButtonLocation: floatingActionButtonLocation,
+      floatingActionButton: widget.floatingActionButton,
+      floatingActionButtonLocation: widget.floatingActionButtonLocation,
+      bottomNavigationBar: widget.bottomNavigationBar,
 
-      // ✅ MOVE bottomNavigationBar HERE
-      bottomNavigationBar: bottomNavigationBar,
-
-      // ✅ REMOVE bottom nav from Column
       body: Column(
         children: [
-          if (showAppBar) _buildHeader(context, effectiveKey),
-          Expanded(child: body),
+          if (widget.showAppBar) _buildHeader(context, _effectiveKey),
+          Expanded(child: widget.body),
         ],
       ),
     );
   }
-  Widget _buildHeader(BuildContext context, GlobalKey<ScaffoldState> scaffoldKey) {
+
+  Widget _buildHeader(
+      BuildContext context, GlobalKey<ScaffoldState> scaffoldKey) {
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [primaryColor, primaryColor],
+          colors: [BaseScaffold.primaryColor, BaseScaffold.primaryColor],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -99,9 +128,7 @@ class BaseScaffold extends StatelessWidget {
             children: [
               // Menu button
               GestureDetector(
-                onTap: () {
-                  scaffoldKey.currentState?.openDrawer();
-                },
+                onTap: () => scaffoldKey.currentState?.openDrawer(),
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
@@ -115,7 +142,7 @@ class BaseScaffold extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  title,
+                  widget.title,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,
@@ -123,9 +150,8 @@ class BaseScaffold extends StatelessWidget {
                   ),
                 ),
               ),
-              // Custom actions or notification icon
-              if (actions != null) ...actions!,
-              if (showNotificationIcon && actions == null)
+              if (widget.actions != null) ...widget.actions!,
+              if (widget.showNotificationIcon && widget.actions == null)
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
@@ -137,7 +163,7 @@ class BaseScaffold extends StatelessWidget {
                 ),
             ],
           ),
-          if (title == 'Dashboard')
+          if (widget.title == 'Dashboard')
             Padding(
               padding: const EdgeInsets.only(left: 42, top: 4),
               child: Text(
@@ -193,7 +219,7 @@ class BaseScaffold extends StatelessWidget {
       case 11:
         screen = const AppointmentReportScreen();
         break;
-      case -1: // Logout
+      case -1:
         _showLogoutDialog(context);
         return;
       default:
@@ -219,13 +245,9 @@ class BaseScaffold extends StatelessWidget {
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () {
-                // Implement your logout logic here
-                Navigator.pushReplacementNamed(context, '/SignInScreen');
-              },
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.red,
-              ),
+              onPressed: () =>
+                  Navigator.pushReplacementNamed(context, '/SignInScreen'),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
               child: const Text('Logout'),
             ),
           ],

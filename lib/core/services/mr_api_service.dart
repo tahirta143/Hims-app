@@ -5,7 +5,6 @@ import 'auth_storage_service.dart';
 import '../../models/mr_model/mr_patient_model.dart';
 
 class MrApiService {
-  // static const String baseUrl = 'http://10.0.2.2:3001/api';
   final AuthStorageService _storage = AuthStorageService();
 
   // ─── Helper: build auth headers ───────────────────────────────────
@@ -21,15 +20,18 @@ class MrApiService {
   Future<MrPatientsResult> fetchAllPatients({
     int page = 1,
     int limit = 50,
+    String search = '', // ✅ NEW: search param for name/phone
   }) async {
     try {
       final headers = await _authHeaders();
-      final uri = Uri.parse('${GlobalApi.baseUrl}/mr-data').replace(
-        queryParameters: {
-          'page': page.toString(),
-          'limit': limit.toString(),
-        },
-      );
+      final queryParams = {
+        'page': page.toString(),
+        'limit': limit.toString(),
+        if (search.isNotEmpty) 'search': search, // ✅ pass search to API
+      };
+
+      final uri = Uri.parse('${GlobalApi.baseUrl}/mr-data')
+          .replace(queryParameters: queryParams);
 
       final response = await http
           .get(uri, headers: headers)
@@ -49,7 +51,7 @@ class MrApiService {
           final patientsJson = data['data'] as List<dynamic>;
           final patients = patientsJson
               .map((json) =>
-                  MrPatientApiModel.fromJson(json as Map<String, dynamic>))
+              MrPatientApiModel.fromJson(json as Map<String, dynamic>))
               .toList();
 
           final count = data['count'] as int? ?? patients.length;
@@ -88,7 +90,10 @@ class MrApiService {
     try {
       final headers = await _authHeaders();
       final response = await http
-          .get(Uri.parse('${GlobalApi.baseUrl}/mr-data/$mrNumber'), headers: headers)
+          .get(
+        Uri.parse('${GlobalApi.baseUrl}/mr-data/$mrNumber'),
+        headers: headers,
+      )
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 401) {
@@ -104,11 +109,7 @@ class MrApiService {
         if (data['success'] == true) {
           final patientJson = data['data'] as Map<String, dynamic>;
           final patient = MrPatientApiModel.fromJson(patientJson);
-
-          return MrPatientResult(
-            success: true,
-            patient: patient,
-          );
+          return MrPatientResult(success: true, patient: patient);
         }
 
         return MrPatientResult(
@@ -142,7 +143,10 @@ class MrApiService {
     try {
       final headers = await _authHeaders();
       final response = await http
-          .get(Uri.parse('${GlobalApi.baseUrl}/mr-data/next-mr'), headers: headers)
+          .get(
+        Uri.parse('${GlobalApi.baseUrl}/mr-data/next-mr'),
+        headers: headers,
+      )
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 401) {
@@ -157,11 +161,7 @@ class MrApiService {
 
         if (data['success'] == true) {
           final nextMr = data['nextMR'] as String;
-
-          return NextMrResult(
-            success: true,
-            nextMR: nextMr,
-          );
+          return NextMrResult(success: true, nextMR: nextMr);
         }
 
         return NextMrResult(
@@ -189,10 +189,10 @@ class MrApiService {
       final headers = await _authHeaders();
       final response = await http
           .post(
-            Uri.parse('${GlobalApi.baseUrl}/mr-data'),
-            headers: headers,
-            body: jsonEncode(patientData),
-          )
+        Uri.parse('${GlobalApi.baseUrl}/mr-data'),
+        headers: headers,
+        body: jsonEncode(patientData),
+      )
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 401) {
@@ -208,10 +208,10 @@ class MrApiService {
         if (data['success'] == true) {
           final patientJson = data['data'] as Map<String, dynamic>;
           final patient = MrPatientApiModel.fromJson(patientJson);
-
           return CreatePatientResult(
             success: true,
-            message: data['message'] as String? ?? 'Patient created successfully',
+            message:
+            data['message'] as String? ?? 'Patient created successfully',
             patient: patient,
           );
         }
@@ -236,10 +236,10 @@ class MrApiService {
       final headers = await _authHeaders();
       final response = await http
           .put(
-            Uri.parse('${GlobalApi.baseUrl}/mr-data/$mrNumber'),
-            headers: headers,
-            body: jsonEncode(patientData),
-          )
+        Uri.parse('${GlobalApi.baseUrl}/mr-data/$mrNumber'),
+        headers: headers,
+        body: jsonEncode(patientData),
+      )
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 401) {
@@ -255,10 +255,10 @@ class MrApiService {
         if (data['success'] == true) {
           final patientJson = data['data'] as Map<String, dynamic>;
           final patient = MrPatientApiModel.fromJson(patientJson);
-
           return UpdatePatientResult(
             success: true,
-            message: data['message'] as String? ?? 'Patient updated successfully',
+            message:
+            data['message'] as String? ?? 'Patient updated successfully',
             patient: patient,
           );
         }
@@ -276,12 +276,15 @@ class MrApiService {
     }
   }
 
-  // ─── DELETE /api/mr-data/:mr (Note: Not in routes, but adding for completeness) ───
+  // ─── DELETE /api/mr-data/:mr ───────────────────────────────────────
   Future<DeletePatientResult> deletePatient(String mrNumber) async {
     try {
       final headers = await _authHeaders();
       final response = await http
-          .delete(Uri.parse('${GlobalApi.baseUrl}/mr-data/$mrNumber'), headers: headers)
+          .delete(
+        Uri.parse('${GlobalApi.baseUrl}/mr-data/$mrNumber'),
+        headers: headers,
+      )
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 401) {
@@ -297,7 +300,8 @@ class MrApiService {
         if (data['success'] == true) {
           return DeletePatientResult(
             success: true,
-            message: data['message'] as String? ?? 'Patient deleted successfully',
+            message:
+            data['message'] as String? ?? 'Patient deleted successfully',
           );
         }
       }

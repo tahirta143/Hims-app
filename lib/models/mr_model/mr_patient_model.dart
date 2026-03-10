@@ -194,6 +194,8 @@ class PatientModel {
 
   String get fullName => '$firstName $lastName'.trim();
 
+  get visitHistory => null;
+
   // Convert to API request format for create/update
   Map<String, dynamic> toApiRequest() {
     return {

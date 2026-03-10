@@ -117,140 +117,203 @@ class _SummaryCard extends StatelessWidget {
 // ─────────────────────────────────────────────
 //  DOCTOR CARD WIDGET
 // ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+//  DOCTOR CARD (EXACT MATCH FROM IMAGE)
+// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+//  DOCTOR CARD (Name, Fee Rs, Image Right, Slots, Specialist, Clickable)
+// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+//  DOCTOR CARD (Actual Image, Fee under Specialist, Larger Image, Minimized Slots)
+// ─────────────────────────────────────────────
 class _DoctorCard extends StatelessWidget {
   final Map<String, dynamic> doctor;
-  final bool isFeatured;
   final Color primaryColor;
+  final VoidCallback onTap;
 
   const _DoctorCard({
     required this.doctor,
-    required this.isFeatured,
     required this.primaryColor,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final double cardWidth = MediaQuery.of(context).size.width * 0.44;
+    final Size screenSize = MediaQuery.of(context).size;
+    final double cardWidth = screenSize.width * 0.9;
+    final double horizontalPadding = screenSize.width * 0.04;
 
-    return Container(
-      width: cardWidth,
-      margin: const EdgeInsets.only(right: 14),
-      decoration: BoxDecoration(
-        color: isFeatured ? primaryColor : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border:
-        isFeatured ? null : Border.all(color: Colors.grey.shade200),
-        boxShadow: isFeatured
-            ? null
-            : [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: cardWidth,
+        margin: EdgeInsets.only(bottom: screenSize.height * 0.015),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(screenSize.width * 0.04),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(horizontalPadding),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Doctor Info Row (Name left, Large Image right)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Name, Specialist and Fee (Left side)
+                  Expanded(
+                    flex: 2,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          doctor['name'] as String,
+                          style: TextStyle(
+                            fontSize: screenSize.width * 0.045,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        SizedBox(height: screenSize.height * 0.003),
+                        Text(
+                          doctor['specialist'] as String,
+                          style: TextStyle(
+                            fontSize: screenSize.width * 0.035,
+                            color: Colors.grey.shade600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        SizedBox(height: screenSize.height * 0.008),
+                        // Fee under specialist
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: screenSize.width * 0.02,
+                            vertical: screenSize.height * 0.004,
+                          ),
+                          decoration: BoxDecoration(
+                            color: primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(screenSize.width * 0.02),
+                          ),
+                          child: Text(
+                            'Rs. ${doctor['fee']}',
+                            style: TextStyle(
+                              fontSize: screenSize.width * 0.04,
+                              fontWeight: FontWeight.bold,
+                              color: primaryColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  SizedBox(width: screenSize.width * 0.03),
+
+                  // Actual Doctor Image (Right side) - No container
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(screenSize.width * 0.05),
+                    child: Image.asset(
+                      doctor['image'] as String,
+                      width: screenSize.width * 0.28,
+                      height: screenSize.width * 0.28,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          width: screenSize.width * 0.28,
+                          height: screenSize.width * 0.28,
+                          color: Colors.grey.shade200,
+                          child: Icon(
+                            Icons.person,
+                            size: screenSize.width * 0.15,
+                            color: Colors.grey.shade400,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+
+              SizedBox(height: screenSize.height * 0.015),
+
+              // Slots Available (Minimized size)
+              Row(
+                children: [
+                  Icon(
+                    Icons.access_time,
+                    size: screenSize.width * 0.035,
+                    color: Colors.green,
+                  ),
+                  SizedBox(width: screenSize.width * 0.01),
+                  Text(
+                    '${doctor['slots']} Slots Available',
+                    style: TextStyle(
+                      fontSize: screenSize.width * 0.03,
+                      color: Colors.green,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+
+              SizedBox(height: screenSize.height * 0.01),
+
+              // Days Row with Dates
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildDayChip('Mon', doctor['dates']?['mon'] ?? '12', screenSize, true),
+                  _buildDayChip('Tue', doctor['dates']?['tue'] ?? '13', screenSize, true),
+                  _buildDayChip('Wed', doctor['dates']?['wed'] ?? '14', screenSize, true),
+                  _buildDayChip('Thu', doctor['dates']?['thu'] ?? '15', screenSize, true),
+                  _buildDayChip('Fri', doctor['dates']?['fri'] ?? '16', screenSize, true),
+                  _buildDayChip('Sat', doctor['dates']?['sat'] ?? '17', screenSize, false),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDayChip(String day, String date, Size screenSize, bool isAvailable) {
+    return Container(
+      width: screenSize.width * 0.11,
+      padding: EdgeInsets.symmetric(
+        vertical: screenSize.height * 0.006,
+      ),
+      decoration: BoxDecoration(
+        color: isAvailable ? primaryColor : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(screenSize.width * 0.025),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Container(
-              margin: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: isFeatured
-                    ? Colors.white.withOpacity(0.3)
-                    : Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Center(
-                child: Icon(
-                  Icons.person,
-                  size: 60,
-                  color: isFeatured
-                      ? Colors.white.withOpacity(0.5)
-                      : Colors.grey.shade400,
-                ),
-              ),
+          Text(
+            day,
+            style: TextStyle(
+              fontSize: screenSize.width * 0.028,
+              fontWeight: FontWeight.w500,
+              color: isAvailable ? Colors.white : Colors.grey.shade500,
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.only(left: 14, right: 14, bottom: 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  doctor['name'] as String,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: isFeatured ? Colors.white : Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(Icons.medical_services,
-                        size: 11,
-                        color:
-                        isFeatured ? Colors.white70 : Colors.grey.shade500),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        doctor['specialty'] as String,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isFeatured
-                              ? Colors.white70
-                              : Colors.grey.shade500,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    const Icon(Icons.star, size: 13, color: Colors.amber),
-                    const SizedBox(width: 3),
-                    Flexible(
-                      child: Text(
-                        '${doctor['rating']} (${doctor['reviews']})',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color:
-                          isFeatured ? Colors.white : Colors.black87,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                      isFeatured ? Colors.white : primaryColor,
-                      foregroundColor:
-                      isFeatured ? primaryColor : Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: const Text(
-                      'Appointment',
-                      style: TextStyle(
-                          fontSize: 12, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-              ],
+          Text(
+            date,
+            style: TextStyle(
+              fontSize: screenSize.width * 0.032,
+              fontWeight: FontWeight.bold,
+              color: isAvailable ? Colors.white : Colors.grey.shade500,
             ),
           ),
         ],
@@ -258,7 +321,6 @@ class _DoctorCard extends StatelessWidget {
     );
   }
 }
-
 // ─────────────────────────────────────────────
 //  DASHBOARD BODY (extracted from HomeScreen)
 // ─────────────────────────────────────────────
@@ -282,21 +344,51 @@ class _DashboardBodyState extends State<_DashboardBody> {
 
   final List<Map<String, dynamic>> doctors = [
     {
-      'name': 'Dr. Greg Thorne',
-      'specialty': 'General Doctor',
-      'rating': '4.9',
-      'reviews': '200+',
-      'featured': true,
+      'name': 'Dr. Adam Max',
+      'specialist': 'Psychologist',
+      'fee': '900',
+      'slots': '4',
+      'image': 'assets/images/doctor_adam.png',
+      'dates': {
+        'mon': '12',
+        'tue': '13',
+        'wed': '14',
+        'thu': '15',
+        'fri': '16',
+        'sat': '17',
+      },
     },
     {
-      'name': 'Dr. Sarah Wang',
-      'specialty': 'General Doctor',
-      'rating': '4.9',
-      'reviews': '150+',
-      'featured': false,
+      'name': 'Dr. Jonah Hill',
+      'specialist': 'Psychologist',
+      'fee': '800',
+      'slots': '7',
+      'image': 'assets/images/doctor_jonah.png',
+      'dates': {
+        'mon': '12',
+        'tue': '13',
+        'wed': '14',
+        'thu': '15',
+        'fri': '16',
+        'sat': '17',
+      },
+    },
+    {
+      'name': 'Dr. Sarah Chen',
+      'specialist': 'Cardiologist',
+      'fee': '1500',
+      'slots': '3',
+      'image': 'assets/images/doctor_sarah.png',
+      'dates': {
+        'mon': '12',
+        'tue': '13',
+        'wed': '14',
+        'thu': '15',
+        'fri': '16',
+        'sat': '17',
+      },
     },
   ];
-
   final List<Map<String, dynamic>> summaryCards = [
     {
       'title': 'OPD Revenue',
@@ -573,21 +665,61 @@ class _DashboardBodyState extends State<_DashboardBody> {
           SizedBox(height: screenHeight * 0.014),
 
           SizedBox(
-            height: screenHeight * 0.33,
+            height: screenHeight * 0.5, // Adjust based on your needs
             child: ListView.builder(
-              scrollDirection: Axis.horizontal,
+              scrollDirection: Axis.vertical,
               itemCount: doctors.length,
               itemBuilder: (context, index) {
                 final doctor = doctors[index];
                 return _DoctorCard(
                   doctor: doctor,
-                  isFeatured: doctor['featured'] as bool,
-                  primaryColor: primaryColor,
+                  primaryColor: primaryColor, // Your teal color (0xFF00B5AD)
+                  onTap: () {
+                    // Handle card tap - navigate to doctor details or booking
+                    print('Tapped on ${doctor['name']}');
+
+                    // Example navigation:
+                    // Navigator.push(
+                    //   context,
+                    //   MaterialPageRoute(
+                    //     builder: (context) => DoctorDetailScreen(doctor: doctor),
+                    //   ),
+                    // );
+
+                    // Or show a dialog
+                    _showDoctorDialog(context, doctor);
+                  },
                 );
               },
             ),
           ),
           SizedBox(height: screenHeight * 0.12),
+        ],
+      ),
+    );
+
+  }
+  void _showDoctorDialog(BuildContext context, Map<String, dynamic> doctor) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(doctor['name'] as String),
+        content: Text('Specialist: ${doctor['specialist']}\nFee: Rs. ${doctor['fee']}'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Proceed to booking
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+            ),
+            child: const Text('Book Appointment'),
+          ),
         ],
       ),
     );
