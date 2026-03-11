@@ -512,7 +512,7 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
                     icon: Icons.location_city_outlined,
                     readOnly: _isExisting)),
               ]),
-              const SizedBox(height: 18),
+              const SizedBox(height: 10),
               Row(mainAxisAlignment: MainAxisAlignment.end, children: [
                 OutlinedButton.icon(
                   onPressed: _clearForm,

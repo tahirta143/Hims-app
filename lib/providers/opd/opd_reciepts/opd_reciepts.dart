@@ -95,12 +95,36 @@ class OpdProvider extends ChangeNotifier {
   bool get hasMorePages => _currentPage <= _totalPages;
   int get totalReceiptsCount => _totalCount;
   String? get errorMessage => _errorMessage;
+  bool _isLoading = false;
+  bool _isSaving = false;
 
+  // Add getters
+  bool get isLoading => _isLoading;
+  bool get isSaving => _isSaving;
+
+  // Add setters if needed (or use directly)
+  set isLoading(bool value) {
+    _isLoading = value;
+    notifyListeners();
+  }
+
+  set isSaving(bool value) {
+    _isSaving = value;
+    notifyListeners();
+  }
   // ── Auto MR No counter ──
   int _mrCounter = 6;
-  String get nextMrNo => _mrCounter.toString().padLeft(6, '0');
+  String get nextMrNo => (100000 + _mrCounter).toString();
   void incrementMrNo() {
     _mrCounter++;
+    _safeNotify();
+  }
+
+  // ── Refer to Discount ──
+  bool _isReferredToDiscount = false;
+  bool get isReferredToDiscount => _isReferredToDiscount;
+  void setReferredToDiscount(bool val) {
+    _isReferredToDiscount = val;
     _safeNotify();
   }
 
@@ -721,6 +745,7 @@ class OpdProvider extends ChangeNotifier {
       'shift_type': currentShift?.shiftType ?? 'N/A',
       'shift_date': currentShift?.shiftDate ?? dateStr,
       'emergency_paid': servicesHeads.any((h) => h.toLowerCase() == 'emergency'),
+      'is_referred_to_discount': _isReferredToDiscount,
     };
 
     debugPrint('══ OPD RECEIPT PAYLOAD ══\n$payload');
@@ -735,6 +760,12 @@ class OpdProvider extends ChangeNotifier {
       _errorMessage = apiResult.message;
       _safeNotify();
       return false;
+    }
+
+    // Only increment the MR counter if the receipt was for the NEXT auto-generated MR No.
+    // If it's an existing patient (manually typed or found via lookup), don't increment.
+    if (patient.mrNo == nextMrNo) {
+      incrementMrNo();
     }
 
     // Consultant payment records

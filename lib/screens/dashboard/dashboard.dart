@@ -348,7 +348,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
       'specialist': 'Psychologist',
       'fee': '900',
       'slots': '4',
-      'image': 'assets/images/doctor_adam.png',
+      'image': 'assets/images/onboard.png',
       'dates': {
         'mon': '12',
         'tue': '13',
@@ -363,7 +363,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
       'specialist': 'Psychologist',
       'fee': '800',
       'slots': '7',
-      'image': 'assets/images/doctor_jonah.png',
+      'image': 'assets/images/onboard2.png',
       'dates': {
         'mon': '12',
         'tue': '13',
@@ -378,7 +378,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
       'specialist': 'Cardiologist',
       'fee': '1500',
       'slots': '3',
-      'image': 'assets/images/doctor_sarah.png',
+      'image': 'assets/images/onboard3.png',
       'dates': {
         'mon': '12',
         'tue': '13',

@@ -12,6 +12,7 @@ import 'package:hims_app/screens/consultation_payments/consultation_payments.dar
 import 'package:hims_app/screens/shift_management/shift_management.dart';
 import '../../screens/add_expenses/add_expenses.dart';
 import '../../screens/dashboard/dashboard.dart';
+import '../../custum widgets/bottombar/bottombar.dart';
 import 'drawer.dart';
 
 // ─── FIX: Convert BaseScaffold from StatelessWidget to StatefulWidget ─────────
@@ -94,7 +95,7 @@ class _BaseScaffoldState extends State<BaseScaffold> {
 
       floatingActionButton: widget.floatingActionButton,
       floatingActionButtonLocation: widget.floatingActionButtonLocation,
-      bottomNavigationBar: widget.bottomNavigationBar,
+      // bottomNavigationBar: widget.bottomNavigationBar ?? _buildBottomNavBar(),
 
       body: Column(
         children: [
@@ -104,6 +105,54 @@ class _BaseScaffoldState extends State<BaseScaffold> {
       ),
     );
   }
+
+  // Widget? _buildBottomNavBar() {
+  //   // Map drawer indices to bottom bar indices
+  //   // Bottom Bar Items: 0: Dashboard, 1: Emergency, 2: Consult, 3: MR View, 4: Expenses
+  //   // Drawer Indices mapping:
+  //   // 0: Dashboard -> 0
+  //   // 5: Emergency -> 1
+  //   // 1, 3, 4, 6, 7, 10, 11 (OPD/Consultation Related) -> 2
+  //   // 8, 9 (MR Related) -> 3
+  //   // 2 (Expenses) -> 4
+  //
+  //   int btmIndex = 0; // Default to Dashboard
+  //
+  //   if (widget.drawerIndex == 0) {
+  //     btmIndex = 0;
+  //   } else if (widget.drawerIndex == 5) {
+  //     btmIndex = 1;
+  //   } else if ([1, 3, 4, 6, 7, 10, 11].contains(widget.drawerIndex)) {
+  //     btmIndex = 2;
+  //   } else if ([8, 9].contains(widget.drawerIndex)) {
+  //     btmIndex = 3;
+  //   } else if (widget.drawerIndex == 2) {
+  //     btmIndex = 4;
+  //   }
+  //
+  //   return CustomFluidBottomNavBar(
+  //     currentIndex: btmIndex,
+  //     onItemSelected: (index) {
+  //       if (index == btmIndex &&
+  //           (index == 0 || index == 1 || index == 3 || index == 4)) {
+  //         // If we are already on a primary screen of this tab, do nothing
+  //         // For Consult (index 2), we might want to navigate to the main Consult screen (index 1)
+  //         // if we are currently on a sub-screen like OPD records.
+  //         return;
+  //       }
+  //
+  //       // Map back to drawer indices for navigation
+  //       int drawerIndex = 0;
+  //       if (index == 0) drawerIndex = 0;
+  //       else if (index == 1) drawerIndex = 5;
+  //       else if (index == 2) drawerIndex = 1;
+  //       else if (index == 3) drawerIndex = 8;
+  //       else if (index == 4) drawerIndex = 2;
+  //
+  //       _navigateToScreen(context, drawerIndex);
+  //     },
+  //   );
+  // }
 
   Widget _buildHeader(
       BuildContext context, GlobalKey<ScaffoldState> scaffoldKey) {
