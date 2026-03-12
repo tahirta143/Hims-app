@@ -74,7 +74,7 @@ class EmergencyProvider extends ChangeNotifier {
   static String formatMr(String raw) {
     final digits = raw.replaceAll(RegExp(r'[^0-9]'), '');
     if (digits.isEmpty) return '';
-    return int.parse(digits).toString().padLeft(6, '0');
+    return int.parse(digits).toString().padLeft(5, '0');
   }
 
   // ── Queue (loaded from API) ──

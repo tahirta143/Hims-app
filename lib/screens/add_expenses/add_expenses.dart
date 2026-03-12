@@ -303,7 +303,6 @@ class _ExpenseDialogState extends State<_ExpenseDialog> {
   late final TextEditingController _expenseByCtrl;
   late final TextEditingController _descCtrl;
   late String _category;
-  late String _shift;
   bool _isSaving = false;
 
   bool get _isEditMode => widget.expense != null;
@@ -311,23 +310,27 @@ class _ExpenseDialogState extends State<_ExpenseDialog> {
   @override
   void initState() {
     super.initState();
+    final provider = context.read<ExpensesProvider>();
+    final heads = provider.expenseHeads;
+    
     // Pre-fill fields if editing
     _amountCtrl = TextEditingController(
         text: _isEditMode ? widget.expense!.amount.toStringAsFixed(2) : '');
+    
+    // Default user name from auth context if available (handled in initState or build is easier)
     _expenseByCtrl = TextEditingController(
-        text: _isEditMode ? widget.expense!.expenseBy : 'System Administrator');
+        text: _isEditMode ? widget.expense!.expenseBy : '');
+
     _descCtrl = TextEditingController(
         text: _isEditMode ? widget.expense!.description : '');
+    
     _category = _isEditMode
-        ? (ExpensesProvider.categories.contains(widget.expense!.category)
-        ? widget.expense!.category
-        : ExpensesProvider.categories.first)
-        : ExpensesProvider.categories.first;
-    _shift = _isEditMode
-        ? (ExpensesProvider.shifts.contains(widget.expense!.expenseShift)
-        ? widget.expense!.expenseShift
-        : ExpensesProvider.shifts.first)
-        : ExpensesProvider.shifts.first;
+        ? (heads.contains(widget.expense!.category)
+            ? widget.expense!.category
+            : (heads.isNotEmpty ? heads.first : ''))
+        : (heads.isNotEmpty ? heads.first : '');
+    
+    // Shift is now automated, removing _shift controller/variable
   }
 
   @override
@@ -353,7 +356,7 @@ class _ExpenseDialogState extends State<_ExpenseDialog> {
         amount: double.parse(_amountCtrl.text.trim()),
         expenseBy: _expenseByCtrl.text.trim(),
         description: _descCtrl.text.trim(),
-        expenseShift: _shift,
+        expenseShift: widget.expense!.expenseShift, // Keep original shift on edit
         expenseDate: widget.expense!.expenseDate,
         expenseTime: widget.expense!.expenseTime,
       );
@@ -364,8 +367,6 @@ class _ExpenseDialogState extends State<_ExpenseDialog> {
         amount: double.parse(_amountCtrl.text.trim()),
         expenseBy: _expenseByCtrl.text.trim(),
         description: _descCtrl.text.trim(),
-        expenseShift: _shift,
-        shiftId: provider.currentShiftId,
       );
     }
 
@@ -466,28 +467,16 @@ class _ExpenseDialogState extends State<_ExpenseDialog> {
                 DropdownButtonFormField<String>(
                   value: _category,
                   isExpanded: true,
+                  hint: const Text('Select Expense Head', style: TextStyle(fontSize: 14)),
                   style: const TextStyle(fontSize: 14, color: Color(0xFF1A202C)),
                   decoration: _deco(icon: Icons.description_outlined),
-                  items: ExpensesProvider.categories
+                  items: context.watch<ExpensesProvider>().expenseHeads
                       .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                       .toList(),
                   onChanged: (v) => setState(() => _category = v!),
                 ),
                 const SizedBox(height: 16),
 
-                // ── Shift ─────────────────────────────────────────────────
-                _lbl('Shift', required: true),
-                const SizedBox(height: 6),
-                DropdownButtonFormField<String>(
-                  value: _shift,
-                  isExpanded: true,
-                  style: const TextStyle(fontSize: 14, color: Color(0xFF1A202C)),
-                  decoration: _deco(icon: Icons.access_time_outlined),
-                  items: ExpensesProvider.shifts
-                      .map((s) => DropdownMenuItem(value: s, child: Text(s)))
-                      .toList(),
-                  onChanged: (v) => setState(() => _shift = v!),
-                ),
                 const SizedBox(height: 16),
 
                 // ── Amount ────────────────────────────────────────────────

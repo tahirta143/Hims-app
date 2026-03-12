@@ -22,17 +22,8 @@ class ExpensesProvider extends ChangeNotifier {
     };
   }
 
-  static const List<String> categories = [
-    'Ambulance',
-    'Salary',
-    'Utilities',
-    'Medicines',
-    'Equipment',
-    'Maintenance',
-    'Food & Beverages',
-    'Transport',
-    'Other',
-  ];
+  List<String> _expenseHeads = [];
+  List<String> get expenseHeads => _expenseHeads;
 
   static const List<String> shifts = ['Morning', 'Evening', 'Night'];
 
@@ -47,9 +38,13 @@ class ExpensesProvider extends ChangeNotifier {
   // Returns the shift_id of the most recent expense (used when adding new expense)
   int get currentShiftId =>
       _allExpenses.isNotEmpty ? _allExpenses.first.shiftId : 0;
-// Add this getter alongside currentShiftId
+
   String get currentShiftDate =>
       _allExpenses.isNotEmpty ? _allExpenses.first.shiftDate : '';
+  
+  String get currentShiftType =>
+      _allExpenses.isNotEmpty ? _allExpenses.first.expenseShift : 'Morning';
+
   String get formattedTotal {
     final total = _expenses.fold<double>(0, (sum, e) => sum + e.amount);
     final formatted = total.toStringAsFixed(2).replaceAllMapped(
@@ -61,6 +56,29 @@ class ExpensesProvider extends ChangeNotifier {
 
   ExpensesProvider() {
     fetchExpenses();
+    fetchExpenseHeads();
+  }
+
+  Future<void> fetchExpenseHeads() async {
+    try {
+      final headers = await _authHeaders();
+      final url = '${GlobalApi.baseUrl}/expense-heads';
+      developer.log('📡 GET $url', name: 'ExpensesProvider');
+      
+      final response = await http.get(Uri.parse(url), headers: headers);
+      
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        if (json['success'] == true) {
+          _expenseHeads = (json['data'] as List)
+              .map((e) => e['expense_head'].toString())
+              .toList();
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      developer.log('❌ Error fetching expense heads: $e', name: 'ExpensesProvider');
+    }
   }
 
   Future<void> fetchExpenses() async {
@@ -75,7 +93,6 @@ class ExpensesProvider extends ChangeNotifier {
       final response = await http.get(Uri.parse(_baseUrl), headers: headers);
 
       developer.log('📥 Status: ${response.statusCode}', name: 'ExpensesProvider');
-      developer.log('📥 Body: ${response.body}', name: 'ExpensesProvider');
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
@@ -83,18 +100,14 @@ class ExpensesProvider extends ChangeNotifier {
           _allExpenses = (json['data'] as List)
               .map((e) => ExpenseModel.fromJson(e))
               .toList();
-          developer.log('✅ Loaded ${_allExpenses.length} expenses', name: 'ExpensesProvider');
           _applyFilter();
         } else {
           errorMessage = 'Failed to load expenses.';
-          developer.log('❌ success=false: ${response.body}', name: 'ExpensesProvider');
         }
       } else if (response.statusCode == 401) {
         errorMessage = 'Session expired. Please log in again.';
-        developer.log('🔐 401 Unauthorized', name: 'ExpensesProvider');
       } else {
         errorMessage = 'Server error: ${response.statusCode}';
-        developer.log('❌ ${response.statusCode}: ${response.body}', name: 'ExpensesProvider');
       }
     } catch (e, stack) {
       errorMessage = 'Network error. Check your connection.';
@@ -110,8 +123,6 @@ class ExpensesProvider extends ChangeNotifier {
     required double amount,
     required String expenseBy,
     required String description,
-    required String expenseShift,
-    required int shiftId,
   }) async {
     final now = DateTime.now();
     final expenseDate =
@@ -119,12 +130,11 @@ class ExpensesProvider extends ChangeNotifier {
     final expenseTime =
         '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
 
-    // shift_date comes from the existing expenses (the date the shift was opened)
+    // shift_date and shift_id comes from the existing context (recent shift)
     final shiftDate = currentShiftDate.isNotEmpty ? currentShiftDate : expenseDate;
+    final shiftId = currentShiftId;
+    final expenseShift = currentShiftType;
 
-    // Exactly matches controller: expense_id(auto), expense_date, expense_time,
-    // expense_shift, expense_description, expense_name, expense_amount,
-    // expense_by, shift_id, shift_date
     final body = jsonEncode({
       'expense_date': expenseDate,
       'expense_time': expenseTime,
@@ -134,7 +144,7 @@ class ExpensesProvider extends ChangeNotifier {
       'expense_amount': amount,
       'expense_by': expenseBy,
       'shift_id': shiftId,
-      'shift_date': shiftDate,   // ← THIS was missing, causing the undefined error
+      'shift_date': shiftDate,
     });
 
     try {
@@ -144,18 +154,12 @@ class ExpensesProvider extends ChangeNotifier {
 
       final response = await http.post(Uri.parse(_baseUrl), headers: headers, body: body);
 
-      developer.log('📥 Status: ${response.statusCode}', name: 'ExpensesProvider');
-      developer.log('📥 Body: ${response.body}', name: 'ExpensesProvider');
-
       if (response.statusCode == 200 || response.statusCode == 201) {
-        developer.log('✅ Expense added successfully', name: 'ExpensesProvider');
         await fetchExpenses();
         return true;
       }
-      developer.log('❌ Add failed ${response.statusCode}: ${response.body}', name: 'ExpensesProvider');
       return false;
-    } catch (e, stack) {
-      developer.log('💥 $e', name: 'ExpensesProvider', error: e, stackTrace: stack);
+    } catch (e) {
       return false;
     }
   }
@@ -169,12 +173,6 @@ class ExpensesProvider extends ChangeNotifier {
     required String description,
     required String expenseShift, required String expenseDate, required String expenseTime,
   }) async {
-    final now = DateTime.now();
-    final expenseDate =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    final expenseTime =
-        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
-
     final body = jsonEncode({
       'expense_name': category,
       'expense_amount': amount,

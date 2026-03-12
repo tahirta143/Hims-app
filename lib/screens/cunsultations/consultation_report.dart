@@ -121,7 +121,7 @@ class _AppointmentBody extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header
-              _ScreenHeader(),
+              // _ScreenHeader(),
               const SizedBox(height: 16),
               // Filters Card
               const _FiltersCard(),
@@ -167,24 +167,24 @@ class _ErrorView extends StatelessWidget {
 }
 
 // ─── Screen Header ────────────────────────────────────────────────────────────
-class _ScreenHeader extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return const Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Appointment Report',
-            style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1A202C))),
-        SizedBox(height: 2),
-        Text('View and analyze consultant appointments',
-            style: TextStyle(fontSize: 13, color: Color(0xFF718096))),
-      ],
-    );
-  }
-}
+// class _ScreenHeader extends StatelessWidget {
+//   @override
+//   Widget build(BuildContext context) {
+//     return const Column(
+//       crossAxisAlignment: CrossAxisAlignment.start,
+//       children: [
+//         Text('Appointment Report',
+//             style: TextStyle(
+//                 fontSize: 26,
+//                 fontWeight: FontWeight.bold,
+//                 color: Color(0xFF1A202C))),
+//         SizedBox(height: 2),
+//         Text('View and analyze consultant appointments',
+//             style: TextStyle(fontSize: 13, color: Color(0xFF718096))),
+//       ],
+//     );
+//   }
+// }
 
 // ─── Filters Card ─────────────────────────────────────────────────────────────
 class _FiltersCard extends StatelessWidget {
@@ -845,7 +845,7 @@ class _AppointmentDetailsCard extends StatelessWidget {
                 // Rows
                 if (list.isEmpty)
                   Container(
-                    width: 900,
+                    width: 980,
                     padding: const EdgeInsets.all(32),
                     child: const Center(
                       child: Text('No appointments found',
@@ -906,18 +906,18 @@ class _TableHeader extends StatelessWidget {
     return Container(
       color: const Color(0xFFF7FAFC),
       child: Row(children: [
-        _th('SR#', w: 50),
-        _th('DATE', w: 110),
-        _th('SLOT', w: 100),
-        _th('MR NO', w: 90),
-        _th('PATIENT', w: 150),
-        _th('CONTACT', w: 130),
-        _th('ADDRESS', w: 160),
-        _th('CONSULTANT', w: 120),
-        _th('SPECIALIZATION', w: 130),
-        _th('TYPE', w: 90),
-        _th('FEE', w: 110),
-        _th('STATUS', w: 100),
+        _th('SR#', w: 40),
+        _th('DATE', w: 100),
+        _th('SLOT', w: 90),
+        _th('MR NO', w: 80),
+        _th('PATIENT', w: 130),
+        _th('CONTACT', w: 110),
+        // _th('ADDRESS', w: 160),
+        _th('CONSULTANT', w: 110),
+        _th('SPECIALIZATION', w: 110),
+        // _th('TYPE', w: 90),
+        _th('FEE', w: 120),
+        _th('STATUS', w: 90),
       ]),
     );
   }
@@ -925,7 +925,7 @@ class _TableHeader extends StatelessWidget {
   Widget _th(String t, {required double w}) => SizedBox(
     width: w,
     child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       child: Text(t,
           style: const TextStyle(
               fontSize: 10,
@@ -980,9 +980,9 @@ class _AppointmentRow extends StatelessWidget {
         children: [
           // SR#
           SizedBox(
-            width: 50,
+            width: 40,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
               child: Container(
                 width: 24,
                 height: 24,
@@ -1001,60 +1001,62 @@ class _AppointmentRow extends StatelessWidget {
             ),
           ),
           // DATE
-          _cell(appt.formattedDate, w: 110),
+          _cell(appt.formattedDate, w: 100),
           // SLOT
           SizedBox(
-            width: 100,
+            width: 90,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                 decoration: BoxDecoration(
                   color: const Color(0xFF00B5AD).withOpacity(0.08),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(appt.formattedSlotTime,
+                    textAlign: TextAlign.center,
                     style: const TextStyle(
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: FontWeight.w600,
                         color: Color(0xFF00B5AD))),
               ),
             ),
           ),
           // MR NO
-          _cell(appt.mrNumber, w: 90, bold: true),
+          _cell(appt.mrNumber, w: 80, bold: true),
           // PATIENT
-          _cell(appt.patientName, w: 150, bold: true),
+          _cell(appt.patientName, w: 130, bold: true),
           // CONTACT
-          _cell(appt.patientContact, w: 130),
+          _cell(appt.patientContact, w: 110),
           // ADDRESS
-          _cell(appt.patientAddress ?? '—', w: 160,
-              color: appt.patientAddress == null
-                  ? const Color(0xFFBDBDBD)
-                  : null),
+          // _cell(appt.patientAddress ?? '—', w: 160,
+          //     color: appt.patientAddress == null
+          //         ? const Color(0xFFBDBDBD)
+          //         : null),
           // CONSULTANT
-          _cell(appt.doctorName, w: 120, bold: true),
+          _cell(appt.doctorName, w: 110, bold: true),
           // SPECIALIZATION
           SizedBox(
-            width: 130,
+            width: 110,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                 decoration: BoxDecoration(
                   color: const Color(0xFF9F7AEA).withOpacity(0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(appt.doctorSpecialization,
+                    textAlign: TextAlign.center,
                     style: const TextStyle(
-                        fontSize: 11,
+                        fontSize: 10,
                         fontWeight: FontWeight.w600,
                         color: Color(0xFF6B46C1))),
               ),
             ),
           ),
           // TYPE
-          SizedBox(
+          /* SizedBox(
             width: 90,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
@@ -1071,23 +1073,24 @@ class _AppointmentRow extends StatelessWidget {
                         color: Color(0xFF276749))),
               ),
             ),
-          ),
+          ), */
           // FEE
-          _cell(appt.formattedFee, w: 110, bold: true),
+          _cell(appt.formattedFee, w: 120, bold: true),
           // STATUS
           SizedBox(
-            width: 100,
+            width: 90,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                 decoration: BoxDecoration(
                   color: _statusBg(appt.status),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(appt.statusDisplay,
+                    textAlign: TextAlign.center,
                     style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 10,
                         fontWeight: FontWeight.w600,
                         color: _statusColor(appt.status))),
               ),
@@ -1105,7 +1108,7 @@ class _AppointmentRow extends StatelessWidget {
       SizedBox(
         width: w,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
           child: Text(text,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(

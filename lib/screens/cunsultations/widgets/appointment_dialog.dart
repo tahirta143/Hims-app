@@ -7,7 +7,8 @@ import '../../../providers/mr_provider/mr_provider.dart';
 
 class AppointmentDialog extends StatefulWidget {
   final DoctorInfo doctor;
-  const AppointmentDialog({super.key, required this.doctor});
+  final int availableSlots;
+  const AppointmentDialog({super.key, required this.doctor, required this.availableSlots});
 
   @override
   State<AppointmentDialog> createState() => _AppointmentDialogState();
@@ -27,6 +28,26 @@ class _AppointmentDialogState extends State<AppointmentDialog> {
   final _nameCtrl = TextEditingController();
   final _contactCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
+  final _mrFocusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _mrFocusNode.addListener(() {
+      if (!_mrFocusNode.hasFocus) {
+        _padMr();
+      }
+    });
+  }
+
+  void _padMr() {
+    final raw = _mrCtrl.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (raw.isNotEmpty && raw.length < 5) {
+      final padded = raw.padLeft(5, '0');
+      _mrCtrl.text = padded;
+      _onMrChanged(padded);
+    }
+  }
 
   @override
   void dispose() {
@@ -34,12 +55,13 @@ class _AppointmentDialogState extends State<AppointmentDialog> {
     _nameCtrl.dispose();
     _contactCtrl.dispose();
     _addressCtrl.dispose();
+    _mrFocusNode.dispose();
     super.dispose();
   }
 
   void _onMrChanged(String val) async {
-    final formatted = val.replaceAll(RegExp(r'[^0-9]'), '');
-    if (formatted.isEmpty) {
+    final raw = val.replaceAll(RegExp(r'[^0-9]'), '');
+    if (raw.isEmpty) {
       setState(() {
         _patientFound = false;
         _patientNotFound = false;
@@ -50,8 +72,16 @@ class _AppointmentDialogState extends State<AppointmentDialog> {
       return;
     }
 
+    // Auto-pad if input is short and has significant length (e.g., > 0)
+    // We'll also handle this in onSubmitted for immediate effect
+    String formatted = raw;
+    if (raw.isNotEmpty && raw.length < 5) {
+      // We don't pad immediately on change as it makes typing hard, 
+      // but we use the padded version for looking up.
+    }
+
     final mrProv = Provider.of<MrProvider>(context, listen: false);
-    final patient = await mrProv.findByMrNumber(formatted);
+    final patient = await mrProv.findByMrNumber(raw.padLeft(5, '0'));
 
     if (!mounted) return;
 
@@ -67,7 +97,7 @@ class _AppointmentDialogState extends State<AppointmentDialog> {
     } else {
       setState(() {
         _patientFound = false;
-        _patientNotFound = formatted.length >= 3;
+        _patientNotFound = raw.length >= 3;
         _isFirstVisit = true;
       });
       _nameCtrl.clear();
@@ -789,8 +819,9 @@ class _AppointmentDialogState extends State<AppointmentDialog> {
                         const Divider(height: 1, color: Color(0xFFEEEEEE)),
                         SizedBox(height: sw * 0.03),
                         _lbl('MR No', fsS, sw),
-                        TextField(
+                        TextFormField(
                           controller: _mrCtrl,
+                          focusNode: _mrFocusNode,
                           keyboardType: TextInputType.number,
                           style: TextStyle(
                               fontSize: fs, fontWeight: FontWeight.bold),

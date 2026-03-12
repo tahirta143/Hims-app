@@ -42,6 +42,7 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
   final _cityCtrl = TextEditingController();
   final _discountCtrl = TextEditingController(text: '0');
   final _amountPaidCtrl = TextEditingController(text: '0');
+  final _mrNoFocusNode = FocusNode();
 
   String? _selectedPanel;
   String? _selectedReference;
@@ -59,10 +60,24 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
   @override
   void initState() {
     super.initState();
+    _mrNoFocusNode.addListener(() {
+      if (!_mrNoFocusNode.hasFocus) {
+        _padMr();
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final opdProv = Provider.of<OpdProvider>(context, listen: false);
       _mrNoCtrl.text = opdProv.nextMrNo;
     });
+  }
+
+  void _padMr() {
+    final raw = _mrNoCtrl.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (raw.isNotEmpty && raw.length < 5) {
+      final padded = raw.padLeft(5, '0');
+      _mrNoCtrl.text = padded;
+      _onMrChanged(padded);
+    }
   }
 
   @override
@@ -77,6 +92,7 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
     _cityCtrl.dispose();
     _discountCtrl.dispose();
     _amountPaidCtrl.dispose();
+    _mrNoFocusNode.dispose();
     super.dispose();
   }
 
@@ -510,6 +526,7 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
             Expanded(
               child: TextFormField(
                 controller: _mrNoCtrl,
+                focusNode: _mrNoFocusNode,
                 keyboardType: TextInputType.number,
                 style: TextStyle(
                     fontSize: 14,
@@ -525,6 +542,9 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
                       curve: Curves.easeOut,
                     );
                   });
+                },
+                onFieldSubmitted: (val) {
+                  _padMr();
                 },
                 decoration: InputDecoration(
                   hintText: 'MR Number — auto or search',

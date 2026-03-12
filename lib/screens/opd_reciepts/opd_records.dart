@@ -20,18 +20,14 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
   final ScrollController _scrollController = ScrollController();
 
   // ── Filter controllers ──
-  final _nameCtrl    = TextEditingController();
-  final _mrCtrl      = TextEditingController();
-  final _serviceCtrl = TextEditingController();
+  final _searchCtrl = TextEditingController();
   DateTime? _startDate;
   DateTime? _endDate;
   String _selectedYear  = 'All';
   String _selectedMonth = 'All';
 
   // ── Active filters ──
-  String _fName    = '';
-  String _fMr      = '';
-  String _fService = '';
+  String _fSearch = '';
   DateTime? _fStart;
   DateTime? _fEnd;
   String _fYear  = 'All';
@@ -62,9 +58,7 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
-    _nameCtrl.dispose();
-    _mrCtrl.dispose();
-    _serviceCtrl.dispose();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -74,7 +68,7 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 300) {
       // Only paginate when no filters active (server-side data)
-      if (_fName.isEmpty && _fMr.isEmpty && _fService.isEmpty &&
+      if (_fSearch.isEmpty &&
           _fStart == null && _fEnd == null &&
           _fYear == 'All' && _fMonth == 'All') {
         context.read<OpdProvider>().loadMoreReceipts();
@@ -90,9 +84,10 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
       final svcList = (r['services']    as List? ?? []).join(' ').toLowerCase();
       final date    = r['date']         as DateTime? ?? DateTime.now();
 
-      if (_fName.isNotEmpty    && !name.contains(_fName.toLowerCase()))       return false;
-      if (_fMr.isNotEmpty      && !mr.contains(_fMr.toLowerCase()))           return false;
-      if (_fService.isNotEmpty && !svcList.contains(_fService.toLowerCase())) return false;
+      if (_fSearch.isNotEmpty) {
+        final q = _fSearch.toLowerCase();
+        if (!name.contains(q) && !mr.contains(q) && !svcList.contains(q)) return false;
+      }
       if (_fStart != null      && date.isBefore(_fStart!))                    return false;
       if (_fEnd   != null      && date.isAfter(_fEnd!.add(const Duration(days: 1)))) return false;
       if (_fYear  != 'All'     && date.year.toString() != _fYear)             return false;
@@ -106,9 +101,7 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
 
   void _doSearch() {
     setState(() {
-      _fName    = _nameCtrl.text.trim();
-      _fMr      = _mrCtrl.text.trim();
-      _fService = _serviceCtrl.text.trim();
+      _fSearch  = _searchCtrl.text.trim();
       _fStart   = _startDate;
       _fEnd     = _endDate;
       _fYear    = _selectedYear;
@@ -117,11 +110,11 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
   }
 
   void _doClear() {
-    _nameCtrl.clear(); _mrCtrl.clear(); _serviceCtrl.clear();
+    _searchCtrl.clear();
     setState(() {
       _startDate = null; _endDate = null;
       _selectedYear = 'All'; _selectedMonth = 'All';
-      _fName = ''; _fMr = ''; _fService = '';
+      _fSearch = '';
       _fStart = null; _fEnd = null;
       _fYear = 'All'; _fMonth = 'All';
     });
@@ -317,7 +310,8 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
         }
 
         final allReceipts = prov.receipts.toList().reversed.toList();
-        final filtered = _applyFilters(allReceipts);
+        final hasActiveFilters = _fSearch.isNotEmpty || _fStart != null || _fEnd != null || _fYear != 'All' || _fMonth != 'All';
+        final filtered = hasActiveFilters ? _applyFilters(allReceipts) : <Map<String, dynamic>>[];
 
         return Column(children: [
           _buildTopBar(),
@@ -331,13 +325,13 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
                   child: Column(children: [
                     _filterCard(),
                     SizedBox(height: _pad * 0.8),
-                    _statsBar(filtered.length, prov),
+                    _statsBar(filtered.length, prov, hasActiveFilters),
                     SizedBox(height: _pad * 0.8),
                   ]),
                 )),
 
                 if (filtered.isEmpty)
-                  SliverFillRemaining(child: _emptyState())
+                  SliverFillRemaining(hasScrollBody: false, child: _emptyState(hasActiveFilters))
                 else if (_isWide)
                   _wideTable(filtered, prov)
                 else
@@ -453,21 +447,7 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
       ),
       padding: EdgeInsets.all(_pad),
       child: Column(children: [
-        _isWide
-            ? Row(children: [
-          Expanded(child: _filterField(_nameCtrl, 'Patient Name...',           Icons.person_outline_rounded)),
-          SizedBox(width: _sp),
-          Expanded(child: _filterField(_mrCtrl,   'MR or Receipt...',          Icons.tag_rounded)),
-          SizedBox(width: _sp),
-          Expanded(child: _filterField(_serviceCtrl, 'Service or Doctor name...', Icons.medical_services_outlined)),
-        ])
-            : Column(children: [
-          _filterField(_nameCtrl,    'Patient Name...',        Icons.person_outline_rounded),
-          SizedBox(height: _sp * 0.8),
-          _filterField(_mrCtrl,      'MR or Receipt...',       Icons.tag_rounded),
-          SizedBox(height: _sp * 0.8),
-          _filterField(_serviceCtrl, 'Service or Doctor name...', Icons.medical_services_outlined),
-        ]),
+        _filterField(_searchCtrl, 'Search Patient Name, MR / Receipt No, or Service / Doctor...', Icons.search_rounded),
         SizedBox(height: _sp * 0.8),
         _isWide
             ? Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
@@ -500,9 +480,7 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
 
   Widget _filterField(TextEditingController ctrl, String hint, IconData icon) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      if (hint.contains('Name'))      _filterLabel('Patient Name')
-      else if (hint.contains('MR'))   _filterLabel('MR / Receipt No')
-      else                            _filterLabel('Service / Doctor'),
+      _filterLabel('Search Records'),
       SizedBox(height: _sh * 0.005),
       TextField(
         controller: ctrl,
@@ -592,87 +570,101 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
   }
 
   Widget _actionButtons() {
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      ElevatedButton.icon(
-        onPressed: _doSearch,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: primary, foregroundColor: Colors.white,
-          padding: EdgeInsets.symmetric(horizontal: _sw * 0.04, vertical: _sh * 0.014),
-          elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_sw * 0.025)),
+    return Wrap(
+      spacing: _sp * 0.6,
+      runSpacing: _sp * 0.6,
+      alignment: _isWide ? WrapAlignment.start : WrapAlignment.center,
+      children: [
+        ElevatedButton.icon(
+          onPressed: _doSearch,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: primary, foregroundColor: Colors.white,
+            padding: EdgeInsets.symmetric(horizontal: _sw * 0.04, vertical: _sh * 0.014),
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_sw * 0.025)),
+          ),
+          icon: Icon(Icons.search_rounded, size: _sw * 0.042),
+          label: Text('Search', style: TextStyle(fontSize: _fs, fontWeight: FontWeight.bold)),
         ),
-        icon: Icon(Icons.search_rounded, size: _sw * 0.042),
-        label: Text('Search', style: TextStyle(fontSize: _fs, fontWeight: FontWeight.bold)),
-      ),
-      SizedBox(width: _sp * 0.6),
-      OutlinedButton.icon(
-        onPressed: _doClear,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.grey.shade600,
-          side: BorderSide(color: Colors.grey.shade300),
-          padding: EdgeInsets.symmetric(horizontal: _sw * 0.032, vertical: _sh * 0.014),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_sw * 0.025)),
+        OutlinedButton.icon(
+          onPressed: _doClear,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.grey.shade600,
+            side: BorderSide(color: Colors.grey.shade300),
+            padding: EdgeInsets.symmetric(horizontal: _sw * 0.032, vertical: _sh * 0.014),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_sw * 0.025)),
+          ),
+          icon: Icon(Icons.refresh_rounded, size: _sw * 0.038),
+          label: Text('Clear', style: TextStyle(fontSize: _fs, fontWeight: FontWeight.w600)),
         ),
-        icon: Icon(Icons.refresh_rounded, size: _sw * 0.038),
-        label: Text('Clear', style: TextStyle(fontSize: _fs, fontWeight: FontWeight.w600)),
-      ),
-      SizedBox(width: _sp * 0.6),
-      OutlinedButton.icon(
-        onPressed: () => _snack('Printing...'),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.grey.shade600,
-          side: BorderSide(color: Colors.grey.shade300),
-          padding: EdgeInsets.symmetric(horizontal: _sw * 0.032, vertical: _sh * 0.014),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_sw * 0.025)),
+        OutlinedButton.icon(
+          onPressed: () => _snack('Printing...'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.grey.shade600,
+            side: BorderSide(color: Colors.grey.shade300),
+            padding: EdgeInsets.symmetric(horizontal: _sw * 0.032, vertical: _sh * 0.014),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_sw * 0.025)),
+          ),
+          icon: Icon(Icons.print_rounded, size: _sw * 0.038),
+          label: Text('Print', style: TextStyle(fontSize: _fs, fontWeight: FontWeight.w600)),
         ),
-        icon: Icon(Icons.print_rounded, size: _sw * 0.038),
-        label: Text('Print', style: TextStyle(fontSize: _fs, fontWeight: FontWeight.w600)),
-      ),
-    ]);
+      ],
+    );
   }
 
   // ════════════════════════════════════
-  //  STATS BAR — shows real total from API
+  //  STATS BAR — shows real total from API or Search results
   // ════════════════════════════════════
-  Widget _statsBar(int filteredCount, OpdProvider prov) {
+  Widget _statsBar(int filteredCount, OpdProvider prov, bool hasActiveFilters) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: _pad, vertical: _sh * 0.016),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF00B5AD), Color(0xFF00897B)],
-          begin: Alignment.centerLeft, end: Alignment.centerRight,
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(_sw * 0.03),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05),
+            blurRadius: 10, offset: const Offset(0, 3))],
       ),
-      child: Row(children: [
-        Container(
-          padding: EdgeInsets.all(_sw * 0.022),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.18),
-            borderRadius: BorderRadius.circular(_sw * 0.022),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: _pad, vertical: _sh * 0.016),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF00B5AD), Color(0xFF00897B)],
+            begin: Alignment.centerLeft, end: Alignment.centerRight,
           ),
-          child: Icon(Icons.table_rows_rounded, color: Colors.white, size: _sw * 0.045),
+          borderRadius: BorderRadius.circular(_sw * 0.03),
         ),
-        SizedBox(width: _sp),
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('TOTAL RECORDS',
-              style: TextStyle(fontSize: _fsXS, color: Colors.white70,
-                  fontWeight: FontWeight.w600, letterSpacing: 0.5)),
-          // Show real total from API
-          Text(
-            _formatNumber(prov.totalReceiptsCount),
-            style: TextStyle(fontSize: _sw * 0.055,
-                fontWeight: FontWeight.bold, color: Colors.white),
+        child: Row(children: [
+          Container(
+            padding: EdgeInsets.all(_sw * 0.022),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(_sw * 0.022),
+            ),
+            child: Icon(hasActiveFilters ? Icons.manage_search_rounded : Icons.table_rows_rounded, 
+                color: Colors.white, size: _sw * 0.045),
           ),
+          SizedBox(width: _sp),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(hasActiveFilters ? 'SEARCHED RECORDS' : 'TOTAL RECORDS',
+                style: TextStyle(fontSize: _fsXS, color: Colors.white70,
+                    fontWeight: FontWeight.w600, letterSpacing: 0.5)),
+            // Show real total from API or search count
+            Text(
+              hasActiveFilters ? _formatNumber(filteredCount) : _formatNumber(prov.totalReceiptsCount),
+              style: TextStyle(fontSize: _sw * 0.055,
+                  fontWeight: FontWeight.bold, color: Colors.white),
+            ),
           // Show how many loaded so far
-          Text(
-            '${_formatNumber(prov.receipts.length)} loaded',
-            style: const TextStyle(fontSize: 11, color: Colors.white70,
-                fontWeight: FontWeight.w500),
-          ),
+          if (!hasActiveFilters)
+            Text(
+              '${_formatNumber(prov.receipts.length)} loaded',
+              style: const TextStyle(fontSize: 11, color: Colors.white70,
+                  fontWeight: FontWeight.w500),
+            ),
         ]),
         const Spacer(),
         // Status badge
+        if (!hasActiveFilters)
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
@@ -689,13 +681,13 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
             ],
             Text(
               prov.hasMorePages ? 'Scroll for more' : 'All loaded ✓',
-              style: TextStyle(fontSize: _fsS, color: Colors.white.withOpacity(0.9),
+              style: TextStyle(fontSize: _fsS, color: Colors.white.withValues(alpha: 0.9),
                   fontWeight: FontWeight.w500),
             ),
           ]),
         ),
       ]),
-    );
+    ));
   }
 
   String _formatNumber(int n) {
@@ -947,6 +939,7 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
   }
 
   Widget _statusBadge(String status) {
+    if (status == 'Active') return const SizedBox.shrink();
     Color c; IconData icon;
     switch (status) {
       case 'Cancelled': c = Colors.red;    icon = Icons.cancel_rounded;        break;
@@ -976,18 +969,21 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
     ]);
   }
 
-  Widget _emptyState() {
-    return Center(child: Column(
+  Widget _emptyState(bool hasActiveFilters) {
+    return Center(child: SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      child: Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(Icons.inbox_rounded, color: Colors.grey.shade300, size: _sw * 0.18),
+        Icon(hasActiveFilters ? Icons.search_off_rounded : Icons.manage_search_rounded, 
+            color: Colors.grey.shade300, size: _sw * 0.18),
         SizedBox(height: _sh * 0.015),
-        Text('No records found', style: TextStyle(
+        Text(hasActiveFilters ? 'No records found' : 'Search for records', style: TextStyle(
             fontSize: _fs * 1.1, color: Colors.grey.shade400, fontWeight: FontWeight.w600)),
         SizedBox(height: _sh * 0.006),
-        Text('Try adjusting your filters',
-            style: TextStyle(fontSize: _fsS, color: Colors.grey.shade400)),
+        Text(hasActiveFilters ? 'Try adjusting your filters' : 'Use the search box and filters above to view records',
+            style: TextStyle(fontSize: _fsS, color: Colors.grey.shade400), textAlign: TextAlign.center),
       ],
-    ));
+    )));
   }
 }

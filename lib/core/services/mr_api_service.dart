@@ -7,7 +7,6 @@ import '../../models/mr_model/mr_patient_model.dart';
 class MrApiService {
   final AuthStorageService _storage = AuthStorageService();
 
-  // ─── Helper: build auth headers ───────────────────────────────────
   Future<Map<String, String>> _authHeaders() async {
     final token = await _storage.getToken();
     return {
@@ -20,14 +19,14 @@ class MrApiService {
   Future<MrPatientsResult> fetchAllPatients({
     int page = 1,
     int limit = 50,
-    String search = '', // ✅ NEW: search param for name/phone
+    String search = '',
   }) async {
     try {
       final headers = await _authHeaders();
       final queryParams = {
         'page': page.toString(),
         'limit': limit.toString(),
-        if (search.isNotEmpty) 'search': search, // ✅ pass search to API
+        if (search.isNotEmpty) 'search': search,
       };
 
       final uri = Uri.parse('${GlobalApi.baseUrl}/mr-data')
@@ -108,7 +107,17 @@ class MrApiService {
 
         if (data['success'] == true) {
           final patientJson = data['data'] as Map<String, dynamic>;
-          final patient = MrPatientApiModel.fromJson(patientJson);
+
+          // ✅ Extract history array from response data
+          final historyRaw = patientJson['history'];
+          final List<dynamic> historyList =
+          historyRaw is List ? historyRaw : [];
+
+          // ✅ Build enriched map with history explicitly set
+          final patientWithHistory = Map<String, dynamic>.from(patientJson)
+            ..['history'] = historyList;
+
+          final patient = MrPatientApiModel.fromJson(patientWithHistory);
           return MrPatientResult(success: true, patient: patient);
         }
 

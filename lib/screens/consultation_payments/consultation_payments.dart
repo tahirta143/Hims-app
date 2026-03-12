@@ -142,7 +142,7 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
           child: Container(
             padding: EdgeInsets.all(_sw * 0.022),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(_sw * 0.022),
             ),
             child: Icon(Icons.menu_rounded, color: Colors.white, size: _sw * 0.04),
@@ -165,7 +165,7 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
           child: Container(
             padding: EdgeInsets.all(_sw * 0.022),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(_sw * 0.022),
             ),
             child: provider.isLoading
@@ -182,9 +182,9 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
         Container(
           padding: EdgeInsets.symmetric(horizontal: _sw * 0.022, vertical: _sh * 0.007),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
+            color: Colors.white.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(_sw * 0.025),
-            border: Border.all(color: Colors.white.withOpacity(0.3)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             Icon(Icons.calendar_today_rounded, color: Colors.white, size: _sw * 0.033),
@@ -254,7 +254,7 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
           Container(
             padding: EdgeInsets.all(_sw * 0.01),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(_sw * 0.015),
             ),
             child: Icon(icon, color: color, size: _sw * 0.03),
@@ -389,50 +389,106 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
       ]),
       SizedBox(height: _sh * 0.015),
 
-      Container(
-        decoration: BoxDecoration(
-          color: cardBg,
-          borderRadius: BorderRadius.circular(_sw * 0.02),
-          border: Border.all(color: Colors.grey.shade200),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2))],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(_sw * 0.02),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              // ── Header ──
-              Container(
-                color: primary.withOpacity(0.08),
-                padding: EdgeInsets.symmetric(horizontal: _sw * 0.025, vertical: _sh * 0.015),
-                child: Row(children: [
-                  _headerCell('DOCTOR',       _sw * 0.28),
-                  _headerCell('DEPT',         _sw * 0.22),
-                  _headerCell('APPOINTMENTS', _sw * 0.22),
-                  _headerCell('TOTAL',        _sw * 0.22),
-                  _headerCell('DOCTOR SHARE', _sw * 0.22),
-                  _headerCell('HOSPITAL',     _sw * 0.22),
-                  _headerCell('ACTION',       _sw * 0.28, center: true),
-                ]),
-              ),
+      if (!_isWide)
+        ...filtered.map((p) => _buildDoctorCard(p, provider))
+      else
+        Container(
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(_sw * 0.02),
+            border: Border.all(color: Colors.grey.shade200),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2))],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(_sw * 0.02),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                // ── Header ──
+                Container(
+                  color: primary.withValues(alpha: 0.08),
+                  padding: EdgeInsets.symmetric(horizontal: _sw * 0.025, vertical: _sh * 0.015),
+                  child: Row(children: [
+                    _headerCell('DOCTOR',       _sw * 0.28),
+                    _headerCell('DEPT',         _sw * 0.22),
+                    _headerCell('APPOINTMENTS', _sw * 0.22),
+                    _headerCell('TOTAL',        _sw * 0.22),
+                    _headerCell('DOCTOR SHARE', _sw * 0.22),
+                    _headerCell('HOSPITAL',     _sw * 0.22),
+                    _headerCell('ACTION',       _sw * 0.28, center: true),
+                  ]),
+                ),
 
-              // ── Rows ──
-              if (filtered.isEmpty)
-                SizedBox(
-                  width: _sw * 1.7,
-                  child: _emptyState('No doctor payments found'),
-                )
-              else
-                ...filtered.asMap().entries.map((entry) {
-                  final i = entry.key;
-                  final payment = entry.value;
-                  return _buildDoctorRow(payment, provider, isEven: i.isEven);
-                }),
-            ]),
+                // ── Rows ──
+                if (filtered.isEmpty)
+                  SizedBox(
+                    width: _sw * 1.7,
+                    child: _emptyState('No doctor payments found'),
+                  )
+                else
+                  ...filtered.asMap().entries.map((entry) {
+                    final i = entry.key;
+                    final payment = entry.value;
+                    return _buildDoctorRow(payment, provider, isEven: i.isEven);
+                  }),
+              ]),
+            ),
           ),
         ),
-      ),
     ]);
+  }
+
+  Widget _buildDoctorCard(DoctorBreakdownModel payment, ConsultantPaymentsProvider provider) {
+    final isPaidView = _paidFilter == 'paid';
+    final isThisSubmitting = provider.isDoctorSubmitting(payment.doctorName);
+
+    return Container(
+      margin: EdgeInsets.only(bottom: _sh * 0.015),
+      padding: EdgeInsets.all(_sw * 0.04),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(_sw * 0.03),
+        border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 3))],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(payment.doctorName, style: TextStyle(fontSize: _fsL, fontWeight: FontWeight.bold, color: Colors.black87)),
+            Text(payment.department.isNotEmpty ? payment.department : 'No Department',
+                style: TextStyle(fontSize: _fsS, color: Colors.grey.shade500)),
+          ])),
+          if (isPaidView) _viewButton(payment.doctorName)
+          else _markPaidButton(payment.doctorName, provider, isThisSubmitting),
+        ]),
+        SizedBox(height: _sh * 0.015),
+        const Divider(),
+        SizedBox(height: _sh * 0.01),
+        Row(children: [
+          _cardInfoItem(Icons.calendar_today_rounded, 'Appointments', payment.appointments.toString(), Colors.blue),
+          _cardInfoItem(Icons.payments_rounded, 'Total Amount', 'PKR ${_formatPKR(payment.totalAmount)}', Colors.purple),
+        ]),
+        SizedBox(height: _sh * 0.01),
+        Row(children: [
+          _cardInfoItem(Icons.account_balance_wallet_rounded, 'Doctor Share', 'PKR ${_formatPKR(payment.doctorShare)}', Colors.green, isBold: true),
+          _cardInfoItem(Icons.local_hospital_rounded, 'Hospital Revenue', 'PKR ${_formatPKR(payment.hospitalRevenue)}', Colors.orange),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _cardInfoItem(IconData icon, String label, String value, Color color, {bool isBold = false}) {
+    return Expanded(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(icon, size: _sw * 0.03, color: color.withValues(alpha: 0.6)),
+          SizedBox(width: 4),
+          Text(label, style: TextStyle(fontSize: _fsXS, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
+        ]),
+        SizedBox(height: 2),
+        Text(value, style: TextStyle(fontSize: _fsS, fontWeight: isBold ? FontWeight.bold : FontWeight.w600, color: isBold ? color : Colors.black87)),
+      ]),
+    );
   }
 
   Widget _buildDoctorRow(
@@ -520,7 +576,7 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
         style: ElevatedButton.styleFrom(
           backgroundColor: primary,
           foregroundColor: Colors.white,
-          disabledBackgroundColor: primary.withOpacity(0.5),
+          disabledBackgroundColor: primary.withValues(alpha: 0.5),
           disabledForegroundColor: Colors.white70,
           elevation: 0,
           padding: EdgeInsets.symmetric(horizontal: _sw * 0.025),
@@ -626,46 +682,111 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
       ]),
       SizedBox(height: _sh * 0.015),
 
-      Container(
-        decoration: BoxDecoration(
-          color: cardBg,
-          borderRadius: BorderRadius.circular(_sw * 0.02),
-          border: Border.all(color: Colors.grey.shade200),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2))],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(_sw * 0.02),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              // ── Header ──
-              Container(
-                color: bgColor,
-                padding: EdgeInsets.symmetric(horizontal: _sw * 0.025, vertical: _sh * 0.015),
-                child: Row(children: [
-                  _headerCell('TIME',       _sw * 0.30, bold: true, dark: true),
-                  _headerCell('DOCTOR',     _sw * 0.25, bold: true, dark: true),
-                  _headerCell('PATIENT',    _sw * 0.25, bold: true, dark: true),
-                  _headerCell('SERVICE',    _sw * 0.35, bold: true, dark: true),
-                  _headerCell('SHARE',      _sw * 0.22, bold: true, dark: true),
-                  _headerCell('TOTAL BILL', _sw * 0.22, bold: true, dark: true),
-                  _headerCell('STATUS',     _sw * 0.18, bold: true, dark: true, center: true),
-                ]),
-              ),
+      if (!_isWide)
+        ...filtered.map((r) => _buildRecordCard(r))
+      else
+        Container(
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(_sw * 0.02),
+            border: Border.all(color: Colors.grey.shade200),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2))],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(_sw * 0.02),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                // ── Header ──
+                Container(
+                  color: bgColor,
+                  padding: EdgeInsets.symmetric(horizontal: _sw * 0.025, vertical: _sh * 0.015),
+                  child: Row(children: [
+                    _headerCell('TIME',       _sw * 0.30, bold: true, dark: true),
+                    _headerCell('DOCTOR',     _sw * 0.25, bold: true, dark: true),
+                    _headerCell('PATIENT',    _sw * 0.25, bold: true, dark: true),
+                    _headerCell('SERVICE',    _sw * 0.35, bold: true, dark: true),
+                    _headerCell('SHARE',      _sw * 0.22, bold: true, dark: true),
+                    _headerCell('TOTAL BILL', _sw * 0.22, bold: true, dark: true),
+                    _headerCell('STATUS',     _sw * 0.18, bold: true, dark: true, center: true),
+                  ]),
+                ),
 
-              if (filtered.isEmpty)
-                SizedBox(width: _sw * 1.8, child: _emptyState('No share records found'))
-              else
-                ...filtered.asMap().entries.map((entry) {
-                  final i = entry.key;
-                  final record = entry.value;
-                  return _buildRecordRow(record, isEven: i.isEven);
-                }),
-            ]),
+                if (filtered.isEmpty)
+                  SizedBox(width: _sw * 1.8, child: _emptyState('No share records found'))
+                else
+                  ...filtered.asMap().entries.map((entry) {
+                    final i = entry.key;
+                    final record = entry.value;
+                    return _buildRecordRow(record, isEven: i.isEven);
+                  }),
+              ]),
+            ),
           ),
         ),
-      ),
     ]);
+  }
+
+  Widget _buildRecordCard(PayoutRecordModel record) {
+    final isCancelled = record.opdCancelled == true;
+
+    return Container(
+      margin: EdgeInsets.only(bottom: _sh * 0.012),
+      decoration: BoxDecoration(
+        color: isCancelled ? Colors.orange.withValues(alpha: 0.04) : cardBg,
+        borderRadius: BorderRadius.circular(_sw * 0.025),
+        border: Border.all(color: isCancelled ? Colors.orange.withValues(alpha: 0.15) : Colors.grey.shade100),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6, offset: const Offset(0, 2))],
+      ),
+      padding: EdgeInsets.all(_sw * 0.035),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Row(children: [
+            Icon(Icons.access_time_rounded, size: _sw * 0.035, color: Colors.grey.shade400),
+            SizedBox(width: 6),
+            Text('${record.date}  •  ${record.time}',
+                style: TextStyle(fontSize: _fsS, color: Colors.grey.shade500, fontFamily: 'monospace', fontWeight: FontWeight.w500)),
+          ]),
+          _recordStatusBadge(record),
+        ]),
+        SizedBox(height: _sh * 0.012),
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Doctor', style: TextStyle(fontSize: _fsXS, color: Colors.grey.shade400)),
+            Text(record.doctorName, style: TextStyle(fontSize: _fsS, fontWeight: FontWeight.bold, color: isCancelled ? Colors.orange.shade700 : Colors.black87)),
+            if (record.paymentShare > 0)
+              Text('Share: ${record.paymentShare}%', style: TextStyle(fontSize: _fsXS, color: Colors.grey.shade300)),
+          ])),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Patient', style: TextStyle(fontSize: _fsXS, color: Colors.grey.shade400)),
+            Text(record.patientName, style: TextStyle(fontSize: _fsS, fontWeight: FontWeight.w600, color: isCancelled ? Colors.orange.shade500 : Colors.black87)),
+            Text(record.patientId, style: TextStyle(fontSize: _fsXS, color: Colors.grey.shade300)),
+          ])),
+        ]),
+        SizedBox(height: _sh * 0.01),
+        Container(
+          padding: EdgeInsets.all(_sw * 0.02),
+          decoration: BoxDecoration(color: bgColor.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(6)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Service Detail', style: TextStyle(fontSize: _fsXS, color: Colors.grey.shade500)),
+            Text(record.serviceDetail, style: TextStyle(fontSize: _fsS, color: isCancelled ? Colors.orange.shade400 : Colors.black87), maxLines: 2, overflow: TextOverflow.ellipsis),
+          ]),
+        ),
+        SizedBox(height: _sh * 0.012),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Total Bill', style: TextStyle(fontSize: _fsXS, color: Colors.grey.shade400)),
+            Text('PKR ${_formatPKR(record.totalAmount)}',
+                style: TextStyle(fontSize: _fsS, color: Colors.grey.shade500, decoration: isCancelled ? TextDecoration.lineThrough : null)),
+          ]),
+          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Text('Doctor Share', style: TextStyle(fontSize: _fsXS, color: Colors.grey.shade400)),
+            Text('PKR ${_formatPKR(record.doctorShare)}',
+                style: TextStyle(fontSize: _fsL, fontWeight: FontWeight.bold, color: isCancelled ? Colors.orange.shade400 : Colors.green.shade700, decoration: isCancelled ? TextDecoration.lineThrough : null)),
+          ]),
+        ]),
+      ]),
+    );
   }
 
   Widget _buildRecordRow(PayoutRecordModel record, {required bool isEven}) {
@@ -675,8 +796,8 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
       padding: EdgeInsets.symmetric(horizontal: _sw * 0.025, vertical: _sh * 0.018),
       decoration: BoxDecoration(
         color: isCancelled
-            ? Colors.orange.shade50.withOpacity(0.4)
-            : (isEven ? Colors.white : bgColor.withOpacity(0.3)),
+            ? Colors.orange.shade50.withValues(alpha: 0.4)
+            : (isEven ? Colors.white : bgColor.withValues(alpha: 0.3)),
         border: Border(bottom: BorderSide(color: Colors.grey.shade100)),
       ),
       child: Row(children: [

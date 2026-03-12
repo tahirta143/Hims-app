@@ -228,9 +228,15 @@ class _ConsultationScreenState extends State<ConsultationScreen> {
     showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (_) => ChangeNotifierProvider.value(
-        value: prov,
-        child: AppointmentDialog(doctor: doctor),
+      builder: (_) => MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: prov),
+          ChangeNotifierProvider.value(value: context.read<MrProvider>()),
+        ],
+        child: AppointmentDialog(
+          doctor: doctor,
+          availableSlots: prov.availableSlotsForDoctor(doctor.name, DateTime.now()),
+        ),
       ),
     );
   }

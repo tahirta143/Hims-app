@@ -50,6 +50,7 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
   final _heightCtrl   = TextEditingController();
   final _complainCtrl = TextEditingController();
   final _notesCtrl    = TextEditingController();
+  final _mrFocusNode   = FocusNode();
 
   bool _patientFound = false;
   int? _existingRecordId; // set when existing treatment loaded from API
@@ -67,6 +68,11 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
   void initState() {
     super.initState();
     _rightTab = TabController(length: 2, vsync: this);
+    _mrFocusNode.addListener(() {
+      if (!_mrFocusNode.hasFocus) {
+        _onMrTyped(_mrCtrl.text, Provider.of<EmergencyProvider>(context, listen: false));
+      }
+    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<EmergencyProvider>(context, listen: false)
@@ -91,6 +97,7 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
       _moCtrl,_bedCtrl,_admCtrl,_pulseCtrl,_tempCtrl,_bpCtrl,
       _respCtrl,_spo2Ctrl,_weightCtrl,_heightCtrl,_complainCtrl,_notesCtrl,
     ]) c.dispose();
+    _mrFocusNode.dispose();
     super.dispose();
   }
 
@@ -541,6 +548,7 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
         SizedBox(width: _sw * 0.26,
           child: TextField(
             controller: _mrCtrl,
+            focusNode: _mrFocusNode,
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             style: TextStyle(fontSize: _fs, fontWeight: FontWeight.bold, color: Colors.black87),
@@ -550,6 +558,7 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
                   ? Icon(Icons.check_circle_rounded, color: Colors.green, size: _sw * 0.038) : null,
             ),
             onChanged: (v) => _onMrTyped(v, prov),
+            onSubmitted: (v) => _onMrTyped(v, prov),
           ),
         ),
         SizedBox(width: _sw * 0.012),

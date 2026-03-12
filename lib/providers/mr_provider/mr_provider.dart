@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../core/services/mr_api_service.dart';
 import '../../models/mr_model/mr_patient_model.dart';
 
-// ─── MR Provider ─────────────────────────────────────────────────────────────
 class MrProvider extends ChangeNotifier {
   final MrApiService _apiService = MrApiService();
 
@@ -106,7 +105,7 @@ class MrProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── ✅ Fetch Next MR Number (auto-generate for new patient) ──
+  // ── Fetch Next MR Number ──
   Future<void> fetchNextMR() async {
     final result = await _apiService.fetchNextMRNumber();
     if (result.success && result.nextMR != null) {
@@ -115,7 +114,7 @@ class MrProvider extends ChangeNotifier {
     }
   }
 
-  // ── ✅ Live Search patients by name or phone (calls API with search param) ──
+  // ── Live Search patients by name or phone ──
   Future<List<PatientModel>> searchPatients(String query) async {
     if (query.trim().length < 2) return [];
 
@@ -131,31 +130,32 @@ class MrProvider extends ChangeNotifier {
     return [];
   }
 
-  // ── MR number lookup (local cache first, then API) ──
+  // ── MR number lookup — always hits API to get full data with history ──
   Future<PatientModel?> findByMrNumber(String input) async {
     final trimmed = input.trim();
     if (trimmed.isEmpty) return null;
 
     final normalised = _normalizeMrNumber(trimmed);
 
-    // Try local cache first
-    try {
-      return _patients.firstWhere(
-            (p) => p.mrNumber.toUpperCase() == normalised,
-      );
-    } catch (_) {
-      // Not in cache — hit the API
-      final result = await _apiService.fetchPatientByMR(normalised);
-      if (result.success && result.patient != null) {
-        final patient = result.patient!.toPatientModel();
-        if (!_patients.any((p) => p.mrNumber == patient.mrNumber)) {
-          _patients.insert(0, patient);
-          notifyListeners();
-        }
-        return patient;
+    // ✅ Always fetch from API so we get visit history
+    final result = await _apiService.fetchPatientByMR(normalised);
+
+    if (result.success && result.patient != null) {
+      final patient = result.patient!.toPatientModel();
+
+      // Update local cache
+      final index =
+      _patients.indexWhere((p) => p.mrNumber == patient.mrNumber);
+      if (index != -1) {
+        _patients[index] = patient;
+      } else {
+        _patients.insert(0, patient);
       }
-      return null;
+      notifyListeners();
+      return patient;
     }
+
+    return null;
   }
 
   String _normalizeMrNumber(String input) {
@@ -181,7 +181,7 @@ class MrProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── ✅ Register new patient via API ──
+  // ── Register new patient via API ──
   Future<PatientModel?> registerPatient({
     String mrNumber = '',
     required String firstName,
@@ -203,7 +203,6 @@ class MrProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    // ✅ If mrNumber is empty, use the auto-generated next MR
     final resolvedMr = mrNumber.trim().isEmpty
         ? (_nextMrNumber ?? '00001')
         : mrNumber.trim();
@@ -237,7 +236,6 @@ class MrProvider extends ChangeNotifier {
       _selectedPatient = createdPatient;
       _errorMessage = null;
       notifyListeners();
-      // ✅ Refresh next MR after successful registration
       fetchNextMR();
       return createdPatient;
     } else {
