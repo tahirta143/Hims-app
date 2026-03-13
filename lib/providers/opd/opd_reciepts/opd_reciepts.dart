@@ -273,10 +273,10 @@ class OpdProvider extends ChangeNotifier {
         OpdService(id: 'lb7', name: 'Urine Analysis',              category: 'laboratory', price: 300,  icon: Icons.biotech_rounded, color: Color(0xFFF4511E)),
       ],
       'emergency': [
-        OpdService(id: 'em1', name: 'Emergency Consultation', category: 'emergency', price: 2500, icon: Icons.emergency_rounded, color: Color(0xFFE53935)),
-        OpdService(id: 'em2', name: 'Trauma Care',            category: 'emergency', price: 5000, icon: Icons.emergency_rounded, color: Color(0xFFE53935)),
-        OpdService(id: 'em3', name: 'Resuscitation',          category: 'emergency', price: 3500, icon: Icons.emergency_rounded, color: Color(0xFFE53935)),
-        OpdService(id: 'em4', name: 'Emergency Surgery Prep', category: 'emergency', price: 4000, icon: Icons.emergency_rounded, color: Color(0xFFE53935)),
+        // OpdService(id: 'em1', name: 'Emergency Consultation', category: 'emergency', price: 2500, icon: Icons.emergency_rounded, color: Color(0xFFE53935)),
+        // OpdService(id: 'em2', name: 'Trauma Care',            category: 'emergency', price: 5000, icon: Icons.emergency_rounded, color: Color(0xFFE53935)),
+        // OpdService(id: 'em3', name: 'Resuscitation',          category: 'emergency', price: 3500, icon: Icons.emergency_rounded, color: Color(0xFFE53935)),
+        // OpdService(id: 'em4', name: 'Emergency Surgery Prep', category: 'emergency', price: 4000, icon: Icons.emergency_rounded, color: Color(0xFFE53935)),
       ],
     });
   }
@@ -293,8 +293,7 @@ class OpdProvider extends ChangeNotifier {
       if (_isDisposed) return; // CRASH FIX
 
       if (result.success) {
-        services.removeWhere((key, _) => key != 'consultation');
-
+        services.removeWhere((key, _) => key != 'consultation' && key != 'emergency');
         for (var s in result.services) {
           if (s.isActive != 1) continue;
 

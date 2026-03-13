@@ -241,7 +241,7 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
             err: true);
         return;
       }
-      
+
       // Success Dialog with Print Option
       showDialog(
         context: context,
@@ -1241,10 +1241,30 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
               final color = cat['color'] as Color;
 
               return GestureDetector(
-                onTap: () => setState(() {
-                  _activeCat = id;
-                  _svcSearch = '';
-                }),
+                onTap: () {
+                  if (id == 'emergency') {
+                    const emergencySvc = OpdService(
+                      id: 'EMERGENCY',
+                      name: 'Emergency Admission',
+                      category: 'emergency',
+                      price: 0,
+                      icon: Icons.emergency_rounded,
+                      color: Color(0xFFE53935),
+                    );
+                    if (!prov.isSelected('EMERGENCY')) {
+                      prov.addService(emergencySvc);
+                    }
+                    setState(() {
+                      _activeCat = id;
+                      _svcSearch = '';
+                    });
+                    return;
+                  }
+                  setState(() {
+                    _activeCat = id;
+                    _svcSearch = '';
+                  });
+                },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(

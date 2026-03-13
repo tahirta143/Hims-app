@@ -2899,8 +2899,8 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
           child: Column(children: [
             _mobilePatientCard(),
             const SizedBox(height: 14),
-            _mobileVisitStats(),
-            const SizedBox(height: 14),
+            // _mobileVisitStats(),
+            // const SizedBox(height: 14),
             _mobileHistorySection(),
             const SizedBox(height: 20),
           ]),
@@ -3013,55 +3013,55 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
     );
   }
 
-  Widget _mobileVisitStats() {
-    final p = _patient!;
-    return Row(children: [
-      Expanded(
-          child: _statCard('${p.totalVisits}', 'Total Visits', _teal,
-              Icons.history_rounded)),
-      const SizedBox(width: 10),
-      Expanded(
-          child: _statCard(
-              '${p.visitsToday}', 'Today', _green, Icons.today_rounded)),
-    ]);
-  }
-
-  Widget _statCard(String val, String label, Color color, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
-      decoration: BoxDecoration(
-          color: _card,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.2)),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 6,
-                offset: const Offset(0, 2))
-          ]),
-      child: Row(children: [
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(9)),
-          child: Icon(icon, color: color, size: 18),
-        ),
-        const SizedBox(width: 10),
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(val,
-              style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: color)),
-          Text(label,
-              style:
-              TextStyle(fontSize: 10, color: color.withOpacity(0.8))),
-        ]),
-      ]),
-    );
-  }
+  // Widget _mobileVisitStats() {
+  //   final p = _patient!;
+  //   return Row(children: [
+  //     Expanded(
+  //         child: _statCard('${p.totalVisits}', 'Total Visits', _teal,
+  //             Icons.history_rounded)),
+  //     const SizedBox(width: 10),
+  //     Expanded(
+  //         child: _statCard(
+  //             '${p.visitsToday}', 'Today', _green, Icons.today_rounded)),
+  //   ]);
+  // }
+  //
+  // Widget _statCard(String val, String label, Color color, IconData icon) {
+  //   return Container(
+  //     padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+  //     decoration: BoxDecoration(
+  //         color: _card,
+  //         borderRadius: BorderRadius.circular(12),
+  //         border: Border.all(color: color.withOpacity(0.2)),
+  //         boxShadow: [
+  //           BoxShadow(
+  //               color: Colors.black.withOpacity(0.04),
+  //               blurRadius: 6,
+  //               offset: const Offset(0, 2))
+  //         ]),
+  //     child: Row(children: [
+  //       Container(
+  //         width: 36,
+  //         height: 36,
+  //         decoration: BoxDecoration(
+  //             color: color.withOpacity(0.1),
+  //             borderRadius: BorderRadius.circular(9)),
+  //         child: Icon(icon, color: color, size: 18),
+  //       ),
+  //       const SizedBox(width: 10),
+  //       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+  //         Text(val,
+  //             style: TextStyle(
+  //                 fontSize: 20,
+  //                 fontWeight: FontWeight.bold,
+  //                 color: color)),
+  //         Text(label,
+  //             style:
+  //             TextStyle(fontSize: 10, color: color.withOpacity(0.8))),
+  //       ]),
+  //     ]),
+  //   );
+  // }
 
   Widget _mobileHistorySection() {
     return Container(
