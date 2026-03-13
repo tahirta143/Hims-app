@@ -149,7 +149,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                     ),
                   ),
                   SizedBox(height: screenHeight * 0.015),
-                  if (perm.isAdmin)
+                  if (perm.role != null)
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
@@ -160,18 +160,18 @@ class _CustomDrawerState extends State<CustomDrawer> {
                         color: Colors.white24,
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: const Text(
-                        '⭐ Super Admin',
-                        style: TextStyle(
+                      child: Text(
+                        '⭐ ${perm.role}',
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
-                  const Text(
-                    'HIMS User',
-                    style: TextStyle(
+                  Text(
+                    perm.fullName ?? 'HIMS User',
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
                       fontWeight: FontWeight.w700,

@@ -5,7 +5,11 @@ import '../../models/consultation_model/appointment_model.dart';
 import '../../models/consultation_model/doctor_model.dart';
 import '../../providers/opd/consultation_provider/cunsultation_provider.dart';
 import '../../providers/mr_provider/mr_provider.dart';
+import '../../core/utils/date_formatter.dart';
 import 'widgets/appointment_dialog.dart';
+
+const Color _teal = Color(0xFF00B5AD);
+const Color _textDark = Color(0xFF1A202C);
 
 class ConsultationScreen extends StatefulWidget {
   const ConsultationScreen({super.key});
@@ -14,15 +18,10 @@ class ConsultationScreen extends StatefulWidget {
 }
 
 class _ConsultationScreenState extends State<ConsultationScreen> {
-  static const Color primary = Color(0xFF00B5AD);
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   String _todayLabel() {
-    final now = DateTime.now();
-    const months = ['January','February','March','April','May','June',
-      'July','August','September','October','November','December'];
-    const wdays = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-    return '${wdays[now.weekday - 1]}, ${now.day} ${months[now.month - 1]} ${now.year}';
+    return AppDateFormatter.formatWithDay(DateTime.now());
   }
 
   @override
@@ -64,7 +63,7 @@ class _ConsultationScreenState extends State<ConsultationScreen> {
                     icon: const Icon(Icons.refresh_rounded),
                     label: const Text('Retry'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: primary,
+                      backgroundColor: _teal,
                       foregroundColor: Colors.white,
                     ),
                   ),
@@ -85,7 +84,7 @@ class _ConsultationScreenState extends State<ConsultationScreen> {
                         sw * 0.04, sh * 0.018, sw * 0.04, sh * 0.012),
                     child: Row(children: [
                       Icon(Icons.people_alt_rounded,
-                          color: primary, size: sw * 0.045),
+                          color: _teal, size: sw * 0.045),
                       SizedBox(width: sw * 0.02),
                       Text('Our Consultants',
                           style: TextStyle(
@@ -126,15 +125,16 @@ class _ConsultationScreenState extends State<ConsultationScreen> {
                             ? 0.68
                             : 0.65,
                       ),
-                      itemBuilder: (_, i) => _DoctorCard(
-                        doctor: prov.doctors[i],
-                        availableSlots:
-                        prov.availableSlotsForDoctor(
-                            prov.doctors[i].name,
-                            DateTime.now()),
-                        onTap: () => _showDialog(context, prov,
-                            prov.doctors[i], sw, sh),
-                      ),
+                      itemBuilder: (_, i) {
+                        final doctor = prov.doctors[i];
+                        final today = DateTime.now();
+                        return _DoctorCard(
+                          doctor: doctor,
+                          bookedSlots: prov.bookedSlots(today, doctor.name).length,
+                          availableSlots: prov.availableSlotsForDoctor(doctor.name, today),
+                          onTap: () => _showDialog(context, prov, doctor, sw, sh),
+                        );
+                      },
                     ),
                   ),
 
@@ -208,7 +208,7 @@ class _ConsultationScreenState extends State<ConsultationScreen> {
       child: Row(children: [
         _SummaryCard(label: 'Total\nConsultations',
             value: prov.totalConsultations.toString(),
-            icon: Icons.receipt_long_rounded, color: primary, sw: sw),
+            icon: Icons.receipt_long_rounded, color: _teal, sw: sw),
         SizedBox(width: sw * 0.025),
         _SummaryCard(label: 'Upcoming\nAppointments',
             value: prov.upcomingAppointments.toString(),
@@ -291,11 +291,13 @@ class _SummaryCard extends StatelessWidget {
 // ════════════════════════════════════════════════
 class _DoctorCard extends StatelessWidget {
   final DoctorInfo doctor;
+  final int bookedSlots;
   final int availableSlots;
   final VoidCallback onTap;
 
   const _DoctorCard({
     required this.doctor,
+    required this.bookedSlots,
     required this.availableSlots,
     required this.onTap,
   });
@@ -424,8 +426,8 @@ class _DoctorCard extends StatelessWidget {
                     Divider(height: cw * 0.04, color: Colors.grey.shade100),
                     Row(children: [
                       Expanded(child: _miniStat(
-                          doctor.totalAppointments.toString(),
-                          'Total', doctor.avatarColor, cw)),
+                          bookedSlots.toString(),
+                          'Booked', _textDark, cw)),
                       Container(width: 1, height: cw * 0.1,
                           color: Colors.grey.shade200),
                       Expanded(child: _miniStat(

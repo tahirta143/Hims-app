@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:printing/printing.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import '../../core/utils/date_formatter.dart';
 import '../../custum widgets/drawer/base_scaffold.dart';
 import '../../global/global_api.dart';
 import '../../providers/opd/opd_reciepts/opd_reciepts.dart';
@@ -183,6 +187,15 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
   double get _discountVal => double.tryParse(_discountCtrl.text) ?? 0;
   double get _amountPaidVal => double.tryParse(_amountPaidCtrl.text) ?? 0;
 
+  void _onDiscountChanged() {
+    final prov = Provider.of<OpdProvider>(context, listen: false);
+    final total = prov.servicesTotal;
+    final discount = _discountVal;
+    final payable = (total - discount).clamp(0.0, double.infinity);
+    _amountPaidCtrl.text = payable.toStringAsFixed(0);
+    setState(() {});
+  }
+
   void _saveAndExit() {
     final prov = Provider.of<OpdProvider>(context, listen: false);
     if (_nameCtrl.text.trim().isEmpty) {
@@ -228,9 +241,122 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
             err: true);
         return;
       }
-      _snack('Receipt saved!', err: false);
-      _clearAll();
+      
+      // Success Dialog with Print Option
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(children: [
+            Icon(Icons.check_circle_rounded, color: _green),
+            SizedBox(width: 8),
+            Text('Success'),
+          ]),
+          content: const Text('OPD Receipt has been saved successfully. Would you like to print it?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _clearAll();
+              },
+              child: Text('Don\'t Print', style: TextStyle(color: Colors.grey.shade600)),
+            ),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _printReceipt(prov, patient);
+                _clearAll();
+              },
+              icon: const Icon(Icons.print_rounded, size: 18),
+              label: const Text('Print Now'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _teal,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ],
+        ),
+      );
     });
+  }
+
+  Future<void> _printReceipt(OpdProvider prov, OpdPatient patient) async {
+    final pdf = pw.Document();
+    final dateStr = AppDateFormatter.formatWithDay(DateTime.now());
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        build: (pw.Context context) {
+          return pw.Padding(
+            padding: const pw.EdgeInsets.all(20),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Center(
+                  child: pw.Text('HIMS - OPD RECEIPT',
+                      style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+                ),
+                pw.SizedBox(height: 10),
+                pw.Divider(),
+                pw.SizedBox(height: 20),
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text('Date: $dateStr'),
+                    pw.Text('MR #: ${patient.mrNo}'),
+                  ],
+                ),
+                pw.SizedBox(height: 20),
+                pw.Text('Patient Details:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                pw.Text('Name: ${patient.fullName}'),
+                pw.Text('Phone: ${patient.phone}'),
+                pw.Text('Age/Gender: ${patient.age} / ${patient.gender}'),
+                pw.Text('City: ${patient.city}'),
+                pw.SizedBox(height: 20),
+                pw.Text('Services Requested:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                pw.Divider(),
+                ...prov.selectedServices.map((s) => pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text(s.service.name),
+                    pw.Text('PKR ${s.service.price.toStringAsFixed(2)}'),
+                  ],
+                )),
+                pw.Divider(),
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text('Total:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                    pw.Text('PKR ${prov.servicesTotal.toStringAsFixed(2)}',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                  ],
+                ),
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text('Discount:'),
+                    pw.Text('PKR ${_discountVal.toStringAsFixed(2)}'),
+                  ],
+                ),
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text('Amount Paid:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                    pw.Text('PKR ${_amountPaidVal.toStringAsFixed(2)}',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+
+    await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => pdf.save());
   }
 
   void _snack(String msg, {required bool err}) {
@@ -378,7 +504,6 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
                 child: Column(
                   children: [
                     _mobileHeader(opdProv, mrProv),
-                    _stepBar(),
                     _stepContent(opdProv, mrProv),
                   ],
                 ),
@@ -708,116 +833,75 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
 
   // ── Step Content ─────────────────────────────────────────────────────────
   Widget _stepContent(OpdProvider opdProv, MrProvider mrProv) {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 220),
-      transitionBuilder: (child, anim) =>
-          FadeTransition(opacity: anim, child: child),
-      child: Container(
-        key: ValueKey(_step),
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-        child: Column(
-          children: [
-            if (_step == 0) _stepPatientInfo(opdProv, mrProv),
-            if (_step == 1) _stepServices(opdProv),
-            if (_step == 2) _stepBilling(opdProv),
-            const SizedBox(height: 24),
-            _buildActionButtons(),
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+      child: Column(
+        children: [
+          _stepPatientInfo(opdProv, mrProv),
+          const SizedBox(height: 16),
+          _stepServices(opdProv),
+          const SizedBox(height: 16),
+          _stepBilling(opdProv),
+          const SizedBox(height: 24),
+          _buildActionButtons(),
+        ],
       ),
     );
   }
 
   // ── Action Buttons ───────────────────────────────────────────────────────
   Widget _buildActionButtons() {
-    final isLast = _step == 2;
-    final isFirst = _step == 0;
-    final mediaQuery = MediaQuery.of(context);
-    final screenWidth = mediaQuery.size.width;
-
-    return Column(
+    return Row(
       children: [
-        if (!isFirst) ...[
-          SizedBox(
-            width: screenWidth,
-            child: OutlinedButton(
-              onPressed: () => setState(() => _step--),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: _textMid,
-                side: const BorderSide(color: _border),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.arrow_back_rounded, size: 18),
-                  SizedBox(width: 8),
-                  Text('Back', style: TextStyle(fontSize: 15)),
-                ],
-              ),
+        Expanded(
+          child: OutlinedButton(
+            onPressed: _clearAll,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _textLight,
+              side: const BorderSide(color: _border),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.refresh_rounded, size: 18),
+                SizedBox(width: 8),
+                Text('Clear', style: TextStyle(fontSize: 15)),
+              ],
             ),
           ),
-          const SizedBox(height: 12),
-        ],
-
-        Row(
-          children: [
-            if (isFirst) ...[
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _clearAll,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: _textLight,
-                    side: const BorderSide(color: _border),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.refresh_rounded, size: 18),
-                      SizedBox(width: 8),
-                      Text('Clear', style: TextStyle(fontSize: 15)),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-            ],
-            Expanded(
-              flex: isFirst ? 1 : 1,
-              child: ElevatedButton(
-                onPressed: isLast ? _saveAndExit : () => setState(() => _step++),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _teal,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      isLast ? 'Print Receipt' : 'Continue',
-                      style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(
-                      isLast ? Icons.print_rounded : Icons.arrow_forward_rounded,
-                      size: 18,
-                    ),
-                  ],
-                ),
-              ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: ElevatedButton(
+            onPressed: _saveAndExit,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _teal,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(vertical: 16),
             ),
-          ],
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Save Receipt',
+                  style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold),
+                ),
+                SizedBox(width: 8),
+                Icon(
+                  Icons.save_rounded,
+                  size: 18,
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     );
@@ -825,6 +909,21 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
 
   // Step 0 – Patient Information
   Widget _stepPatientInfo(OpdProvider opdProv, MrProvider mrProv) {
+    if (_patientFound) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _stepTitle('Patient Selection', Icons.person_outline),
+          const SizedBox(height: 16),
+          _patientProfileCard(opdProv),
+        ],
+      );
+    }
+
+    if (!_patientNotFound) {
+      return const SizedBox.shrink();
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -941,6 +1040,106 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
       ],
     );
   }
+
+  Widget _patientProfileCard(OpdProvider prov) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _teal.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _teal.withOpacity(0.2)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: _teal.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.person_rounded, color: _teal, size: 30),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _nameCtrl.text,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: _textDark,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'MR#: ${_mrNoCtrl.text}',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: _teal,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.edit_note_rounded, color: _teal),
+                onPressed: () => setState(() => _patientFound = false),
+                tooltip: 'Edit manually',
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(height: 1),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              _profileItem(Icons.phone_iphone_rounded, 'Phone', _phoneCtrl.text),
+              _profileItem(Icons.wc_rounded, 'Gender', _genderCtrl.text),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _profileItem(Icons.cake_rounded, 'Age', '${_ageCtrl.text} Years'),
+              _profileItem(Icons.location_city_rounded, 'City', _cityCtrl.text),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _profileItem(Icons.location_on_rounded, 'Address', _addressCtrl.text, isFull: true),
+        ],
+      ),
+    );
+  }
+
+  Widget _profileItem(IconData icon, String label, String value, {bool isFull = false}) {
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 14, color: _textLight),
+            const SizedBox(width: 6),
+            Text(label, style: const TextStyle(fontSize: 11, color: _textLight)),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value.isEmpty ? '-' : value,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _textDark),
+        ),
+      ],
+    );
+
+    if (isFull) return content;
+    return Expanded(child: content);
+  }
+
 
   void _scrollToTop() {
     Future.delayed(const Duration(milliseconds: 300), () {
@@ -1228,7 +1427,7 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
                   keyboardType: TextInputType.number,
                   textAlign: TextAlign.right,
                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                  onChanged: (_) => setState(() {}),
+                  onChanged: (_) => _onDiscountChanged(),
                   onTap: _scrollToTop,
                   decoration: InputDecoration(
                     prefixText: 'PKR ',
@@ -1246,17 +1445,17 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
         const SizedBox(height: 12),
 
         // Total Payable
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: _tealLight,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: _billRow('Total Payable', 'PKR ${totalPayable.toStringAsFixed(2)}',
-              bold: true, color: _teal),
-        ),
+        // Container(
+        //   padding: const EdgeInsets.all(14),
+        //   decoration: BoxDecoration(
+        //     color: _tealLight,
+        //     borderRadius: BorderRadius.circular(12),
+        //   ),
+        //   child: _billRow('Total Payable', 'PKR ${totalPayable.toStringAsFixed(2)}',
+        //       bold: true, color: _teal),
+        // ),
 
-        const SizedBox(height: 12),
+        // const SizedBox(height: 12),
 
         // Amount Paid
         Container(
@@ -1321,58 +1520,7 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
 
         const SizedBox(height: 16),
 
-        // Selected Services Summary
-        if (prov.selectedServices.isNotEmpty) ...[
-          const Text('Selected Services',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _textDark)),
-          const SizedBox(height: 10),
-          ...prov.selectedServices.map((sel) => Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: _card,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: sel.service.color.withOpacity(0.3)),
-            ),
-            child: Row(children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: sel.service.color.withOpacity(0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(sel.service.icon,
-                    color: sel.service.color, size: 16),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(sel.service.name,
-                          style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: _textDark)),
-                      Text('PKR ${sel.service.price.toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 11, color: _textLight)),
-                    ]),
-              ),
-              GestureDetector(
-                onTap: () => prov.removeService(sel.service.id),
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Icon(Icons.delete_outline_rounded,
-                      color: Colors.red.shade400, size: 16),
-                ),
-              ),
-            ]),
-          )).toList(),
-        ],
+        // Selected Services Summary removed as per request
 
         // Emergency Admission indicator
         if (prov.emergencyAdmission) ...[
@@ -1996,7 +2144,7 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
 
   Widget _billingCard(OpdProvider prov) {
     final discount = _discountVal;
-    final totalPayable = (prov.servicesTotal - discount).clamp(0, double.infinity);
+    final totalPayable = (prov.servicesTotal - discount).clamp(0.0, double.infinity);
     final amountPaid = _amountPaidVal;
     final balance = amountPaid - totalPayable;
 
@@ -2047,7 +2195,7 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
               keyboardType: TextInputType.number,
               textAlign: TextAlign.right,
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-              onChanged: (_) => setState(() {}),
+              onChanged: (_) => _onDiscountChanged(),
               decoration: InputDecoration(
                 prefixText: 'PKR ',
                 prefixStyle: const TextStyle(fontSize: 12, color: _textLight),
@@ -2166,9 +2314,9 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.print_rounded, size: 16),
+                  Icon(Icons.save_rounded, size: 16),
                   SizedBox(width: 6),
-                  Text('Print Receipt',
+                  Text('Save Receipt',
                       style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                 ],
               ),
