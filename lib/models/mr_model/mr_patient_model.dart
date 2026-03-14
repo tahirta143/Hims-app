@@ -1,5 +1,37 @@
 import 'package:flutter/material.dart';
 
+class VisitHistoryModel {
+  final String? date;
+  final String? time;
+  final String? opdService;
+  final String? serviceDetail;
+  final String? receiptId;
+  final dynamic totalAmount;
+  final dynamic paid;
+
+  VisitHistoryModel({
+    this.date,
+    this.time,
+    this.opdService,
+    this.serviceDetail,
+    this.receiptId,
+    this.totalAmount,
+    this.paid,
+  });
+
+  factory VisitHistoryModel.fromJson(Map<String, dynamic> json) {
+    return VisitHistoryModel(
+      date: json['date']?.toString(),
+      time: json['time']?.toString(),
+      opdService: json['opd_service']?.toString() ?? json['service_name']?.toString() ?? json['service']?.toString(),
+      serviceDetail: json['service_detail']?.toString(),
+      receiptId: json['receipt_id']?.toString() ?? json['id']?.toString(),
+      totalAmount: json['total_amount'],
+      paid: json['paid'],
+    );
+  }
+}
+
 class MrPatientApiModel {
   final int id;
   final String mrNumber;
@@ -24,6 +56,7 @@ class MrPatientApiModel {
   final String patientName;
   final String phoneNumber;
   final String? fatherHusbandName;
+  final List<VisitHistoryModel>? history;
 
   MrPatientApiModel({
     required this.id,
@@ -49,6 +82,7 @@ class MrPatientApiModel {
     required this.patientName,
     required this.phoneNumber,
     this.fatherHusbandName,
+    this.history,
   });
 
   factory MrPatientApiModel.fromJson(Map<String, dynamic> json) {
@@ -76,6 +110,11 @@ class MrPatientApiModel {
       patientName: (json['patient_name'] as String?) ?? '',
       phoneNumber: (json['phone_number'] as String?) ?? '',
       fatherHusbandName: json['father_husband_name'] as String?,
+      history: json['history'] != null
+          ? (json['history'] as List)
+              .map((i) => VisitHistoryModel.fromJson(i as Map<String, dynamic>))
+              .toList()
+          : null,
     );
   }
 
@@ -127,6 +166,18 @@ class MrPatientApiModel {
       registeredAt = DateTime.now();
     }
 
+    int totalVisitsCount = history?.length ?? 0;
+    int visitsTodayCount = 0;
+    
+    if (history != null) {
+      final todayStr = "${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')}";
+      for (var v in history!) {
+        if (v.date != null && v.date!.startsWith(todayStr)) {
+          visitsTodayCount++;
+        }
+      }
+    }
+
     return PatientModel(
       mrNumber: mrNumber,
       firstName: firstName,
@@ -144,8 +195,9 @@ class MrPatientApiModel {
       address: address ?? '',
       city: city ?? '',
       registeredAt: registeredAt,
-      totalVisits: 0, // Not provided by API
-      visitsToday: 0, // Not provided by API
+      totalVisits: totalVisitsCount,
+      visitsToday: visitsTodayCount,
+      visitHistory: history,
     );
   }
 }
@@ -170,6 +222,7 @@ class PatientModel {
   final DateTime registeredAt;
   int totalVisits;
   int visitsToday;
+  final List<VisitHistoryModel>? visitHistory;
 
   PatientModel({
     required this.mrNumber,
@@ -190,11 +243,10 @@ class PatientModel {
     required this.registeredAt,
     this.totalVisits = 0,
     this.visitsToday = 0,
+    this.visitHistory,
   });
 
   String get fullName => '$firstName $lastName'.trim();
-
-  get visitHistory => null;
 
   // Convert to API request format for create/update
   Map<String, dynamic> toApiRequest() {

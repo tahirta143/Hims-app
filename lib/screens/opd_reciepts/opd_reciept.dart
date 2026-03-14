@@ -1776,6 +1776,7 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
                   onChanged: _onMrChanged,
                   decoration: InputDecoration(
                     hintText: 'MR Number — auto or search',
+
                     hintStyle: TextStyle(color: _textLight.withOpacity(0.5), fontSize: 13),
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.zero,
@@ -1785,18 +1786,18 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
               _buildWideMrSuffix(),
             ]),
           ),
-          if (_patientFound)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text('Patient found — fields locked',
-                  style: TextStyle(fontSize: 11, color: _teal)),
-            )
-          else if (_patientNotFound)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text('Not found — fill manually',
-                  style: TextStyle(fontSize: 11, color: Colors.orange)),
-            ),
+          // if (_patientFound)
+          //   Padding(
+          //     padding: const EdgeInsets.only(top: 4),
+          //     child: Text('Patient found — fields locked',
+          //         style: TextStyle(fontSize: 11, color: _teal)),
+          //   )
+          // else if (_patientNotFound)
+          //   Padding(
+          //     padding: const EdgeInsets.only(top: 4),
+          //     child: Text('Not found — fill manually',
+          //         style: TextStyle(fontSize: 11, color: Colors.orange)),
+          //   ),
         ]),
 
         const SizedBox(height: 16),

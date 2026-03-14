@@ -1,15 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+
 import 'package:hims_app/custum widgets/drawer/base_scaffold.dart';
-import '../../custum widgets/bottombar/bottombar.dart';
-import '../../models/consultation_model/doctor_model.dart';
+import 'package:syncfusion_flutter_charts/charts.dart';
 import '../../providers/opd/consultation_provider/cunsultation_provider.dart';
 import '../../providers/mr_provider/mr_provider.dart';
+import '../../models/consultation_model/doctor_model.dart';
+import '../../models/dashboard_model.dart';
+import '../../providers/dashboard_provider.dart';
+
 import '../add_expenses/add_expenses.dart';
 import '../cunsultations/cunsultations.dart';
 import '../cunsultations/widgets/appointment_dialog.dart';
 import '../emergency_treatment/emergency_treatment.dart';
 import '../mr_details/mr_view/mr_view.dart';
+// import '../expenses/expenses_screen.dart'; // Added for completeness
+
 // ─────────────────────────────────────────────
 //  SUMMARY CARD WIDGET
 // ─────────────────────────────────────────────
@@ -20,6 +27,7 @@ class _SummaryCard extends StatelessWidget {
   final Color color;
   final String trend;
   final bool trendUp;
+  final String subtitle;
 
   const _SummaryCard({
     required this.title,
@@ -28,23 +36,21 @@ class _SummaryCard extends StatelessWidget {
     required this.color,
     required this.trend,
     required this.trendUp,
+    required this.subtitle,
   });
 
   @override
   Widget build(BuildContext context) {
-    final double cardWidth =
-        (MediaQuery.of(context).size.width - 48) / 2;
-
     return Container(
-      width: cardWidth,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        color: Colors.white.withOpacity(0.8),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white, width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(0.12),
-            blurRadius: 12,
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
             offset: const Offset(0, 4),
           ),
         ],
@@ -55,63 +61,132 @@ class _SummaryCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                padding: const EdgeInsets.all(9),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(12),
+              Text(
+                title.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                  color: Colors.grey.shade500,
                 ),
-                child: Icon(icon, color: color, size: 20),
               ),
               Container(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: trendUp
-                      ? Colors.green.withOpacity(0.1)
-                      : Colors.red.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: Row(
-                  children: [
-                    Icon(
-                      trendUp
-                          ? Icons.arrow_upward_rounded
-                          : Icons.arrow_downward_rounded,
-                      size: 11,
-                      color: trendUp ? Colors.green : Colors.red,
-                    ),
-                    const SizedBox(width: 2),
-                    Text(
-                      trend,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: trendUp ? Colors.green : Colors.red,
-                      ),
-                    ),
-                  ],
-                ),
+                child: Icon(icon, color: color, size: 16),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const Spacer(),
           Text(
             value,
             style: const TextStyle(
-              fontSize: 20,
+              fontSize: 22,
               fontWeight: FontWeight.bold,
               color: Colors.black87,
+              fontFamily: 'monospace',
             ),
           ),
           const SizedBox(height: 4),
           Text(
-            title,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey.shade500,
-              fontWeight: FontWeight.w500,
+            subtitle,
+            style: TextStyle(fontSize: 10, color: Colors.grey.shade400),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(
+                trendUp ? Icons.arrow_outward_rounded : Icons.south_east_rounded,
+                size: 14,
+                color: trendUp ? const Color(0xFF10B981) : const Color(0xFFF43F5E),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                trend,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: trendUp ? const Color(0xFF10B981) : const Color(0xFFF43F5E),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+//  EXPENSE BAR WIDGET
+// ─────────────────────────────────────────────
+class _ExpenseBar extends StatelessWidget {
+  final String name;
+  final double value;
+  final double total;
+  final Color color;
+
+  const _ExpenseBar({
+    required this.name,
+    required this.value,
+    required this.total,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = total > 0 ? (value / total) : 0.0;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              name,
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+              overflow: TextOverflow.ellipsis,
             ),
+          ),
+          Expanded(
+            child: Stack(
+              children: [
+                Container(
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+                FractionallySizedBox(
+                  widthFactor: pct,
+                  child: Container(
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            'PKR ${NumberFormat('#,###').format(value)}',
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'monospace',
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '${(pct * 100).round()}%',
+            style: TextStyle(fontSize: 10, color: Colors.grey.shade400),
           ),
         ],
       ),
@@ -121,15 +196,6 @@ class _SummaryCard extends StatelessWidget {
 
 // ─────────────────────────────────────────────
 //  DOCTOR CARD WIDGET
-// ─────────────────────────────────────────────
-// ─────────────────────────────────────────────
-//  DOCTOR CARD (EXACT MATCH FROM IMAGE)
-// ─────────────────────────────────────────────
-// ─────────────────────────────────────────────
-//  DOCTOR CARD (Name, Fee Rs, Image Right, Slots, Specialist, Clickable)
-// ─────────────────────────────────────────────
-// ─────────────────────────────────────────────
-//  DOCTOR CARD (Actual Image, Fee under Specialist, Larger Image, Minimized Slots)
 // ─────────────────────────────────────────────
 class _DoctorCard extends StatelessWidget {
   final DoctorInfo doctor;
@@ -171,11 +237,9 @@ class _DoctorCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Doctor Info Row (Name left, Large Image right)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Name, Specialist and Fee (Left side)
                   Expanded(
                     flex: 2,
                     child: Column(
@@ -202,7 +266,6 @@ class _DoctorCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                         SizedBox(height: screenSize.height * 0.008),
-                        // Fee under specialist
                         Container(
                           padding: EdgeInsets.symmetric(
                             horizontal: screenSize.width * 0.02,
@@ -224,10 +287,7 @@ class _DoctorCard extends StatelessWidget {
                       ],
                     ),
                   ),
-
                   SizedBox(width: screenSize.width * 0.03),
-
-                  // Actual Doctor Image (Right side)
                   ClipRRect(
                     borderRadius: BorderRadius.circular(screenSize.width * 0.05),
                     child: doctor.imageAsset.isNotEmpty
@@ -243,10 +303,7 @@ class _DoctorCard extends StatelessWidget {
                   ),
                 ],
               ),
-
               SizedBox(height: screenSize.height * 0.015),
-
-              // Slots Available (Minimized size)
               Row(
                 children: [
                   Icon(
@@ -265,10 +322,7 @@ class _DoctorCard extends StatelessWidget {
                   ),
                 ],
               ),
-
               SizedBox(height: screenSize.height * 0.01),
-
-              // Days Row with Dates
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -309,10 +363,6 @@ class _DoctorCard extends StatelessWidget {
   }
 
   Widget _buildDayChip(String day, Size screenSize, bool isAvailable) {
-    // Show current date for context or just "Available"
-    final now = DateTime.now();
-    // Simplified: we don't have real dates per day easily here, 
-    // so we just show the day name and availability highlight
     return Container(
       width: screenSize.width * 0.12,
       padding: EdgeInsets.symmetric(
@@ -335,8 +385,9 @@ class _DoctorCard extends StatelessWidget {
     );
   }
 }
+
 // ─────────────────────────────────────────────
-//  DASHBOARD BODY (extracted from HomeScreen)
+//  DASHBOARD BODY
 // ─────────────────────────────────────────────
 class _DashboardBody extends StatefulWidget {
   const _DashboardBody();
@@ -346,338 +397,585 @@ class _DashboardBody extends StatefulWidget {
 }
 
 class _DashboardBodyState extends State<_DashboardBody> {
-  static const Color primaryColor = Color(0xFF00B5AD);
-  static const Color darkTeal = Color(0xFF00897B);
+  static const Color primaryColor = Color(0xFF0D9488); // Emerald-ish
+  final DateFormat _dateFormat = DateFormat('EEEE, d MMMM yyyy');
 
-  final List<Map<String, dynamic>> specialists = [
-    {'icon': Icons.medical_services, 'label': 'General', 'selected': true},
-    {'icon': Icons.remove_red_eye, 'label': 'Optics', 'selected': false},
-    {'icon': Icons.vaccines, 'label': 'Dentist', 'selected': false},
-    {'icon': Icons.monitor_heart, 'label': 'Immune', 'selected': false},
-  ];
-  final List<Map<String, dynamic>> summaryCards = [
-    {
-      'title': 'OPD Revenue',
-      'value': '24,500',      // ← Changed from $ to ₨
-      'icon': Icons.attach_money_rounded,
-      'color': const Color(0xFF00BFA5),
-      'trend': '12%',
-      'trendUp': true,
-    },
-    {
-      'title': 'Consultations',
-      'value': '1,284',
-      'icon': Icons.chat_bubble_rounded,
-      'color': const Color(0xFF7C4DFF),
-      'trend': '8%',
-      'trendUp': true,
-    },
-    {
-      'title': 'Patients',
-      'value': '3,920',
-      'icon': Icons.people_alt_rounded,
-      'color': const Color(0xFF00ACC1),
-      'trend': '5%',
-      'trendUp': true,
-    },
-    {
-      'title': 'Expenses',
-      'value': '8,340',       // ← Changed from $ to ₨
-      'icon': Icons.receipt_long_rounded,
-      'color': const Color(0xFFFF6B6B),
-      'trend': '3%',
-      'trendUp': false,
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final prov = Provider.of<DashboardProvider>(context, listen: false);
+      prov.fetchAvailableShifts(prov.selectedDate);
+      prov.fetchCalendarData(prov.selectedDate);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final double screenWidth = MediaQuery.of(context).size.width;
-    final double screenHeight = MediaQuery.of(context).size.height;
+    final dashboardProv = Provider.of<DashboardProvider>(context);
+    final consultationProv = Provider.of<ConsultationProvider>(context);
 
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      padding: EdgeInsets.symmetric(
-        horizontal: screenWidth * 0.04,
-        vertical: screenHeight * 0.0,
-      ),
+    return RefreshIndicator(
+      onRefresh: () => dashboardProv.refresh(),
+      color: primaryColor,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Summary Cards ──
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: screenWidth * 0.04,
-              mainAxisSpacing: screenWidth * 0.04,
-              childAspectRatio: 1.2,
-            ),
-            itemCount: summaryCards.length,
-            itemBuilder: (context, index) {
-              final card = summaryCards[index];
-              return _SummaryCard(
-                title: card['title'] as String,
-                value: card['value'] as String,
-                icon: card['icon'] as IconData,
-                color: card['color'] as Color,
-                trend: card['trend'] as String,
-                trendUp: card['trendUp'] as bool,
-              );
-            },
-          ),
-          // SizedBox(height: screenHeight * 0.025),
-
-          // ── Find Specialist ──
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Find Specialist',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              GestureDetector(
-                onTap: () {
-                  // Navigate to Consultations tab (index 2 in HomeScreen)
-                  final homeState = context.findAncestorStateOfType<HomeScreenState>();
-                  if (homeState != null) homeState.onTabTapped(2);
-                },
-                child: Text(
-                  'View all',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: primaryColor,
-                    fontWeight: FontWeight.w600,
-                  ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Health Dashboard',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    Text(
+                      _dateFormat.format(dashboardProv.selectedDate),
+                      style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          SizedBox(height: screenHeight * 0.014),
-
-          SizedBox(
-            height: 44,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: specialists.length,
-              itemBuilder: (context, index) {
-                final item = specialists[index];
-                final isSelected = item['selected'] as bool;
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      for (var s in specialists) {
-                        s['selected'] = false;
-                      }
-                      specialists[index]['selected'] = true;
-                    });
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: dashboardProv.selectedDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2030),
+                    );
+                    if (picked != null) dashboardProv.setSelectedDate(picked);
                   },
                   child: Container(
-                    margin: const EdgeInsets.only(right: 10),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color: isSelected ? primaryColor : Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: isSelected
-                            ? primaryColor
-                            : Colors.grey.shade300,
-                      ),
-                      boxShadow: isSelected
-                          ? [
-                        BoxShadow(
-                          color: primaryColor.withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        )
-                      ]
-                          : null,
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade100),
                     ),
                     child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
-                          item['icon'] as IconData,
-                          size: 16,
-                          color: isSelected
-                              ? Colors.white
-                              : Colors.grey.shade600,
-                        ),
-                        const SizedBox(width: 6),
+                        Icon(Icons.calendar_today_rounded, size: 14, color: Colors.grey.shade400),
+                        const SizedBox(width: 8),
                         Text(
-                          item['label'] as String,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: isSelected
-                                ? Colors.white
-                                : Colors.grey.shade700,
-                          ),
+                          DateFormat('dd/MM/yyyy').format(dashboardProv.selectedDate),
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF334155)),
                         ),
                       ],
                     ),
                   ),
-                );
-              },
-            ),
-          ),
-          SizedBox(height: screenHeight * 0.02),
-
-          // ── Banner ──
-          Container(
-            height: screenHeight * 0.17,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [primaryColor, darkTeal],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Stack(
-              children: [
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  bottom: 0,
-                  child: Container(
-                    width: screenWidth * 0.3,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      borderRadius: const BorderRadius.only(
-                        topRight: Radius.circular(20),
-                        bottomRight: Radius.circular(20),
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  right: 10,
-                  top: 10,
-                  bottom: 10,
-                  child: Container(
-                    width: screenWidth * 0.25,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.health_and_safety_rounded,
-                        size: 50, color: Colors.white54),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text(
-                        'Quick Appointments,\nTrusted Care',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          height: 1.3,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      ElevatedButton(
-                        onPressed: () {},
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: primaryColor,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 8),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24),
-                          ),
-                          elevation: 0,
-                        ),
-                        child: const Text(
-                          'Start Now',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(height: screenHeight * 0.025),
-
-          // ── Available Doctors ──
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Available Doctor',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
                 ),
               ),
-              GestureDetector(
-                onTap: () {
-                  final homeState = context.findAncestorStateOfType<HomeScreenState>();
-                  if (homeState != null) homeState.onTabTapped(2);
-                },
-                child: Text(
-                  'View all',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: primaryColor,
-                    fontWeight: FontWeight.w600,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade100),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: dashboardProv.selectedShiftType,
+                      isExpanded: true,
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF334155)),
+                      items: ['All', 'Morning', 'Evening', 'Night']
+                          .map((t) => DropdownMenuItem(value: t, child: Text(t == 'All' ? 'All Shifts' : t)))
+                          .toList(),
+                      onChanged: (val) => dashboardProv.setSelectedShiftType(val!),
+                    ),
                   ),
                 ),
               ),
             ],
           ),
-          SizedBox(height: screenHeight * 0.014),
+          const SizedBox(height: 24),
 
-          Consumer<ConsultationProvider>(
-            builder: (context, prov, child) {
-              if (prov.isLoading) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (prov.doctors.isEmpty) {
-                return const Center(child: Text('No doctors available'));
-              }
-              
-              // Only show top 3 on dashboard
-              final topDocs = prov.doctors.take(3).toList();
-              
-              return ListView.builder(
+          if (dashboardProv.isLoading)
+            const Center(child: Padding(padding: EdgeInsets.all(40.0), child: CircularProgressIndicator()))
+          else ...[
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 1.1,
+              children: [
+                _SummaryCard(
+                  title: 'OPD Revenue',
+                  value: 'PKR ${dashboardProv.totalOpdRevenue.toStringAsFixed(0)}',
+                  icon: Icons.currency_rupee_rounded,
+                  color: const Color(0xFF10B981),
+                  trend: '+4.2%',
+                  trendUp: true,
+                  subtitle: 'All OPD services',
+                ),
+                _SummaryCard(
+                  title: 'Consultations',
+                  value: 'PKR ${dashboardProv.totalConsultRevenue.toStringAsFixed(0)}',
+                  icon: Icons.medical_services_rounded,
+                  color: Colors.indigo,
+                  trend: '+1.8%',
+                  trendUp: true,
+                  subtitle: '${dashboardProv.totalConsultCount} consultants',
+                ),
+                _SummaryCard(
+                  title: 'Patients',
+                  value: dashboardProv.totalPatients.toString(),
+                  icon: Icons.people_outline_rounded,
+                  color: Colors.cyan.shade600,
+                  trend: '-0.6%',
+                  trendUp: false,
+                  subtitle: 'Total OPD entries',
+                ),
+                _SummaryCard(
+                  title: 'Expenses',
+                  value: 'PKR ${dashboardProv.totalExpenses.toStringAsFixed(0)}',
+                  icon: Icons.payments_outlined,
+                  color: Colors.amber.shade700,
+                  trend: '+2.1%',
+                  trendUp: false,
+                  subtitle: 'Direct expenses',
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            _buildGlassPanel(
+              title: 'Revenue by Shift',
+              subtitle: 'OPD vs Consultation split',
+              trailing: Row(
+                children: [
+                  _chartLegend('Morning', const Color(0xFF10B981)),
+                  const SizedBox(width: 8),
+                  _chartLegend('Evening', Colors.indigo),
+                  const SizedBox(width: 8),
+                  _chartLegend('Night', Colors.amber),
+                ],
+              ),
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height * 0.3,
+                child: SfCartesianChart(
+                  margin: EdgeInsets.zero,
+                  plotAreaBorderWidth: 0,
+                  primaryXAxis: CategoryAxis(
+                    majorGridLines: const MajorGridLines(width: 0),
+                    axisLine: const AxisLine(width: 0),
+                    labelStyle: const TextStyle(fontSize: 10, color: Colors.grey),
+                  ),
+                  primaryYAxis: NumericAxis(
+                    majorGridLines: MajorGridLines(width: 1, color: Colors.grey.shade100, dashArray: const [4, 4]),
+                    axisLine: const AxisLine(width: 0),
+                    labelFormat: '{value}k',
+                    axisLabelFormatter: (details) => ChartAxisLabel('${(details.value / 1000).toStringAsFixed(0)}k', const TextStyle(fontSize: 10, color: Colors.grey)),
+                  ),
+                  tooltipBehavior: TooltipBehavior(enable: true, header: ''),
+                  series: _getColumnSeries(dashboardProv),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            _buildCalendarPanel(dashboardProv),
+            const SizedBox(height: 24),
+/*
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _buildGlassPanel(
+                    title: 'Shift Breakdown',
+                    subtitle: 'Per-shift overview',
+                    child: Column(
+                      children: [
+                        _shiftRowHeader(),
+                        _shiftRow('Morning', const Color(0xFF10B981), dashboardProv),
+                        _shiftRow('Evening', Colors.indigo, dashboardProv),
+                        _shiftRow('Night', Colors.amber, dashboardProv),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildGlassPanel(
+                    title: 'Key Metrics',
+                    subtitle: 'Performance indicators',
+                    child: Column(
+                      children: [
+                        _metricRow('💰', 'Avg Rev / Pt', 'PKR ${NumberFormat('#,###').format(dashboardProv.avgRevenuePerPatient)}'),
+                        _metricRow(dashboardProv.netRevenue >= 0 ? '📈' : '📉', 'Net Revenue', 'PKR ${NumberFormat('#,###').format(dashboardProv.netRevenue)}', isNet: true, positive: dashboardProv.netRevenue >= 0),
+                        _metricRow('🩺', 'Consult %', dashboardProv.totalPatients > 0 ? '${((dashboardProv.totalConsultCount / dashboardProv.totalPatients) * 100).round()}%' : '0%'),
+                        _metricRow('🏷️', 'Top Expense', dashboardProv.topExpenseCategory),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+*/
+            const SizedBox(height: 24),
+            _buildGlassPanel(
+              title: 'Revenue Trend',
+              subtitle: 'Intraday estimate',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'PKR ${NumberFormat('#,###').format(dashboardProv.totalOpdRevenue)}',
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, fontFamily: 'monospace'),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 120,
+                    child: SfCartesianChart(
+                      margin: EdgeInsets.zero,
+                      plotAreaBorderWidth: 0,
+                      primaryXAxis: CategoryAxis(isVisible: false),
+                      primaryYAxis: NumericAxis(isVisible: false),
+                      series: <CartesianSeries>[
+                        AreaSeries<ChartDataPoint, String>(
+                          dataSource: dashboardProv.trendData,
+                          xValueMapper: (ChartDataPoint data, _) => data.x,
+                          yValueMapper: (ChartDataPoint data, _) => data.y,
+                          gradient: LinearGradient(
+                            colors: [const Color(0xFF10B981).withOpacity(0.3), const Color(0xFF10B981).withOpacity(0.0)],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          ),
+                          borderColor: const Color(0xFF10B981),
+                          borderWidth: 2,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+/*
+            if (dashboardProv.expenseBreakdown.isNotEmpty)
+              _buildGlassPanel(
+                title: 'Expense Categories',
+                subtitle: 'Total: PKR ${NumberFormat('#,###').format(dashboardProv.totalExpenses)}',
+                child: Column(
+                  children: dashboardProv.expenseBreakdown
+                      .map((e) => _ExpenseBar(name: e.name, value: e.value, total: dashboardProv.totalExpenses, color: e.color))
+                      .toList(),
+                ),
+              ),
+            const SizedBox(height: 24),
+            _buildGlassPanel(
+              title: 'Recent OPD Activity',
+              subtitle: 'Latest patient registrations',
+              child: dashboardProv.opdData.isEmpty 
+                ? const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('No recent activity', style: TextStyle(color: Colors.grey, fontSize: 12))))
+                : Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: ['Time', 'Patient', 'Service', 'Amt'].map((h) => Expanded(child: Text(h, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade400)))).toList(),
+                    ),
+                    const Divider(height: 20),
+                    ...dashboardProv.opdData.reversed.take(5).map((r) {
+                      final time = (r['time'] ?? r['date_time'] ?? '').toString();
+                      final name = (r['patient_name'] ?? 'N/A').toString();
+                      final service = (r['opd_service'] ?? r['service_name'] ?? 'OPD').toString();
+                      final rawAmount = (r['total_amount'] ?? r['service_amount'] ?? 0);
+                      final amount = double.tryParse(rawAmount.toString()) ?? 0.0;
+                      
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(child: Text(time.length > 5 ? time.split(' ').last.substring(0, 5) : time, style: const TextStyle(fontSize: 11, fontFamily: 'monospace'))),
+                            Expanded(child: Text(name, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
+                            Expanded(child: Text(service, style: const TextStyle(fontSize: 10), overflow: TextOverflow.ellipsis)),
+                            Expanded(child: Text(NumberFormat.compact().format(amount), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, fontFamily: 'monospace'), textAlign: TextAlign.right)),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ],
+                ),
+            ),
+*/
+            const SizedBox(height: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Available Doctor', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.black87)),
+                GestureDetector(
+                  onTap: () {
+                     Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (_) => const ConsultationScreen()),
+                      );
+                  },
+                  child: Text('View all', style: TextStyle(fontSize: 13, color: primaryColor, fontWeight: FontWeight.w600)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            if (consultationProv.isLoading)
+              const Center(child: CircularProgressIndicator())
+            else if (consultationProv.doctors.isEmpty)
+              const Center(child: Text('No doctors available'))
+            else
+              ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 padding: EdgeInsets.zero,
-                itemCount: topDocs.length,
+                itemCount: consultationProv.doctors.take(3).length,
                 itemBuilder: (context, index) {
-                  final doctor = topDocs[index];
+                  final doctor = consultationProv.doctors[index];
                   return _DoctorCard(
                     doctor: doctor,
-                    availableSlots: prov.availableSlotsForDoctor(doctor.name, DateTime.now()),
+                    availableSlots: consultationProv.availableSlotsForDoctor(doctor.name, DateTime.now()),
                     primaryColor: primaryColor,
-                    onTap: () => _showDialog(context, prov, doctor),
+                    onTap: () => _showDialog(context, consultationProv, doctor),
                   );
                 },
-              );
-            },
+              ),
+            const SizedBox(height: 100),
+          ],
+        ],
+      ),
+    ));
+  }
+
+  Widget _buildGlassPanel({required String title, required String subtitle, Widget? trailing, required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 15, offset: const Offset(0, 8))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                  Text(subtitle, style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
+                ],
+              ),
+              if (trailing != null) trailing,
+            ],
           ),
-          SizedBox(height: screenHeight * 0.12),
+          const SizedBox(height: 20),
+          child,
         ],
       ),
     );
-
   }
+
+  Widget _buildCalendarPanel(DashboardProvider prov) {
+    return _buildGlassPanel(
+      title: 'Monthly Appointments',
+      subtitle: 'Click a date to view details',
+      trailing: Row(
+        children: [
+          IconButton(onPressed: () => prov.fetchCalendarData(DateTime(prov.selectedDate.year, prov.selectedDate.month - 1)), icon: const Icon(Icons.chevron_left_rounded, size: 20)),
+          Text(DateFormat('MMM yyyy').format(prov.selectedDate), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          IconButton(onPressed: () => prov.fetchCalendarData(DateTime(prov.selectedDate.year, prov.selectedDate.month + 1)), icon: const Icon(Icons.chevron_right_rounded, size: 20)),
+        ],
+      ),
+      child: prov.isCalendarLoading ? const Center(child: CircularProgressIndicator()) : _buildCalendarGrid(prov),
+    );
+  }
+
+  Widget _buildCalendarGrid(DashboardProvider prov) {
+    final now = DateTime.now();
+    final firstDay = DateTime(prov.selectedDate.year, prov.selectedDate.month, 1);
+    final daysInMonth = DateTime(prov.selectedDate.year, prov.selectedDate.month + 1, 0).day;
+    final startOffset = firstDay.weekday % 7;
+
+    return Column(
+      children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => Text(d, style: TextStyle(fontSize: 10, color: Colors.grey.shade400))).toList()),
+        const SizedBox(height: 12),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7, crossAxisSpacing: 4, mainAxisSpacing: 4),
+          itemCount: daysInMonth + startOffset,
+          itemBuilder: (context, index) {
+            if (index < startOffset) return const SizedBox();
+            final day = index - startOffset + 1;
+            final dateStr = DateFormat('yyyy-MM-dd').format(DateTime(prov.selectedDate.year, prov.selectedDate.month, day));
+            final data = prov.calendarData[dateStr] ?? {};
+            final hasAppts = data.isNotEmpty;
+            final isToday = day == now.day && prov.selectedDate.month == now.month && prov.selectedDate.year == now.year;
+
+            return GestureDetector(
+              onTap: hasAppts ? () => _showAppointmentDetails(dateStr, data) : null,
+              child: Container(
+                decoration: BoxDecoration(color: hasAppts ? const Color(0xFF10B981).withOpacity(0.08) : Colors.grey.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: isToday ? const Color(0xFF10B981) : Colors.transparent)),
+                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text(day.toString(), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isToday ? const Color(0xFF10B981) : const Color(0xFF475569))), if (hasAppts) Container(margin: const EdgeInsets.only(top: 2), width: 4, height: 4, decoration: const BoxDecoration(color: Color(0xFF10B981), shape: BoxShape.circle))]),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  void _showAppointmentDetails(String date, Map<String, List<dynamic>> data) {
+    final size = MediaQuery.of(context).size;
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Container(
+          width: size.width * 0.9,
+          padding: EdgeInsets.all(size.width * 0.06),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(DateFormat('EEEE, MMM d').format(DateTime.parse(date)), 
+                style: TextStyle(fontSize: size.width * 0.045, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: data.entries.map((entry) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Row(children: [
+                          const Icon(Icons.person_rounded, size: 16, color: Color(0xFF10B981)), 
+                          const SizedBox(width: 8), 
+                          Expanded(child: Text(entry.key, style: const TextStyle(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)), 
+                          Text('${entry.value.length} Appts', style: TextStyle(fontSize: 12, color: Colors.grey.shade500))
+                        ]),
+                      ),
+                      ...entry.value.map((appt) => Container(
+                        margin: const EdgeInsets.only(left: 24, bottom: 4),
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(12)),
+                        child: Row(children: [
+                          Expanded(child: Text(appt['patient_name'] ?? 'Unknown', style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis)), 
+                          const SizedBox(width: 12),
+                          Text((appt['slot_time'] ?? '').toString().substring(0, 5), style: TextStyle(fontSize: 11, color: Colors.grey.shade400))
+                        ]),
+                      )).toList(),
+                    ],
+                  )).toList(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<CartesianSeries<ChartDataPoint, String>> _getColumnSeries(DashboardProvider prov) {
+    return [
+      ColumnSeries<ChartDataPoint, String>(
+        name: 'Morning',
+        dataSource: [
+          ChartDataPoint('OPD', prov.shiftOpdRevenue['Morning'] ?? 0),
+          ChartDataPoint('Consult', prov.shiftConsultRevenue['Morning'] ?? 0)
+        ],
+        xValueMapper: (ChartDataPoint d, _) => d.x,
+        yValueMapper: (ChartDataPoint d, _) => d.y,
+        color: const Color(0xFF10B981),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+      ),
+      ColumnSeries<ChartDataPoint, String>(
+        name: 'Evening',
+        dataSource: [
+          ChartDataPoint('OPD', prov.shiftOpdRevenue['Evening'] ?? 0),
+          ChartDataPoint('Consult', prov.shiftConsultRevenue['Evening'] ?? 0)
+        ],
+        xValueMapper: (ChartDataPoint d, _) => d.x,
+        yValueMapper: (ChartDataPoint d, _) => d.y,
+        color: Colors.indigo,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+      ),
+      ColumnSeries<ChartDataPoint, String>(
+        name: 'Night',
+        dataSource: [
+          ChartDataPoint('OPD', prov.shiftOpdRevenue['Night'] ?? 0),
+          ChartDataPoint('Consult', prov.shiftConsultRevenue['Night'] ?? 0)
+        ],
+        xValueMapper: (ChartDataPoint d, _) => d.x,
+        yValueMapper: (ChartDataPoint d, _) => d.y,
+        color: Colors.amber,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+      ),
+    ];
+  }
+
+  Widget _chartLegend(String label, Color color) {
+    return Row(children: [Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)), const SizedBox(width: 4), Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade500))]);
+  }
+
+  Widget _shiftRowHeader() {
+    return Padding(padding: const EdgeInsets.only(bottom: 8.0), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: ['Shift', 'Pts', 'Rev'].map((h) => Text(h.toUpperCase(), style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey.shade400))).toList()));
+  }
+
+  Widget _shiftRow(String shift, Color color, DashboardProvider prov) {
+    final pts = prov.shiftPatientCount[shift] ?? 0;
+    final rev = prov.shiftOpdRevenue[shift] ?? 0;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+              const SizedBox(width: 8),
+              Text(shift, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            ],
+          ),
+          Text(
+            pts.toString(),
+            style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+          ),
+          Text(
+            NumberFormat.compact().format(rev),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'monospace'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _metricRow(String icon, String label, String value, {bool isNet = false, bool positive = true}) {
+    return Padding(padding: const EdgeInsets.symmetric(vertical: 8.0), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Row(children: [Text(icon, style: const TextStyle(fontSize: 16)), const SizedBox(width: 8), Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade600))]), Text(value, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isNet ? (positive ? const Color(0xFF10B981) : const Color(0xFFF43F5E)) : const Color(0xFF334155), fontFamily: 'monospace'))]));
+  }
+
   void _showDialog(BuildContext context, ConsultationProvider prov, DoctorInfo doctor) {
     showDialog(
       context: context,
@@ -701,57 +999,15 @@ class _DashboardBodyState extends State<_DashboardBody> {
 // ─────────────────────────────────────────────
 //  HOME SCREEN
 // ─────────────────────────────────────────────
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => HomeScreenState();
-}
-
-class HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 0;
-
-  void onTabTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
-
-  // ── Page titles for the AppBar ──
-  static const List<String> _titles = [
-    'Dashboard',
-    'Emergency',
-    'Consultations',
-    'MR View',
-    'Expenses',
-  ];
-
-  // ── Screens list — built once, kept alive via IndexedStack ──
-  static final List<Widget> _screens = [
-    const _DashboardBody(),
-    const EmergencyTreatmentScreen(),
-    const ConsultationScreen(),
-    const MrDataViewScreen(),
-    const ExpensesScreen(),
-  ];
-
-  @override
   Widget build(BuildContext context) {
-    return BaseScaffold(
-      title: _titles[_selectedIndex],
-      drawerIndex: _getDrawerIndex(_selectedIndex),
-      body: _screens[_selectedIndex],
+    return const BaseScaffold(
+      title: 'Dashboard',
+      drawerIndex: 0,
+      body: _DashboardBody(),
     );
-  }
-
-  int _getDrawerIndex(int bottomIndex) {
-    switch (bottomIndex) {
-      case 0: return 0; // Dashboard
-      case 1: return 5; // Emergency
-      case 2: return 1; // Consultations
-      case 3: return 9; // MR View (data view)
-      case 4: return 2; // Expenses
-      default: return 0;
-    }
   }
 }
