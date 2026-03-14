@@ -17,6 +17,7 @@ import '../../custum widgets/bottombar/bottombar.dart';
 import '../../core/providers/permission_provider.dart';
 import '../../core/utils/date_formatter.dart';
 import 'drawer.dart';
+import '../../custum widgets/ai_chat_widget.dart';
 
 // ─── FIX: Convert BaseScaffold from StatelessWidget to StatefulWidget ─────────
 //
@@ -101,10 +102,15 @@ class _BaseScaffoldState extends State<BaseScaffold> {
       floatingActionButtonLocation: widget.floatingActionButtonLocation,
       bottomNavigationBar: widget.bottomNavigationBar ?? _buildBottomNavBar(),
 
-      body: Column(
+      body: Stack(
         children: [
-          if (widget.showAppBar) _buildHeader(context, _effectiveKey),
-          Expanded(child: widget.body),
+          Column(
+            children: [
+              if (widget.showAppBar) _buildHeader(context, _effectiveKey),
+              Expanded(child: widget.body),
+            ],
+          ),
+          const AiChatWidget(),
         ],
       ),
     );

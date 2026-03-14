@@ -8,6 +8,7 @@ import 'package:hims_app/providers/opd/opd_reciepts/opd_reciepts.dart';
 import 'package:hims_app/providers/shift_management/shift_management.dart';
 import 'package:hims_app/providers/consultant_payments_provider/consultant_payments_provider.dart';
 import 'package:hims_app/providers/voucher_provider/voucher.dart';
+import 'package:hims_app/providers/ai_chat_provider.dart';
 import 'package:hims_app/screens/splash%20screens/splash.dart';
 import 'package:provider/provider.dart';
 
@@ -38,6 +39,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => VoucherProvider()),
         ChangeNotifierProvider(create: (_) => ConsultantPaymentsProvider()),
         ChangeNotifierProvider(create: (_) => DashboardProvider()),
+        ChangeNotifierProvider(create: (_) => AiChatProvider()),
       ],
       child: MaterialApp(
         title: 'HIMS',
