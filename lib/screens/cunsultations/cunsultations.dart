@@ -7,6 +7,7 @@ import '../../providers/opd/consultation_provider/cunsultation_provider.dart';
 import '../../providers/mr_provider/mr_provider.dart';
 import '../../core/utils/date_formatter.dart';
 import 'widgets/appointment_dialog.dart';
+import '../../custum widgets/custom_loader.dart';
 
 const Color _teal = Color(0xFF00B5AD);
 const Color _textDark = Color(0xFF1A202C);
@@ -44,7 +45,7 @@ class _ConsultationScreenState extends State<ConsultationScreen> {
           // ── SCROLLABLE BODY ──
           Expanded(
             child: prov.isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: CustomLoader(size: 80))
                 : prov.errorMessage != null
                 ? Center(
               child: Column(

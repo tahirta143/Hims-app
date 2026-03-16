@@ -5,6 +5,7 @@ import 'package:hims_app/core/services/auth_storage_service.dart';
 import 'package:hims_app/screens/auth/sign_up.dart';
 import 'package:provider/provider.dart';
 import '../dashboard/dashboard.dart';
+import '../../custum widgets/custom_loader.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -245,14 +246,7 @@ class _SignInScreenState extends State<SignInScreen> {
                           elevation: 0,
                         ),
                         child: _isLoading
-                            ? const SizedBox(
-                                height: 22,
-                                width: 22,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2.5,
-                                ),
-                              )
+                            ? const CustomLoader(size: 22, color: Colors.white)
                             : Text(
                                 'Sign In',
                                 style: TextStyle(

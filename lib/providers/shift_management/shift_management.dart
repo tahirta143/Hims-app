@@ -30,9 +30,13 @@ class ShiftProvider extends ChangeNotifier {
   String? errorMessage;
 
   // ── Getters ────────────────────────────────────────────────────────────────
+  // ── Getters ────────────────────────────────────────────────────────────────
   ShiftModel get shift => _currentShift;
   List<ShiftModel> get allShifts => _allShifts;
+  List<ShiftModel> get activeShifts =>
+      _allShifts.where((s) => !s.isClosed).toList(); // 👈 added
   bool get isClosed => _currentShift.isClosed;
+
 
   // Legacy getters kept for screen compatibility
   double get grossAmount => 0.0;

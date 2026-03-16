@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../custum widgets/drawer/base_scaffold.dart';
 import '../../providers/opd/opd_reciepts/opd_reciepts.dart';
+import '../../custum widgets/custom_loader.dart';
 
 class OpdRecordsScreen extends StatefulWidget {
   const OpdRecordsScreen({super.key});
@@ -305,7 +306,7 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
         if (prov.isLoadingReceipts && prov.receipts.isEmpty) {
           return Column(children: [
             _buildTopBar(),
-            const Expanded(child: Center(child: CircularProgressIndicator())),
+            const Expanded(child: Center(child: CustomLoader(size: 70))),
           ]);
         }
 
@@ -348,8 +349,8 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
                           children: [
                             SizedBox(
                               width: 24, height: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2, color: primary,
+                              child: CustomLoader(
+                                size: 24,
                               ),
                             ),
                             SizedBox(height: 8),
@@ -675,7 +676,7 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
             if (prov.isFetchingMore) ...[
               const SizedBox(
                 width: 10, height: 10,
-                child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white),
+                child: CustomLoader(size: 10),
               ),
               const SizedBox(width: 6),
             ],

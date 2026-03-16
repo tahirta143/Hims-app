@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../custum widgets/drawer/base_scaffold.dart';
 import '../../providers/shift_management/shift_management.dart';
+import '../../custum widgets/custom_loader.dart';
 
 class ShiftManagementScreen extends StatelessWidget {
   const ShiftManagementScreen({super.key});
@@ -77,7 +78,7 @@ class _ShiftManagementBody extends StatelessWidget {
       color: const Color(0xFFF0F4F8),
       child: provider.isLoading
           ? const Center(
-          child: CircularProgressIndicator(color: Color(0xFF00B5AD)))
+          child: CustomLoader(size: 60))
           : RefreshIndicator(
         color: const Color(0xFF00B5AD),
         onRefresh: () => provider.refresh(),
@@ -156,16 +157,16 @@ class _PageHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Shift Management',
-            style: TextStyle(
-                fontSize: (sw * 0.06).clamp(20, 28),
-                fontWeight: FontWeight.bold,
-                color: const Color(0xFF1A202C))),
-        const SizedBox(height: 4),
-        Text('Monitor active shifts and manage daily closing',
-            style: TextStyle(
-                fontSize: (sw * 0.035).clamp(12, 14),
-                color: const Color(0xFF718096))),
+        // Text('Shift Management',
+        //     style: TextStyle(
+        //         fontSize: (sw * 0.06).clamp(20, 28),
+        //         fontWeight: FontWeight.bold,
+        //         color: const Color(0xFF1A202C))),
+        // const SizedBox(height: 4),
+        // Text('Monitor active shifts and manage daily closing',
+        //     style: TextStyle(
+        //         fontSize: (sw * 0.035).clamp(12, 14),
+        //         color: const Color(0xFF718096))),
       ],
     );
   }
@@ -573,9 +574,8 @@ class _ManualClosingCardState extends State<_ManualClosingCard> {
                               ? const SizedBox(
                               width: 18,
                               height: 18,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white))
+                              child: CustomLoader(
+                                  size: 18))
                               : Text('Close Shift',
                               style: TextStyle(
                                   fontWeight: FontWeight.bold,
@@ -670,7 +670,7 @@ class _ShiftHistoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shifts = context.watch<ShiftProvider>().allShifts;
+    final shifts = context.watch<ShiftProvider>().activeShifts;
     final sw = MediaQuery.of(context).size.width;
 
     return Container(

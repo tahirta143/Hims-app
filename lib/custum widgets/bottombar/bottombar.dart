@@ -31,7 +31,7 @@ class _CustomFluidBottomNavBarState extends State<CustomFluidBottomNavBar>
     _NavItem(icon: Icons.dashboard_rounded,     label: 'Dashboard'),
     _NavItem(icon: Icons.warning_amber_rounded, label: 'Emergency'),
     _NavItem(icon: Icons.chat_bubble_rounded,   label: 'Consult'),
-    _NavItem(icon: Icons.people_alt_rounded,    label: 'MR View'),
+    _NavItem(icon: Icons.people_alt_rounded,    label: 'MR Details'),
     _NavItem(icon: Icons.receipt_long_rounded,  label: 'Expenses'),
   ];
 

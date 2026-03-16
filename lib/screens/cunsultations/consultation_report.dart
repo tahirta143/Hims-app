@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../custum widgets/drawer/base_scaffold.dart';
 import '../../models/appointment_model/appointments_model.dart';
 import '../../providers/appointments_provider/appointments_provider.dart';
+import '../../custum widgets/custom_loader.dart';
 
 class AppointmentReportScreen extends StatelessWidget {
   const AppointmentReportScreen({super.key});
@@ -108,7 +109,7 @@ class _AppointmentBody extends StatelessWidget {
       color: const Color(0xFFF0F4F8),
       child: provider.isLoading
           ? const Center(
-          child: CircularProgressIndicator(color: Color(0xFF00B5AD)))
+          child: CustomLoader(size: 80))
           : provider.errorMessage != null
           ? _ErrorView(message: provider.errorMessage!)
           : RefreshIndicator(

@@ -4,11 +4,12 @@ import 'package:intl/intl.dart';
 
 import 'package:hims_app/custum widgets/drawer/base_scaffold.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
+import '../../custum widgets/custom_loader.dart';
 import '../../providers/opd/consultation_provider/cunsultation_provider.dart';
 import '../../providers/mr_provider/mr_provider.dart';
 import '../../models/consultation_model/doctor_model.dart';
 import '../../models/dashboard_model.dart';
-import '../../providers/dashboard_provider.dart';
+import '../../providers/dashboard/dashboard_provider.dart';
 
 import '../add_expenses/add_expenses.dart';
 import '../cunsultations/cunsultations.dart';
@@ -531,14 +532,14 @@ class _DashboardBodyState extends State<_DashboardBody> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Hims Dashboard',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
+                      // const Text(
+                      //   'Hims Dashboard',
+                      //   style: TextStyle(
+                      //     fontSize: 24,
+                      //     fontWeight: FontWeight.bold,
+                      //     letterSpacing: -0.5,
+                      //   ),
+                      // ),
                       Text(
                         _dateFormat.format(dashboardProv.selectedDate),
                         style: TextStyle(
@@ -624,12 +625,13 @@ class _DashboardBodyState extends State<_DashboardBody> {
               ],
             ),
             // const SizedBox(height: 20),
-
+// import '../../custum widgets/custom_loader.dart';
+// import '../add_expenses/add_expenses.dart';
             if (dashboardProv.isLoading)
               const Center(
                   child: Padding(
                       padding: EdgeInsets.all(40.0),
-                      child: CircularProgressIndicator()))
+                      child: CustomLoader(size: 80)))
             else ...[
               // ── 2×2 compact summary cards ──────────────────────────────────
               GridView.count(
@@ -753,25 +755,33 @@ class _DashboardBodyState extends State<_DashboardBody> {
                       child: SfCartesianChart(
                         margin: EdgeInsets.zero,
                         plotAreaBorderWidth: 0,
-                        primaryXAxis: CategoryAxis(isVisible: false),
+                        primaryXAxis: CategoryAxis(
+                          majorGridLines: const MajorGridLines(width: 0),
+                          axisLine: const AxisLine(width: 0),
+                          majorTickLines: const MajorTickLines(size: 0),
+                          labelStyle: const TextStyle(fontSize: 9, color: Color(0xFF94A3B8)),
+                        ),
                         primaryYAxis: NumericAxis(isVisible: false),
                         series: <CartesianSeries>[
-                          AreaSeries<ChartDataPoint, String>(
+                          LineSeries<ChartDataPoint, String>(
+                            animationDuration: 0,
                             dataSource: dashboardProv.trendData,
                             xValueMapper: (ChartDataPoint data, _) =>
                             data.x,
                             yValueMapper: (ChartDataPoint data, _) =>
                             data.y,
-                            gradient: LinearGradient(
-                              colors: [
-                                const Color(0xFF10B981).withOpacity(0.3),
-                                const Color(0xFF10B981).withOpacity(0.0)
-                              ],
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
+                            dataLabelMapper: (ChartDataPoint data, _) =>
+                            'PKR ${NumberFormat('#,###').format(data.y)}',
+                            color: const Color(0xFF10B981),
+                            width: 2,
+                            markerSettings: const MarkerSettings(isVisible: true),
+                            dataLabelSettings: const DataLabelSettings(
+                              isVisible: true,
+                              textStyle: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                            borderColor: const Color(0xFF10B981),
-                            borderWidth: 2,
                           ),
                         ],
                       ),
@@ -1089,6 +1099,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
       DashboardProvider prov) {
     return [
       ColumnSeries<ChartDataPoint, String>(
+        animationDuration: 0,
         name: 'Morning',
         dataSource: [
           ChartDataPoint('OPD', prov.shiftOpdRevenue['Morning'] ?? 0),
@@ -1101,6 +1112,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
       ),
       ColumnSeries<ChartDataPoint, String>(
+        animationDuration: 0,
         name: 'Evening',
         dataSource: [
           ChartDataPoint('OPD', prov.shiftOpdRevenue['Evening'] ?? 0),
@@ -1113,6 +1125,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
       ),
       ColumnSeries<ChartDataPoint, String>(
+        animationDuration: 0,
         name: 'Night',
         dataSource: [
           ChartDataPoint('OPD', prov.shiftOpdRevenue['Night'] ?? 0),
@@ -1243,7 +1256,7 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const BaseScaffold(
+    return BaseScaffold(
       title: 'Dashboard',
       drawerIndex: 0,
       body: _DashboardBody(),

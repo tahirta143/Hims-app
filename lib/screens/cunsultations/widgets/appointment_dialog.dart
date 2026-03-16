@@ -4,6 +4,7 @@ import '../../../models/consultation_model/doctor_model.dart';
 import '../../../models/consultation_model/appointment_model.dart';
 import '../../../providers/opd/consultation_provider/cunsultation_provider.dart';
 import '../../../providers/mr_provider/mr_provider.dart';
+import '../../../../custum widgets/custom_loader.dart';
 
 class AppointmentDialog extends StatefulWidget {
   final DoctorInfo doctor;
@@ -293,7 +294,7 @@ class _AppointmentDialogState extends State<AppointmentDialog> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
+      builder: (_) => const Center(child: CustomLoader(size: 80)),
     );
 
     final success = await prov.addAppointment(ConsultationAppointment(

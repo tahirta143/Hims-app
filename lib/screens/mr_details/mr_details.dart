@@ -3619,6 +3619,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../custum widgets/custom_loader.dart';
 import '../../custum widgets/drawer/base_scaffold.dart';
 import '../../models/mr_model/mr_patient_model.dart';
 import '../../providers/mr_provider/mr_provider.dart';
@@ -3837,7 +3838,7 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
           const Center(
               child: Padding(
                 padding: EdgeInsets.all(60),
-                child: CircularProgressIndicator(color: _teal, strokeWidth: 2),
+                child: CustomLoader(size: 80),
               ))
         else if (_patient != null)
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -4370,7 +4371,7 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
         child: _isLoading
             ? const Center(
             child:
-            CircularProgressIndicator(color: _teal, strokeWidth: 2))
+            CustomLoader(size: 60))
             : _patient == null
             ? _emptyState()
             : SingleChildScrollView(

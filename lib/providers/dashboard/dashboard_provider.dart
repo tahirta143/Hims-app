@@ -3,9 +3,9 @@ import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
-import '../core/services/auth_storage_service.dart';
-import '../global/global_api.dart';
-import '../models/dashboard_model.dart';
+import '../../core/services/auth_storage_service.dart';
+import '../../global/global_api.dart';
+import '../../models/dashboard_model.dart';
 
 class DashboardProvider extends ChangeNotifier {
   final AuthStorageService _storage = AuthStorageService();

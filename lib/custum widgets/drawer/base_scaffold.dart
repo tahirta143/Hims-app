@@ -277,9 +277,9 @@ class _BaseScaffoldState extends State<BaseScaffold> {
       case 8:
         screen = const MrDetailsScreen();
         break;
-      case 9:
-        screen = const MrDataViewScreen();
-        break;
+      // case 9:
+      // screen = const MrDataViewScreen();
+      //   break;
       case 10:
         screen = const DiscountVoucherApprovalScreen();
         break;

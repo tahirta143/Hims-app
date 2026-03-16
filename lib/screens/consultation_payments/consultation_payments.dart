@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../custum widgets/drawer/base_scaffold.dart';
 import '../../providers/consultant_payments_provider/consultant_payments_provider.dart';
 import '../../models/consultant_payment_model/consultant_payment_model.dart';
+import '../../custum widgets/custom_loader.dart';
 
 class ConsultantPaymentsScreen extends StatefulWidget {
   const ConsultantPaymentsScreen({super.key});
@@ -98,7 +99,7 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
             _buildFiltersAndStats(provider),
             Expanded(
               child: provider.isLoading && provider.breakdown.isEmpty
-                  ? const Center(child: CircularProgressIndicator(color: primary))
+                  ? const Center(child: CustomLoader(size: 80))
                   : CustomScrollView(
                 physics: const BouncingScrollPhysics(),
                 slivers: [
@@ -155,8 +156,8 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
                 style: TextStyle(fontSize: _fsL, fontWeight: FontWeight.bold,
                     color: Colors.white),
                 maxLines: 1, overflow: TextOverflow.ellipsis),
-            Text('Doctor share tracking and management',
-                style: TextStyle(fontSize: _fsS, color: Colors.white70)),
+            // Text('Doctor share tracking and management',
+            //     style: TextStyle(fontSize: _fsS, color: Colors.white70)),
           ]),
         ),
         // Refresh button (matches React)
@@ -169,11 +170,7 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
               borderRadius: BorderRadius.circular(_sw * 0.022),
             ),
             child: provider.isLoading
-                ? SizedBox(
-              width: _sw * 0.04, height: _sw * 0.04,
-              child: const CircularProgressIndicator(
-                  strokeWidth: 2, color: Colors.white),
-            )
+                ? const CustomLoader(size: 20, color: Colors.white)
                 : Icon(Icons.refresh_rounded, color: Colors.white, size: _sw * 0.04),
           ),
         ),
@@ -584,12 +581,7 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
               borderRadius: BorderRadius.circular(_sw * 0.02)),
         ),
         icon: isThisSubmitting
-            ? SizedBox(
-          width: _sw * 0.033,
-          height: _sw * 0.033,
-          child: const CircularProgressIndicator(
-              strokeWidth: 2, color: Colors.white),
-        )
+            ? const CustomLoader(size: 20, color: Colors.white)
             : Icon(Icons.receipt_long_rounded, size: _sw * 0.035),
         label: Text(
           isThisSubmitting ? 'Processing...' : 'Mark Paid',

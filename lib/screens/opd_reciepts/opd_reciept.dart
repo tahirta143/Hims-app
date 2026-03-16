@@ -9,6 +9,7 @@ import '../../global/global_api.dart';
 import '../../providers/opd/opd_reciepts/opd_reciepts.dart';
 import '../../providers/mr_provider/mr_provider.dart';
 import '../../providers/shift_management/shift_management.dart';
+import '../../custum widgets/custom_loader.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // THEME CONSTANTS
@@ -736,7 +737,7 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
         alignment: Alignment.center,
         child: const SizedBox(
             width: 20, height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2, color: _teal)),
+            child: CustomLoader(size: 20)),
       );
     }
     return GestureDetector(
@@ -1899,7 +1900,7 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
         alignment: Alignment.center,
         child: const SizedBox(
             width: 20, height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2, color: _teal)),
+            child: CustomLoader(size: 20)),
       );
     }
     return GestureDetector(

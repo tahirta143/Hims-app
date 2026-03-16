@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hims_app/core/providers/permission_provider.dart';
-import 'package:hims_app/providers/dashboard_provider.dart';
+import 'package:hims_app/providers/dashboard/dashboard_provider.dart';
 import 'package:hims_app/providers/emergency_treatment_provider/emergency_provider.dart';
 import 'package:hims_app/providers/mr_provider/mr_provider.dart';
 import 'package:hims_app/providers/opd/consultation_provider/cunsultation_provider.dart';
@@ -8,7 +8,7 @@ import 'package:hims_app/providers/opd/opd_reciepts/opd_reciepts.dart';
 import 'package:hims_app/providers/shift_management/shift_management.dart';
 import 'package:hims_app/providers/consultant_payments_provider/consultant_payments_provider.dart';
 import 'package:hims_app/providers/voucher_provider/voucher.dart';
-import 'package:hims_app/providers/ai_chat_provider.dart';
+import 'package:hims_app/providers/ai_chat/ai_chat_provider.dart';
 import 'package:hims_app/screens/splash%20screens/splash.dart';
 import 'package:provider/provider.dart';
 

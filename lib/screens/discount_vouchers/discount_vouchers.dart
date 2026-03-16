@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';// adjust path if needed
 import '../../custum widgets/drawer/base_scaffold.dart';
 import '../../models/voucher_model/voucher_model.dart';
 import '../../providers/voucher_provider/voucher.dart';
+import '../../custum widgets/custom_loader.dart';
 
 // ─── Theme constants ──────────────────────────────────────────────────────────
 const Color kPrimary      = Color(0xFF00B5AD);
@@ -355,7 +356,7 @@ class _DiscountVoucherApprovalScreenState
             drawerIndex: 10, // no drawer item selected for this screen
             showNotificationIcon: false,
             body: const Center(
-                child: CircularProgressIndicator(color: kPrimary)),
+                child: CustomLoader(size: 80)),
           );
         }
 
@@ -614,7 +615,7 @@ class _DiscountVoucherApprovalScreenState
           child: ElevatedButton.icon(
             onPressed: p.isApproving ? null : () => _showApproveDialog(p),
             icon: p.isApproving 
-              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) 
+              ? const CustomLoader(size: 20, color: Colors.white)
               : const Icon(Icons.check_circle_rounded, size: 18),
             label: Text(p.isApproving ? 'Approving...' : 'Approve Discount',
                 style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../custum widgets/drawer/base_scaffold.dart';
 import '../../models/add_expenses_model/add_expenses_model.dart';
 import '../../providers/add_expenses/add_expenses.dart';
+import '../../custum widgets/custom_loader.dart';
 
 class ExpensesScreen extends StatelessWidget {
   const ExpensesScreen({super.key});
@@ -73,7 +74,7 @@ class _ExpensesBody extends StatelessWidget {
     return Container(
       color: const Color(0xFFF0F4F8),
       child: provider.isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF00B5AD)))
+          ? const Center(child: CustomLoader(size: 60))
           : provider.errorMessage != null
           ? Center(
         child: Column(
@@ -96,43 +97,47 @@ class _ExpensesBody extends StatelessWidget {
           ],
         ),
       )
-          : Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-                sw < 400 ? 10 : 16, sw < 400 ? 10 : 16, sw < 400 ? 10 : 16, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const _PageHeader(),
-                SizedBox(height: sw > 800 ? 18 : 14),
-                if (sw > 800)
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(flex: 2, child: _TotalExpensesCard()),
-                      const SizedBox(width: 14),
-                      _AddExpenseCard(),
-                    ],
-                  )
-                else
-                  Column(children: [
-                    _TotalExpensesCard(),
-                    const SizedBox(height: 12),
-                  ]),
-                SizedBox(height: sw > 800 ? 16 : 12),
-              ],
-            ),
-          ),
-          Expanded(
-            child: Padding(
+          : RefreshIndicator(
+        onRefresh: () => provider.fetchExpenses(),
+        color: const Color(0xFF00B5AD),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
               padding: EdgeInsets.fromLTRB(
-                  sw < 400 ? 10 : 16, 0, sw < 400 ? 10 : 16, sw < 400 ? 10 : 16),
-              child: const _RecentTransactionsCard(),
+                  sw < 400 ? 10 : 16, sw < 400 ? 10 : 16, sw < 400 ? 10 : 16, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const _PageHeader(),
+                  SizedBox(height: sw > 800 ? 18 : 14),
+                  if (sw > 800)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(flex: 2, child: _TotalExpensesCard()),
+                        const SizedBox(width: 14),
+                        _AddExpenseCard(),
+                      ],
+                    )
+                  else
+                    Column(children: [
+                      _TotalExpensesCard(),
+                      const SizedBox(height: 12),
+                    ]),
+                  SizedBox(height: sw > 800 ? 16 : 12),
+                ],
+              ),
             ),
-          ),
-        ],
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                    sw < 400 ? 10 : 16, 0, sw < 400 ? 10 : 16, sw < 400 ? 10 : 16),
+                child: const _RecentTransactionsCard(),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../models/chat_message.dart';
-import '../global/global_api.dart';
+import '../../models/chat_message.dart';
+import '../../global/global_api.dart';
 
 class AiChatProvider extends ChangeNotifier {
   bool _isOpen = false;
