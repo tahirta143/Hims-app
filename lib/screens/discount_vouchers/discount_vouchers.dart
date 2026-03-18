@@ -376,13 +376,19 @@ class _DiscountVoucherApprovalScreenState
                 child: v == null
                     ? _buildEmptyState()
                     : SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: MediaQuery.of(context).size.width > 800 
+                  padding: EdgeInsets.fromLTRB(
+                    MediaQuery.of(context).size.width > 800 
                         ? MediaQuery.of(context).size.width * 0.15 
                         : MediaQuery.of(context).size.width > 600 
                             ? MediaQuery.of(context).size.width * 0.08 
                             : 12,
-                    vertical: 12,
+                    12,
+                    MediaQuery.of(context).size.width > 800 
+                        ? MediaQuery.of(context).size.width * 0.15 
+                        : MediaQuery.of(context).size.width > 600 
+                            ? MediaQuery.of(context).size.width * 0.08 
+                            : 12,
+                    120,
                   ),
                   child: Column(children: [
                     _buildVoucherDetailsCard(v),

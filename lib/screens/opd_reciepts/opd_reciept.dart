@@ -407,7 +407,7 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
                 physics: const BouncingScrollPhysics(),
                 slivers: [
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 8, 24),
+                    padding: const EdgeInsets.fromLTRB(16, 16, 8, 120),
                     sliver: SliverList(delegate: SliverChildListDelegate([
                       _patientCard(opdProv, mrProv),
                       const SizedBox(height: 16),
@@ -423,7 +423,7 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
                 physics: const BouncingScrollPhysics(),
                 slivers: [
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(8, 16, 16, 24),
+                    padding: const EdgeInsets.fromLTRB(8, 16, 16, 120),
                     sliver: SliverList(delegate: SliverChildListDelegate([
                       _billingCard(opdProv),
                     ])),
@@ -501,7 +501,7 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
               onTap: () => FocusScope.of(context).unfocus(),
               child: SingleChildScrollView(
                 controller: _scrollController,
-                padding: EdgeInsets.only(bottom: bottomPadding + 20),
+                padding: const EdgeInsets.fromLTRB(0, 0, 0, 120),
                 child: Column(
                   children: [
                     _mobileHeader(opdProv, mrProv),

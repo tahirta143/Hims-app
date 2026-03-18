@@ -13,7 +13,8 @@ const Color _teal = Color(0xFF00B5AD);
 const Color _textDark = Color(0xFF1A202C);
 
 class ConsultationScreen extends StatefulWidget {
-  const ConsultationScreen({super.key});
+  final bool useScaffold;
+  const ConsultationScreen({super.key, this.useScaffold = true});
   @override
   State<ConsultationScreen> createState() => _ConsultationScreenState();
 }
@@ -32,120 +33,124 @@ class _ConsultationScreenState extends State<ConsultationScreen> {
     final sh   = MediaQuery.of(context).size.height;
     final tp   = MediaQuery.of(context).padding.top;
 
+    final content = Column(
+      children: [
+        // ── STICKY HEADER — outside scroll, never moves ──
+        _buildHeader(sw, sh, tp),
+
+        // ── SCROLLABLE BODY ──
+        Expanded(
+          child: prov.isLoading
+              ? const Center(child: CustomLoader(size: 80))
+              : prov.errorMessage != null
+              ? Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline,
+                    size: sw * 0.15, color: Colors.red.shade300),
+                SizedBox(height: sh * 0.02),
+                Text(prov.errorMessage!,
+                    style: TextStyle(
+                        fontSize: sw * 0.04,
+                        color: Colors.red.shade400)),
+                SizedBox(height: sh * 0.02),
+                ElevatedButton.icon(
+                  onPressed: () => prov.loadDoctors(),
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Retry'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _teal,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          )
+              : SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Summary cards
+                _buildSummary(prov, sw, sh),
+
+                // Section heading
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                      sw * 0.04, sh * 0.018, sw * 0.04, sh * 0.012),
+                  child: Row(children: [
+                    Icon(Icons.people_alt_rounded,
+                        color: _teal, size: sw * 0.045),
+                    SizedBox(width: sw * 0.02),
+                    Text('Our Consultants',
+                        style: TextStyle(
+                            fontSize: sw * 0.042,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87)),
+                  ]),
+                ),
+
+                // Doctor grid — 2 per row, column layout cards
+                prov.doctors.isEmpty
+                    ? Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(sw * 0.1),
+                    child: Text('No doctors available',
+                        style: TextStyle(
+                            fontSize: sw * 0.04,
+                            color: Colors.grey.shade500)),
+                  ),
+                )
+                    : Padding(
+                  padding: EdgeInsets.symmetric(
+                      horizontal: sw * 0.04),
+                  child: GridView.builder(
+                    shrinkWrap: true,
+                    physics:
+                    const NeverScrollableScrollPhysics(),
+                    itemCount: prov.doctors.length,
+                    gridDelegate:
+                    SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: sw * 0.03,
+                      mainAxisSpacing: sw * 0.03,
+                      // Column layout is taller — lower ratio = taller cells
+                      childAspectRatio: sw >= 600
+                          ? 0.72
+                          : sw >= 400
+                          ? 0.68
+                          : 0.65,
+                    ),
+                    itemBuilder: (_, i) {
+                      final doctor = prov.doctors[i];
+                      final today = DateTime.now();
+                      return _DoctorCard(
+                        doctor: doctor,
+                        bookedSlots: prov.bookedSlots(today, doctor.name).length,
+                        availableSlots: prov.availableSlotsForDoctor(doctor.name, today),
+                        onTap: () => _showDialog(context, prov, doctor, sw, sh),
+                      );
+                    },
+                  ),
+                ),
+
+                const SizedBox(height: 120),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+
+    if (!widget.useScaffold) return content;
+
     return BaseScaffold(
       scaffoldKey: _scaffoldKey,
       title: 'Consultations',
       drawerIndex: 1,
       showAppBar: false,
-      body: Column(
-        children: [
-          // ── STICKY HEADER — outside scroll, never moves ──
-          _buildHeader(sw, sh, tp),
-
-          // ── SCROLLABLE BODY ──
-          Expanded(
-            child: prov.isLoading
-                ? const Center(child: CustomLoader(size: 80))
-                : prov.errorMessage != null
-                ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.error_outline,
-                      size: sw * 0.15, color: Colors.red.shade300),
-                  SizedBox(height: sh * 0.02),
-                  Text(prov.errorMessage!,
-                      style: TextStyle(
-                          fontSize: sw * 0.04,
-                          color: Colors.red.shade400)),
-                  SizedBox(height: sh * 0.02),
-                  ElevatedButton.icon(
-                    onPressed: () => prov.loadDoctors(),
-                    icon: const Icon(Icons.refresh_rounded),
-                    label: const Text('Retry'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _teal,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-            )
-                : SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Summary cards
-                  _buildSummary(prov, sw, sh),
-
-                  // Section heading
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(
-                        sw * 0.04, sh * 0.018, sw * 0.04, sh * 0.012),
-                    child: Row(children: [
-                      Icon(Icons.people_alt_rounded,
-                          color: _teal, size: sw * 0.045),
-                      SizedBox(width: sw * 0.02),
-                      Text('Our Consultants',
-                          style: TextStyle(
-                              fontSize: sw * 0.042,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87)),
-                    ]),
-                  ),
-
-                  // Doctor grid — 2 per row, column layout cards
-                  prov.doctors.isEmpty
-                      ? Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(sw * 0.1),
-                      child: Text('No doctors available',
-                          style: TextStyle(
-                              fontSize: sw * 0.04,
-                              color: Colors.grey.shade500)),
-                    ),
-                  )
-                      : Padding(
-                    padding: EdgeInsets.symmetric(
-                        horizontal: sw * 0.04),
-                    child: GridView.builder(
-                      shrinkWrap: true,
-                      physics:
-                      const NeverScrollableScrollPhysics(),
-                      itemCount: prov.doctors.length,
-                      gridDelegate:
-                      SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: sw * 0.03,
-                        mainAxisSpacing: sw * 0.03,
-                        // Column layout is taller — lower ratio = taller cells
-                        childAspectRatio: sw >= 600
-                            ? 0.72
-                            : sw >= 400
-                            ? 0.68
-                            : 0.65,
-                      ),
-                      itemBuilder: (_, i) {
-                        final doctor = prov.doctors[i];
-                        final today = DateTime.now();
-                        return _DoctorCard(
-                          doctor: doctor,
-                          bookedSlots: prov.bookedSlots(today, doctor.name).length,
-                          availableSlots: prov.availableSlotsForDoctor(doctor.name, today),
-                          onTap: () => _showDialog(context, prov, doctor, sw, sh),
-                        );
-                      },
-                    ),
-                  ),
-
-                  SizedBox(height: sh * 0.04),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+      body: content,
     );
   }
 

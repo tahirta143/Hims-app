@@ -1109,8 +1109,7 @@ class _ShiftManagementBody extends StatelessWidget {
         onRefresh: () => provider.refresh(),
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.symmetric(
-              horizontal: sw * 0.04, vertical: sh * 0.02),
+          padding: EdgeInsets.fromLTRB(sw * 0.04, sh * 0.02, sw * 0.04, 120),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

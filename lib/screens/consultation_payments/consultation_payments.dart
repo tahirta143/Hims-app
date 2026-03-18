@@ -104,7 +104,7 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
                 physics: const BouncingScrollPhysics(),
                 slivers: [
                   SliverPadding(
-                    padding: EdgeInsets.fromLTRB(_pad, 0, _pad, _bp + _pad),
+                    padding: EdgeInsets.fromLTRB(_pad, 0, _pad, 120),
                     sliver: SliverList(
                       delegate: SliverChildListDelegate([
                         SizedBox(height: _sh * 0.02),

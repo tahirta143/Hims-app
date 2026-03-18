@@ -635,6 +635,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
             else ...[
               // ── 2×2 compact summary cards ──────────────────────────────────
               GridView.count(
+                padding: EdgeInsets.only(top: 8, bottom: 16),
                 crossAxisCount: 2,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -686,7 +687,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 4),
 
               // ── Revenue by Shift chart ──────────────────────────────────────
               _buildGlassPanel(
@@ -840,7 +841,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
                     );
                   },
                 ),
-              const SizedBox(height: 100),
+              const SizedBox(height: 120),
             ],
           ],
         ),
@@ -856,7 +857,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
     required Widget child,
   }) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
@@ -1252,10 +1253,12 @@ class _DashboardBodyState extends State<_DashboardBody> {
 //  HOME SCREEN
 // ─────────────────────────────────────────────
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+  final bool useScaffold;
+  const HomeScreen({super.key, this.useScaffold = true});
 
   @override
   Widget build(BuildContext context) {
+    if (!useScaffold) return const _DashboardBody();
     return BaseScaffold(
       title: 'Dashboard',
       drawerIndex: 0,

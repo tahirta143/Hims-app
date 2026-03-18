@@ -60,10 +60,10 @@ class _AiChatWidgetState extends State<AiChatWidget> {
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
 
-    // Initialize FAB position to bottom-right on first build
+    // Initialize FAB position to right-center on first build
     if (_fabX < 0 || _fabY < 0) {
       _fabX = screenSize.width - _fabSize - _fabMargin;
-      _fabY = screenSize.height - _fabSize - _fabMargin - 60; // above nav bar
+      _fabY = (screenSize.height / 2) - (_fabSize / 2);
     }
 
     return Consumer<AiChatProvider>(

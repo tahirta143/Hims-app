@@ -4,7 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hims_app/core/providers/permission_provider.dart';
 import 'package:hims_app/core/services/auth_storage_service.dart';
-import 'package:hims_app/screens/dashboard/dashboard.dart';
+import '../main_shell.dart';
 import 'package:provider/provider.dart';
 
 import 'onboarding.dart';
@@ -75,7 +75,7 @@ class _SplashScreenState extends State<SplashScreen>
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          MaterialPageRoute(builder: (_) => const MainShell()),
         );
       } else {
         // No session — go through onboarding → login

@@ -10,6 +10,7 @@ import 'package:hims_app/providers/consultant_payments_provider/consultant_payme
 import 'package:hims_app/providers/voucher_provider/voucher.dart';
 import 'package:hims_app/providers/ai_chat/ai_chat_provider.dart';
 import 'package:hims_app/screens/splash%20screens/splash.dart';
+import 'package:hims_app/screens/main_shell.dart';
 import 'package:provider/provider.dart';
 
 void main() async {
@@ -53,4 +54,3 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-

@@ -380,7 +380,7 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
                     ),
                   ),
 
-                SliverToBoxAdapter(child: SizedBox(height: _bp + _pad)),
+                SliverToBoxAdapter(child: SizedBox(height: 120)),
               ],
             ),
           ),

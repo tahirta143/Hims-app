@@ -62,7 +62,10 @@ class BaseScaffold extends StatefulWidget {
     this.floatingActionButton,
     this.floatingActionButtonLocation,
     this.scaffoldKey,
+    this.onBottomNavTap,
   });
+
+  final Function(int)? onBottomNavTap;
 
   @override
   State<BaseScaffold> createState() => _BaseScaffoldState();
@@ -86,7 +89,7 @@ class _BaseScaffoldState extends State<BaseScaffold> {
     return Scaffold(
       key: _effectiveKey,
       backgroundColor: const Color(0xFFF8F9FA),
-      extendBody: false, // Prevents content from being hidden behind the bottom bar
+      extendBody: true, // Allows content to flow behind the bottom bar
 
       drawer: CustomDrawer(
         selectedIndex: widget.drawerIndex,
@@ -150,6 +153,11 @@ class _BaseScaffoldState extends State<BaseScaffold> {
           // If we are already on a primary screen of this tab, do nothing
           // For Consult (index 2), we might want to navigate to the main Consult screen (index 1)
           // if we are currently on a sub-screen like OPD records.
+          return;
+        }
+
+        if (widget.onBottomNavTap != null) {
+          widget.onBottomNavTap!(index);
           return;
         }
 

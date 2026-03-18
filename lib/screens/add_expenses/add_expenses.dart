@@ -4,21 +4,30 @@ import '../../custum widgets/drawer/base_scaffold.dart';
 import '../../models/add_expenses_model/add_expenses_model.dart';
 import '../../providers/add_expenses/add_expenses.dart';
 import '../../custum widgets/custom_loader.dart';
+import '../../providers/shift_management/shift_management.dart';
+import '../../models/shift_model/shift_model.dart';
+import '../../core/services/auth_storage_service.dart';
 
 class ExpensesScreen extends StatelessWidget {
-  const ExpensesScreen({super.key});
+  final bool useScaffold;
+  const ExpensesScreen({super.key, this.useScaffold = true});
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => ExpensesProvider(),
-      child: BaseScaffold(
-        title: 'Expenses',
-        drawerIndex: 2,
-        showNotificationIcon: false,
-        actions: [const SizedBox(width: 8), _RefreshButton()],
-        body: const _ExpensesBody(),
-      ),
+    final shift = context.read<ShiftProvider>().shift;
+    final content = ChangeNotifierProvider(
+      create: (_) => ExpensesProvider(shiftId: shift?.shiftId),
+      child: const _ExpensesBody(),
+    );
+
+    if (!useScaffold) return content;
+
+    return BaseScaffold(
+      title: 'Expenses',
+      drawerIndex: 2,
+      showNotificationIcon: false,
+      actions: [const SizedBox(width: 8), _RefreshButton()],
+      body: content,
     );
   }
 }
@@ -86,7 +95,10 @@ class _ExpensesBody extends StatelessWidget {
                 style: const TextStyle(color: Color(0xFF718096))),
             const SizedBox(height: 16),
             ElevatedButton.icon(
-              onPressed: () => context.read<ExpensesProvider>().fetchExpenses(),
+              onPressed: () {
+                final shift = context.read<ShiftProvider>().shift;
+                context.read<ExpensesProvider>().fetchExpenses(shiftId: shift?.shiftId);
+              },
               icon: const Icon(Icons.refresh),
               label: const Text('Retry'),
               style: ElevatedButton.styleFrom(
@@ -281,12 +293,17 @@ class _AddExpenseCard extends StatelessWidget {
   }
 
   void _openDialog(BuildContext context) {
+    final shift = context.read<ShiftProvider>().shift;
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => ChangeNotifierProvider.value(
         value: context.read<ExpensesProvider>(),
-        child: const _ExpenseDialog(),
+        child: _ExpenseDialog(
+          shiftId: shift?.shiftId,
+          shiftDate: shift?.shiftDate,
+          shiftType: shift?.shiftType,
+        ),
       ),
     );
   }
@@ -295,8 +312,16 @@ class _AddExpenseCard extends StatelessWidget {
 // ─── Unified Add / Edit Dialog ────────────────────────────────────────────────
 class _ExpenseDialog extends StatefulWidget {
   final ExpenseModel? expense; // null = Add mode, non-null = Edit mode
+  final int? shiftId;
+  final String? shiftDate;
+  final String? shiftType;
 
-  const _ExpenseDialog({this.expense});
+  const _ExpenseDialog({
+    this.expense,
+    this.shiftId,
+    this.shiftDate,
+    this.shiftType,
+  });
 
   @override
   State<_ExpenseDialog> createState() => _ExpenseDialogState();
@@ -336,6 +361,21 @@ class _ExpenseDialogState extends State<_ExpenseDialog> {
         : (heads.isNotEmpty ? heads.first : '');
     
     // Shift is now automated, removing _shift controller/variable
+    
+    if (!_isEditMode) {
+      _loadUser();
+    }
+  }
+
+  Future<void> _loadUser() async {
+    final storage = AuthStorageService();
+    final fullName = await storage.getFullName();
+    final username = await storage.getUsername();
+    if (mounted) {
+      setState(() {
+        _expenseByCtrl.text = fullName ?? username ?? '';
+      });
+    }
   }
 
   @override
@@ -372,14 +412,18 @@ class _ExpenseDialogState extends State<_ExpenseDialog> {
         amount: double.parse(_amountCtrl.text.trim()),
         expenseBy: _expenseByCtrl.text.trim(),
         description: _descCtrl.text.trim(),
+        shiftId: widget.shiftId,
+        shiftDate: widget.shiftDate,
+        expenseShift: widget.shiftType,
       );
     }
 
     if (mounted) {
       setState(() => _isSaving = false);
       if (success) {
+        final messenger = ScaffoldMessenger.of(context);
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        messenger.showSnackBar(SnackBar(
           content: Row(children: [
             const Icon(Icons.check_circle, color: Colors.white),
             const SizedBox(width: 10),
@@ -776,7 +820,7 @@ class _TransactionList extends StatelessWidget {
     }
 
     return ListView.builder(
-      padding: EdgeInsets.zero,
+      padding: const EdgeInsets.only(bottom: 120),
       itemCount: expenses.length,
       itemBuilder: (_, i) =>
           _TransactionRow(expense: expenses[i], isEven: i % 2 == 0),

@@ -54,8 +54,10 @@ class ExpensesProvider extends ChangeNotifier {
     return 'PKR $formatted';
   }
 
-  ExpensesProvider() {
-    fetchExpenses();
+  final int? _initialShiftId;
+
+  ExpensesProvider({int? shiftId}) : _initialShiftId = shiftId {
+    fetchExpenses(shiftId: shiftId);
     fetchExpenseHeads();
   }
 
@@ -81,16 +83,17 @@ class ExpensesProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> fetchExpenses() async {
+  Future<void> fetchExpenses({int? shiftId}) async {
     isLoading = true;
     errorMessage = null;
     notifyListeners();
 
     try {
       final headers = await _authHeaders();
-      developer.log('📡 GET $_baseUrl', name: 'ExpensesProvider');
+      final url = shiftId != null ? '$_baseUrl/shift/$shiftId' : _baseUrl;
+      developer.log('📡 GET $url', name: 'ExpensesProvider');
 
-      final response = await http.get(Uri.parse(_baseUrl), headers: headers);
+      final response = await http.get(Uri.parse(url), headers: headers);
 
       developer.log('📥 Status: ${response.statusCode}', name: 'ExpensesProvider');
 
@@ -123,6 +126,9 @@ class ExpensesProvider extends ChangeNotifier {
     required double amount,
     required String expenseBy,
     required String description,
+    int? shiftId,
+    String? shiftDate,
+    String? expenseShift,
   }) async {
     final now = DateTime.now();
     final expenseDate =
@@ -130,21 +136,21 @@ class ExpensesProvider extends ChangeNotifier {
     final expenseTime =
         '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
 
-    // shift_date and shift_id comes from the existing context (recent shift)
-    final shiftDate = currentShiftDate.isNotEmpty ? currentShiftDate : expenseDate;
-    final shiftId = currentShiftId;
-    final expenseShift = currentShiftType;
+    // Use provided shift data or fallback to guesses
+    final effectiveShiftId = shiftId ?? currentShiftId;
+    final effectiveShiftDate = shiftDate ?? (currentShiftDate.isNotEmpty ? currentShiftDate : expenseDate);
+    final effectiveExpenseShift = expenseShift ?? currentShiftType;
 
     final body = jsonEncode({
       'expense_date': expenseDate,
       'expense_time': expenseTime,
-      'expense_shift': expenseShift,
+      'expense_shift': effectiveExpenseShift,
       'expense_description': description,
       'expense_name': category,
       'expense_amount': amount,
       'expense_by': expenseBy,
-      'shift_id': shiftId,
-      'shift_date': shiftDate,
+      'shift_id': effectiveShiftId,
+      'shift_date': effectiveShiftDate,
     });
 
     try {
@@ -155,7 +161,7 @@ class ExpensesProvider extends ChangeNotifier {
       final response = await http.post(Uri.parse(_baseUrl), headers: headers, body: body);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        await fetchExpenses();
+        await fetchExpenses(shiftId: effectiveShiftId);
         return true;
       }
       return false;
@@ -244,7 +250,7 @@ class ExpensesProvider extends ChangeNotifier {
   void clearSearch() {
     _searchQuery = '';
     _applyFilter();
-    fetchExpenses();
+    fetchExpenses(shiftId: _initialShiftId);
     notifyListeners();
   }
 

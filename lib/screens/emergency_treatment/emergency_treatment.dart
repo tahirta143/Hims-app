@@ -6,7 +6,8 @@ import '../../providers/emergency_treatment_provider/emergency_provider.dart';
 import '../../providers/opd/opd_reciepts/opd_reciepts.dart'; // Import OpdProvider
 
 class EmergencyTreatmentScreen extends StatefulWidget {
-  const EmergencyTreatmentScreen({super.key});
+  final bool useScaffold;
+  const EmergencyTreatmentScreen({super.key, this.useScaffold = true});
   @override
   State<EmergencyTreatmentScreen> createState() => _EmergencyTreatmentScreenState();
 }
@@ -394,16 +395,22 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) => _syncOpdPatients());
 
     return Consumer<EmergencyProvider>(
-      builder: (_, prov, __) => BaseScaffold(
-        scaffoldKey: _scaffoldKey,
-        title: 'Emergency Treatment',
-        drawerIndex: 5,
-        showAppBar: false,
-        body: Column(children: [
+      builder: (_, prov, __) {
+        final content = Column(children: [
           _header(prov),
           Expanded(child: _wide ? _wideLayout(prov) : _narrowLayout(prov)),
-        ]),
-      ),
+        ]);
+
+        if (!widget.useScaffold) return content;
+
+        return BaseScaffold(
+          scaffoldKey: _scaffoldKey,
+          title: 'Emergency Treatment',
+          drawerIndex: 5,
+          showAppBar: false,
+          body: content,
+        );
+      },
     );
   }
 
@@ -511,7 +518,7 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
           padding: EdgeInsets.fromLTRB(
               _pad, _sh * 0.012,
               _wide ? _pad * 0.5 : _pad,
-              _bp + _pad * 2),
+              120),
           sliver: SliverList(delegate: SliverChildListDelegate([
             _patientInfoCard(prov),
             SizedBox(height: _sh * 0.014),

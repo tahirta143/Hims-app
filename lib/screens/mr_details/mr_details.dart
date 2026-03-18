@@ -2364,7 +2364,7 @@
 //   // ══════════════════════════════════════════ WIDE LAYOUT ════════════════════
 //   Widget _buildWide() {
 //     return SingleChildScrollView(
-//       padding: const EdgeInsets.all(20),
+//       padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
 //       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 //         Row(children: [
 //           Expanded(
@@ -3643,10 +3643,12 @@ const _purple = Color(0xFF805AD5);
 // SCREEN
 // ─────────────────────────────────────────────────────────────────────────────
 class MrDetailsScreen extends StatelessWidget {
-  const MrDetailsScreen({super.key});
+  final bool useScaffold;
+  const MrDetailsScreen({super.key, this.useScaffold = true});
 
   @override
   Widget build(BuildContext context) {
+    if (!useScaffold) return const _MrDetailsBody();
     return const BaseScaffold(
       title: 'MR Details',
       drawerIndex: 8,
@@ -3799,7 +3801,7 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
   // ══════════════════════════════════════════ WIDE LAYOUT ════════════════════
   Widget _buildWide() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Expanded(
@@ -4375,7 +4377,7 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
             : _patient == null
             ? _emptyState()
             : SingleChildScrollView(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 120),
           child: Column(children: [
             _mobilePatientCard(),
             // const SizedBox(height: 14),
