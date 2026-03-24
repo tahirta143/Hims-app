@@ -16,6 +16,7 @@ import '../../screens/dashboard/dashboard.dart';
 import '../../custum widgets/bottombar/bottombar.dart';
 import '../../core/providers/permission_provider.dart';
 import '../../core/utils/date_formatter.dart';
+import '../../screens/prescription/prescription.dart';
 import 'drawer.dart';
 import '../../custum widgets/ai_chat_widget.dart';
 
@@ -285,9 +286,9 @@ class _BaseScaffoldState extends State<BaseScaffold> {
       case 8:
         screen = const MrDetailsScreen();
         break;
-      // case 9:
-      // screen = const MrDataViewScreen();
-      //   break;
+      case 9:
+      screen = const PrescriptionScreen();
+        break;
       case 10:
         screen = const DiscountVoucherApprovalScreen();
         break;

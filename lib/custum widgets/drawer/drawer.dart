@@ -203,7 +203,13 @@ class _CustomDrawerState extends State<CustomDrawer> {
                       icon: Icons.person_outline_rounded,
                       title: 'MR Details',
                       index: 8,
+                    ),if (perm.canAny([Perm.mrRead, Perm.mrCreate]))
+                    _buildDrawerItem(
+                      icon: Icons.person_outline_rounded,
+                      title: 'Prescription',
+                      index: 9,
                     ),
+
                   // ── OPD Dropdown ───────────────────────────────────────────
                   if (opdItems.isNotEmpty)
                     _buildGroupHeader(
