@@ -10,6 +10,7 @@ import 'package:hims_app/providers/consultant_payments_provider/consultant_payme
 import 'package:hims_app/providers/voucher_provider/voucher.dart';
 import 'package:hims_app/providers/ai_chat/ai_chat_provider.dart';
 import 'package:hims_app/screens/splash%20screens/splash.dart';
+import 'package:hims_app/providers/mobile_auth_provider.dart';
 import 'package:hims_app/screens/main_shell.dart';
 import 'package:provider/provider.dart';
 
@@ -41,6 +42,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ConsultantPaymentsProvider()),
         ChangeNotifierProvider(create: (_) => DashboardProvider()),
         ChangeNotifierProvider(create: (_) => AiChatProvider()),
+        ChangeNotifierProvider(create: (_) => MobileAuthProvider()),
       ],
       child: MaterialApp(
         title: 'HIMS',

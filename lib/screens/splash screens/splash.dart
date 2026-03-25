@@ -1,12 +1,11 @@
-import 'dart:ui';
-
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:hims_app/core/providers/permission_provider.dart';
 import 'package:hims_app/core/services/auth_storage_service.dart';
+import '../../providers/mobile_auth_provider.dart';
 import '../main_shell.dart';
-import 'package:provider/provider.dart';
-
+import '../patient/patient_dashboard.dart';
+import '../doctor/mobile_doctor_dashboard.dart';
 import 'onboarding.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -26,65 +25,99 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   void initState() {
     super.initState();
-
     _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-
+        vsync: this, duration: const Duration(milliseconds: 1200));
     _circleAnimation = Tween<double>(begin: 0.6, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
-      ),
-    );
-
+        CurvedAnimation(
+            parent: _controller,
+            curve: const Interval(0.0, 0.6, curve: Curves.easeOut)));
     _scaleAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.2, 0.7, curve: Curves.elasticOut),
-      ),
-    );
-
+        CurvedAnimation(
+            parent: _controller,
+            curve: const Interval(0.2, 0.7, curve: Curves.elasticOut)));
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.5, 1.0, curve: Curves.easeIn),
-      ),
-    );
-
+        CurvedAnimation(
+            parent: _controller,
+            curve: const Interval(0.5, 1.0, curve: Curves.easeIn)));
     _controller.forward();
 
-    // Navigate after animation — restore session if token exists
-    Future.delayed(const Duration(seconds: 2), () async {
-      if (!mounted) return;
+    _checkAuth();
+  }
 
+  Future<void> _checkAuth() async {
+    // Wait for splash animation to be visible
+    await Future.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+
+    try {
       final storage = AuthStorageService();
-      final token = await storage.getToken();
+      final token = await storage.getToken().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => null,
+      );
+      final role = await storage.getRole().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => null,
+      );
 
       if (!mounted) return;
 
       if (token != null && token.isNotEmpty) {
-        // Existing session — load cached perms immediately then sync from server
-        final permProvider = context.read<PermissionProvider>();
-        await permProvider.loadFromStorage();
-        
-        // Sync in background/parallel to refresh if needed
-        await permProvider.syncFromServer();
-        
-        if (!mounted) return;
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const MainShell()),
-        );
+        final mobileProvider = context.read<MobileAuthProvider>();
+
+        if (role == 'patient') {
+          // Timeout auto-login — don't hang if server is unreachable
+          await mobileProvider.tryAutoLogin().timeout(
+            const Duration(seconds: 6),
+            onTimeout: () {},
+          );
+          if (!mounted) return;
+          _goTo(const PatientDashboard());
+
+        } else if (role == 'doctor') {
+          await mobileProvider.tryAutoLogin().timeout(
+            const Duration(seconds: 6),
+            onTimeout: () {},
+          );
+          if (!mounted) return;
+          _goTo(const MobileDoctorDashboard());
+
+        } else {
+          final permProvider = context.read<PermissionProvider>();
+
+          // Load cached permissions first (fast, local)
+          await permProvider.loadFromStorage().timeout(
+            const Duration(seconds: 3),
+            onTimeout: () {},
+          );
+
+          // Sync from server with timeout — if it fails, cached perms are used
+          try {
+            await permProvider.syncFromServer().timeout(
+              const Duration(seconds: 6),
+            );
+          } catch (_) {
+            // Server unreachable — continue with cached permissions
+          }
+
+          if (!mounted) return;
+          _goTo(const MainShell());
+        }
       } else {
-        // No session — go through onboarding → login
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const OnboardingScreen()),
-        );
+        _goTo(const OnboardingScreen());
       }
-    });
+    } catch (e) {
+      debugPrint('Splash Auth Error: $e');
+      if (!mounted) return;
+      _goTo(const OnboardingScreen());
+    }
+  }
+
+  void _goTo(Widget screen) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => screen),
+    );
   }
 
   @override
@@ -96,7 +129,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF00B5AD), // Teal/Mint color
+      backgroundColor: const Color(0xFF00B5AD),
       body: Center(
         child: AnimatedBuilder(
           animation: _controller,
@@ -104,28 +137,25 @@ class _SplashScreenState extends State<SplashScreen>
             return Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Circle with icon
                 Transform.scale(
                   scale: _circleAnimation.value,
                   child: Container(
-                    width: 160,
+                    width: 140,
                     height: 160,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: Colors.white.withOpacity(0.2),
                     ),
-                    child: Transform.scale(
-                      scale: _scaleAnimation.value,
-                      child: const Center(
-                        child: _MedicalCrossIcon(size: 90),
+                    child: Center(
+                      child: Transform.scale(
+                        scale: _scaleAnimation.value,
+                        child: const Icon(Icons.emergency_outlined,
+                            size: 70, color: Colors.white),
                       ),
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 24),
-
-                // App Name
                 FadeTransition(
                   opacity: _fadeAnimation,
                   child: const Text(
@@ -145,87 +175,4 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
   }
-}
-
-/// Custom painter for the bandage/medical cross icon (matching Docare style)
-class _MedicalCrossIcon extends StatelessWidget {
-  final double size;
-  const _MedicalCrossIcon({required this.size});
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      size: Size(size, size),
-      painter: _BandagePainter(),
-    );
-  }
-}
-
-class _BandagePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-
-    final dotPaint = Paint()
-      ..color = const Color(0xFF1ABC9C)
-      ..style = PaintingStyle.fill;
-
-    final double w = size.width;
-    final double h = size.height;
-    final double cx = w / 2;
-    final double cy = h / 2;
-
-    // Draw rotated bandage shape (X shape) — two rounded rectangles rotated 45 deg
-    canvas.save();
-    canvas.translate(cx, cy);
-    canvas.rotate(45 * 3.14159265 / 180);
-
-    // Vertical strip
-    final RRect vertRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(center: Offset.zero, width: w * 0.32, height: h * 0.82),
-      Radius.circular(w * 0.16),
-    );
-    canvas.drawRRect(vertRect, paint);
-
-    // Horizontal strip
-    final RRect horizRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(center: Offset.zero, width: w * 0.82, height: h * 0.32),
-      Radius.circular(h * 0.16),
-    );
-    canvas.drawRRect(horizRect, paint);
-
-    // Center square (overlap area)
-    final RRect centerRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(center: Offset.zero, width: w * 0.32, height: h * 0.32),
-      Radius.circular(4),
-    );
-    canvas.drawRRect(centerRect, paint);
-
-    canvas.restore();
-
-    // Dots on the bandage strips
-    final double dotR = w * 0.04;
-    final double offset = w * 0.22;
-
-    // Top-left dots
-    canvas.drawCircle(Offset(cx - offset, cy - offset * 0.5), dotR, dotPaint);
-    canvas.drawCircle(Offset(cx - offset * 0.5, cy - offset), dotR, dotPaint);
-
-    // Top-right dots
-    canvas.drawCircle(Offset(cx + offset, cy - offset * 0.5), dotR, dotPaint);
-    canvas.drawCircle(Offset(cx + offset * 0.5, cy - offset), dotR, dotPaint);
-
-    // Bottom-left dots
-    canvas.drawCircle(Offset(cx - offset, cy + offset * 0.5), dotR, dotPaint);
-    canvas.drawCircle(Offset(cx - offset * 0.5, cy + offset), dotR, dotPaint);
-
-    // Bottom-right dots
-    canvas.drawCircle(Offset(cx + offset, cy + offset * 0.5), dotR, dotPaint);
-    canvas.drawCircle(Offset(cx + offset * 0.5, cy + offset), dotR, dotPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

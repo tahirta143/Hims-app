@@ -3,6 +3,7 @@ import 'package:hims_app/core/providers/permission_provider.dart';
 import 'package:hims_app/core/services/api_service.dart';
 import 'package:hims_app/core/services/auth_storage_service.dart';
 import 'package:hims_app/screens/auth/sign_up.dart';
+import 'package:hims_app/screens/auth/mobile_login_screen.dart';
 import 'package:provider/provider.dart';
 import '../dashboard/dashboard.dart';
 import '../../custum widgets/custom_loader.dart';
@@ -256,31 +257,53 @@ class _SignInScreenState extends State<SignInScreen> {
                               ),
                       ),
                     ),
-                    SizedBox(height: screenH * 0.022),
+                    // SizedBox(height: screenH * 0.022),
 
                     // Don't have account
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "Don't have account? ",
+                    // Row(
+                    //   mainAxisAlignment: MainAxisAlignment.center,
+                    //   children: [
+                    //     Text(
+                    //       "Don't have account? ",
+                    //       style: TextStyle(
+                    //         fontSize: inputFontSize,
+                    //         color: Colors.grey,
+                    //       ),
+                    //     ),
+                    //     GestureDetector(
+                    //       onTap: _handleSignUpNavigation,
+                    //       child: Text(
+                    //         'Sign up',
+                    //         style: TextStyle(
+                    //           fontSize: inputFontSize,
+                    //           color: const Color(0xFF00B5AD),
+                    //           fontWeight: FontWeight.w700,
+                    //         ),
+                    //       ),
+                    //     ),
+                    //   ],
+                    // ),
+                    SizedBox(height: screenH * 0.02),
+                    
+                    // Added: Mobile Login Entry Point
+                    Center(
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const MobileLoginScreen()),
+                          );
+                        },
+                        child: Text(
+                          'Login as Patient or Doctor',
                           style: TextStyle(
                             fontSize: inputFontSize,
-                            color: Colors.grey,
+                            color: const Color(0xFF00B5AD),
+                            fontWeight: FontWeight.w600,
+                            decoration: TextDecoration.underline,
                           ),
                         ),
-                        GestureDetector(
-                          onTap: _handleSignUpNavigation,
-                          child: Text(
-                            'Sign up',
-                            style: TextStyle(
-                              fontSize: inputFontSize,
-                              color: const Color(0xFF00B5AD),
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                     SizedBox(height: screenH * 0.02),
                   ],
