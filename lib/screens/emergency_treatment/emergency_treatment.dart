@@ -426,79 +426,222 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
     final dateStr = '${now.day} ${mo[now.month-1]} ${now.year}'
         '  ${_d2(h12)}:${_d2(now.minute)}:${_d2(now.second)} $ampm';
 
+    // return Container(
+    //
+    //   decoration: BoxDecoration(
+    //       color: Colors.red.shade50,
+    //       borderRadius: BorderRadius.only(
+    //         bottomLeft:Radius.circular(20),
+    //         bottomRight:Radius.circular(20),
+    //       )
+    //   ),
+    //   padding: EdgeInsets.only(
+    //       top: _tp + _sh * 0.013, bottom: _sh * 0.013,
+    //       left: _pad, right: _pad),
+    //   child: Row(children: [
+    //     GestureDetector(
+    //       onTap: () { _scaffoldKey.currentState?.openDrawer(); },
+    //       child: Container(
+    //         padding: EdgeInsets.all(_sw * 0.022),
+    //         decoration: BoxDecoration(
+    //           color: danger.withOpacity(0.12),
+    //           borderRadius: BorderRadius.circular(_sw * 0.022),
+    //         ),
+    //         child: Icon(Icons.menu_rounded, color: danger, size: _sw * 0.048),
+    //       ),
+    //     ),
+    //     SizedBox(width: _sp * 0.7),
+    //     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    //       Text('Emergency Treatment',
+    //           style: TextStyle(fontSize: _fsL, fontWeight: FontWeight.bold, color: Colors.black87),
+    //           maxLines: 1, overflow: TextOverflow.ellipsis),
+    //       // Text('Manage emergency patient treatments',
+    //       //     style: TextStyle(fontSize: _fsS, color: Colors.grey.shade500)),
+    //     ])),
+    //     if (!_wide) ...[
+    //       GestureDetector(
+    //         onTap: () => _openSheet(prov),
+    //         child: Container(
+    //           margin: EdgeInsets.only(right: _sw * 0.018),
+    //           padding: EdgeInsets.all(_sw * 0.02),
+    //           decoration: BoxDecoration(
+    //             color: primary.withOpacity(0.1),
+    //             borderRadius: BorderRadius.circular(_sw * 0.02),
+    //           ),
+    //           child: Stack(clipBehavior: Clip.none, children: [
+    //             Icon(Icons.people_alt_rounded, color: primary, size: _sw * 0.048),
+    //             if (prov.queueCount > 0) Positioned(
+    //               right: -_sw * 0.01, top: -_sw * 0.01,
+    //               child: Container(
+    //                 width: _sw * 0.03, height: _sw * 0.03,
+    //                 decoration: const BoxDecoration(color: danger, shape: BoxShape.circle),
+    //                 child: Center(child: Text('${prov.queueCount}',
+    //                     style: TextStyle(color: Colors.white, fontSize: _sw * 0.016,
+    //                         fontWeight: FontWeight.bold))),
+    //               ),
+    //             ),
+    //           ]),
+    //         ),
+    //       ),
+    //     ],
+    //     Container(
+    //       padding: EdgeInsets.symmetric(horizontal: _sw * 0.022, vertical: _sh * 0.007),
+    //       decoration: BoxDecoration(
+    //         color: const Color(0xFFF0F4F8),
+    //         borderRadius: BorderRadius.circular(_sw * 0.022),
+    //         border: Border.all(color: Colors.grey.shade200),
+    //       ),
+    //       child: Row(mainAxisSize: MainAxisSize.min, children: [
+    //         Icon(Icons.access_time_rounded, color: Colors.grey.shade500, size: _sw * 0.032),
+    //         SizedBox(width: _sw * 0.01),
+    //         Text(dateStr, style: TextStyle(fontSize: _fsXS, color: Colors.grey.shade600)),
+    //       ]),
+    //     ),
+    //   ]),
+    // );
     return Container(
-
-      decoration: BoxDecoration(
-          color: cardColor,
-          borderRadius: BorderRadius.only(
-            bottomLeft:Radius.circular(20),
-            bottomRight:Radius.circular(20),
-          )
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            // Color(0xFFD32F2F), // deep red
+            // Color(0xFFE53935), // normal red
+            Color(0xFFEF5350), // light red
+            Color(0xFFEF5350), // light red
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(24),
+          bottomRight: Radius.circular(24),
+        ),
       ),
       padding: EdgeInsets.only(
-          top: _tp + _sh * 0.013, bottom: _sh * 0.013,
-          left: _pad, right: _pad),
-      child: Row(children: [
-        GestureDetector(
-          onTap: () { _scaffoldKey.currentState?.openDrawer(); },
-          child: Container(
-            padding: EdgeInsets.all(_sw * 0.022),
-            decoration: BoxDecoration(
-              color: danger.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(_sw * 0.022),
-            ),
-            child: Icon(Icons.menu_rounded, color: danger, size: _sw * 0.048),
-          ),
-        ),
-        SizedBox(width: _sp * 0.7),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Emergency Treatment',
-              style: TextStyle(fontSize: _fsL, fontWeight: FontWeight.bold, color: Colors.black87),
-              maxLines: 1, overflow: TextOverflow.ellipsis),
-          // Text('Manage emergency patient treatments',
-          //     style: TextStyle(fontSize: _fsS, color: Colors.grey.shade500)),
-        ])),
-        if (!_wide) ...[
+        top: _tp + _sh * 0.015,
+        bottom: _sh * 0.015,
+        left: _pad,
+        right: _pad,
+      ),
+      child: Row(
+        children: [
+          // ☰ MENU BUTTON
           GestureDetector(
-            onTap: () => _openSheet(prov),
+            onTap: () => _scaffoldKey.currentState?.openDrawer(),
             child: Container(
-              margin: EdgeInsets.only(right: _sw * 0.018),
-              padding: EdgeInsets.all(_sw * 0.02),
+              padding: EdgeInsets.all(_sw * 0.022),
               decoration: BoxDecoration(
-                color: primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(_sw * 0.02),
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(_sw * 0.025),
               ),
-              child: Stack(clipBehavior: Clip.none, children: [
-                Icon(Icons.people_alt_rounded, color: primary, size: _sw * 0.048),
-                if (prov.queueCount > 0) Positioned(
-                  right: -_sw * 0.01, top: -_sw * 0.01,
-                  child: Container(
-                    width: _sw * 0.03, height: _sw * 0.03,
-                    decoration: const BoxDecoration(color: danger, shape: BoxShape.circle),
-                    child: Center(child: Text('${prov.queueCount}',
-                        style: TextStyle(color: Colors.white, fontSize: _sw * 0.016,
-                            fontWeight: FontWeight.bold))),
+              child: Icon(
+                Icons.menu_rounded,
+                color: Colors.white,
+                size: _sw * 0.05,
+              ),
+            ),
+          ),
+
+          SizedBox(width: _sp),
+
+          // 🏥 TITLE + SUBTITLE
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Emergency Treatment',
+                  style: TextStyle(
+                    fontSize: _fsL,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: 0.5,
                   ),
                 ),
-              ]),
+                SizedBox(height: 2),
+                // Text(
+                //   'Manage emergency patients quickly',
+                //   style: TextStyle(
+                //     fontSize: _fsXS,
+                //     color: Colors.white.withOpacity(0.85),
+                //   ),
+                // ),
+              ],
+            ),
+          ),
+
+          // 👥 QUEUE BUTTON (MOBILE)
+          if (!_wide) ...[
+            GestureDetector(
+              onTap: () => _openSheet(prov),
+              child: Container(
+                margin: EdgeInsets.only(right: _sw * 0.02),
+                padding: EdgeInsets.all(_sw * 0.02),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(_sw * 0.025),
+                ),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Icon(Icons.people_alt_rounded,
+                        color: Colors.white, size: _sw * 0.05),
+
+                    if (prov.queueCount > 0)
+                      Positioned(
+                        right: -6,
+                        top: -6,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Colors.black,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            '${prov.queueCount}',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: _sw * 0.02,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+
+          // 🕒 TIME BOX
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: _sw * 0.025,
+              vertical: _sh * 0.008,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(_sw * 0.025),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.access_time_rounded,
+                    color: Colors.white, size: _sw * 0.035),
+                SizedBox(width: _sw * 0.012),
+                Text(
+                  dateStr,
+                  style: TextStyle(
+                    fontSize: _fsXS,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: _sw * 0.022, vertical: _sh * 0.007),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF0F4F8),
-            borderRadius: BorderRadius.circular(_sw * 0.022),
-            border: Border.all(color: Colors.grey.shade200),
-          ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.access_time_rounded, color: Colors.grey.shade500, size: _sw * 0.032),
-            SizedBox(width: _sw * 0.01),
-            Text(dateStr, style: TextStyle(fontSize: _fsXS, color: Colors.grey.shade600)),
-          ]),
-        ),
-      ]),
+      ),
     );
+
   }
 
   // ════════════════════════════════════════

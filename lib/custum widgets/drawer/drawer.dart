@@ -10,7 +10,7 @@ class CustomDrawer extends StatefulWidget {
   final int selectedIndex;
 
   static const Color primaryColor = Color(0xFF00B5AD);
-  static const Color darkTeal = Color(0xFF00897B);
+  static const Color darkTeal = Color(0xFF00B5AD);
 
   const CustomDrawer({
     super.key,
