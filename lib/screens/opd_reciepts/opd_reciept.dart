@@ -451,6 +451,7 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
           child: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
+
               color: _tealLight,
               borderRadius: BorderRadius.circular(8),
             ),
@@ -528,6 +529,10 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
         bottom: 12,
       ),
       decoration: BoxDecoration(
+        borderRadius: BorderRadius.only(
+          bottomLeft:Radius.circular(20),
+          bottomRight:Radius.circular(20),
+        ),
         color: _teal,
         boxShadow: [
           BoxShadow(

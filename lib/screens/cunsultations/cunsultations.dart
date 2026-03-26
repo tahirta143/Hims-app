@@ -160,6 +160,10 @@ class _ConsultationScreenState extends State<ConsultationScreen> {
   Widget _buildHeader(double sw, double sh, double tp) {
     return Container(
       decoration: const BoxDecoration(
+          borderRadius: BorderRadius.only(
+            bottomLeft:Radius.circular(20),
+            bottomRight:Radius.circular(20),
+          ),
         color: Color(0xFF00B5AD)
       ),
       padding: EdgeInsets.only(

@@ -130,7 +130,14 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
   Widget _buildHeader(ConsultantPaymentsProvider provider) {
     final now = DateTime.now();
     return Container(
-      color: primary,
+      decoration: BoxDecoration(
+          color: primary,
+          borderRadius: BorderRadius.only(
+            bottomLeft:Radius.circular(20),
+            bottomRight:Radius.circular(20),
+          )
+      ),
+
       padding: EdgeInsets.only(
         top: _tp + _sh * 0.012,
         bottom: _sh * 0.014,

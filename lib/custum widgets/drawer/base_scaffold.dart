@@ -184,6 +184,10 @@ class _BaseScaffoldState extends State<BaseScaffold> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
+        borderRadius: BorderRadius.only(
+          bottomLeft:Radius.circular(20),
+          bottomRight:Radius.circular(20),
+        )
       ),
       padding: EdgeInsets.only(
         top: MediaQuery.of(context).padding.top + 12,

@@ -395,8 +395,12 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
   Widget _buildTopBar() {
     return Container(
       decoration: const BoxDecoration(
+          borderRadius: BorderRadius.only(
+            bottomLeft:Radius.circular(20),
+            bottomRight:Radius.circular(20),
+          ),
         gradient: LinearGradient(
-          colors: [Color(0xFF00B5AD), Color(0xFF00897B)],
+          colors: [Color(0xFF00B5AD), Color(0xFF00B5AD)],
           begin: Alignment.topLeft, end: Alignment.bottomRight,
         ),
       ),
@@ -417,14 +421,14 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
           ),
         ),
         SizedBox(width: _sp),
-        Container(
-          padding: EdgeInsets.all(_sw * 0.022),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.18),
-            borderRadius: BorderRadius.circular(_sw * 0.022),
-          ),
-          child: Icon(Icons.table_chart_rounded, color: Colors.white, size: _sw * 0.048),
-        ),
+        // Container(
+        //   padding: EdgeInsets.all(_sw * 0.022),
+        //   decoration: BoxDecoration(
+        //     color: Colors.white.withOpacity(0.18),
+        //     borderRadius: BorderRadius.circular(_sw * 0.022),
+        //   ),
+        //   // child: Icon(Icons.table_chart_rounded, color: Colors.white, size: _sw * 0.048),
+        // ),
         SizedBox(width: _sp),
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Patient OPD Records',

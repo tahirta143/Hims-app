@@ -427,7 +427,14 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
         '  ${_d2(h12)}:${_d2(now.minute)}:${_d2(now.second)} $ampm';
 
     return Container(
-      color: cardColor,
+
+      decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.only(
+            bottomLeft:Radius.circular(20),
+            bottomRight:Radius.circular(20),
+          )
+      ),
       padding: EdgeInsets.only(
           top: _tp + _sh * 0.013, bottom: _sh * 0.013,
           left: _pad, right: _pad),
@@ -448,8 +455,8 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
           Text('Emergency Treatment',
               style: TextStyle(fontSize: _fsL, fontWeight: FontWeight.bold, color: Colors.black87),
               maxLines: 1, overflow: TextOverflow.ellipsis),
-          Text('Manage emergency patient treatments',
-              style: TextStyle(fontSize: _fsS, color: Colors.grey.shade500)),
+          // Text('Manage emergency patient treatments',
+          //     style: TextStyle(fontSize: _fsS, color: Colors.grey.shade500)),
         ])),
         if (!_wide) ...[
           GestureDetector(
