@@ -173,7 +173,7 @@ class _ConsultationScreenState extends State<ConsultationScreen> {
           bottom: sh * 0.022),
       child: Row(children: [
         GestureDetector(
-          onTap: () => _scaffoldKey.currentState?.openDrawer(),
+          onTap: () => Scaffold.of(context).openDrawer(),
           child: Container(
             padding: EdgeInsets.all(sw * 0.022),
             decoration: BoxDecoration(
@@ -313,8 +313,15 @@ class _DoctorCard extends StatelessWidget {
   });
 
   String _initials(String name) {
-    final parts = name.replaceAll('Dr. ', '').split(' ');
-    return parts.length >= 2 ? '${parts[0][0]}${parts[1][0]}' : parts[0][0];
+    if (name.trim().isEmpty) return '?';
+    final clean = name.replaceAll('Dr. ', '').trim();
+    if (clean.isEmpty) return '?';
+    final parts = clean.split(' ').where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return '?';
+    if (parts.length >= 2) {
+      return '${parts[0][0].toUpperCase()}${parts[1][0].toUpperCase()}';
+    }
+    return parts[0][0].toUpperCase();
   }
 
   @override

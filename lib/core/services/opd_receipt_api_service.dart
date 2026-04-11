@@ -24,15 +24,20 @@ class OpdReceiptApiService {
   Future<OpdReceiptsResult> fetchOpdReceipts({
     int page = 1,
     int limit = 50,
+    String? mrNumber,
+    bool? emergencyPaid,
   }) async {
     try {
       final headers = await _authHeaders();
-      final uri = Uri.parse('${GlobalApi.baseUrl}/opd-patient-data').replace(
-        queryParameters: {
-          'page': page.toString(),
-          'limit': limit.toString(),
-        },
-      );
+      final queryParams = {
+        'page': page.toString(),
+        'limit': limit.toString(),
+        if (mrNumber != null) 'mr_number': mrNumber,
+        if (emergencyPaid != null) 'emergency_paid': emergencyPaid.toString(),
+      };
+
+      final uri = Uri.parse('${GlobalApi.baseUrl}/opd-patient-data')
+          .replace(queryParameters: queryParams);
 
       final response = await http
           .get(uri, headers: headers)

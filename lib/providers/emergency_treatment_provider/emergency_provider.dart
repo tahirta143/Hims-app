@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../core/services/emergency_treatment_api_service.dart';
 import '../../core/services/opd_receipt_api_service.dart';
+import '../../core/services/mr_api_service.dart';
 import '../../global/global_api.dart';
 import '../../models/emergency_model/emergency_treatment_model.dart';
+import '../../models/opd_model/opd_receipt_model.dart';
 
 // ── Data Models ──
 
@@ -122,6 +124,19 @@ class EmergencyProvider extends ChangeNotifier {
   bool get isLoadingServices => _loadingServices;
 
   final OpdReceiptApiService _opdApi = OpdReceiptApiService();
+  final MrApiService _mrApi = MrApiService();
+
+  Future<MrPatientResult> fetchPatientInfoByMR(String mr) async {
+    return await _mrApi.fetchPatientByMR(mr);
+  }
+
+  Future<OpdReceiptApiModel?> fetchLatestEmergencyReceipt(String mr) async {
+    final res = await _opdApi.fetchOpdReceipts(mrNumber: mr, emergencyPaid: true);
+    if (res.success && res.receipts.isNotEmpty) {
+      return res.receipts.first;
+    }
+    return null;
+  }
 
   Future<void> loadEmergencyServices() async {
     _loadingServices = true;

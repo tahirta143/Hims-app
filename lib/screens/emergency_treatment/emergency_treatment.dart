@@ -103,7 +103,7 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
   }
 
   // ── MR AUTO-FORMAT + LOOKUP ──
-  void _onMrTyped(String raw, EmergencyProvider prov) {
+  void _onMrTyped(String raw, EmergencyProvider prov) async {
     final formatted = EmergencyProvider.formatMr(raw);
     if (_mrCtrl.text != formatted) {
       _mrCtrl.value = TextEditingValue(
@@ -112,13 +112,36 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
       );
     }
     if (formatted.isEmpty) { _resetPatient(); return; }
+
     // First check in-memory queue for quick fill
     final p = prov.lookupPatient(formatted);
     if (p != null) {
       _fillPatient(p);
-    } else if (_patientFound) {
-      _resetPatient();
+    } else {
+      // If not in queue, fetch full patient info from MR API
+      final res = await prov.fetchPatientInfoByMR(formatted);
+      if (res.success && res.patient != null) {
+        setState(() {
+          _patientFound = true;
+          _nameCtrl.text = res.patient!.patientName;
+          _ageCtrl.text = (res.patient!.age ?? '').toString();
+          _genderCtrl.text = res.patient!.gender;
+          _phoneCtrl.text = res.patient!.phoneNumber;
+          _addressCtrl.text = res.patient!.address ?? '';
+        });
+
+        // Also fetch latest emergency receipt for metadata (admitted since, etc.)
+        final receipt = await prov.fetchLatestEmergencyReceipt(formatted);
+        if (receipt != null) {
+          setState(() {
+            _admCtrl.text = '${receipt.date} ${receipt.time ?? ''}'.trim();
+          });
+        }
+      } else if (_patientFound) {
+        _resetPatient();
+      }
     }
+
     // Then call API to load existing treatment record (vitals, notes, etc.)
     if (formatted.isNotEmpty) {
       _loadExistingTreatment(formatted, prov);
@@ -526,7 +549,7 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
         children: [
           // ☰ MENU BUTTON
           GestureDetector(
-            onTap: () => _scaffoldKey.currentState?.openDrawer(),
+            onTap: () => Scaffold.of(context).openDrawer(),
             child: Container(
               padding: EdgeInsets.all(_sw * 0.022),
               decoration: BoxDecoration(

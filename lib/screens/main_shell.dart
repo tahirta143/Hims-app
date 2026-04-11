@@ -41,6 +41,7 @@ class _MainShellState extends State<MainShell> {
     return BaseScaffold(
       title: _titles[_currentBtmIndex],
       drawerIndex: _drawerIndices[_currentBtmIndex],
+      showAppBar: _currentBtmIndex != 1 && _currentBtmIndex != 2,
       onBottomNavTap: (index) {
         setState(() {
           _currentBtmIndex = index;

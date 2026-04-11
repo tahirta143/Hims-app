@@ -169,7 +169,7 @@ class MrApiService {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
 
         if (data['success'] == true) {
-          final nextMr = data['nextMR'] as String;
+          final nextMr = (data['nextMr'] ?? data['nextMR']) as String;
           return NextMrResult(success: true, nextMR: nextMr);
         }
 
