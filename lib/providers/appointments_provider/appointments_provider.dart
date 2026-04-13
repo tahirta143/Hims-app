@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../../core/services/auth_storage_service.dart';
 import '../../global/global_api.dart';
 import '../../models/appointment_model/appointments_model.dart';
+
 class AppointmentsProvider extends ChangeNotifier {
   static const String _baseUrl = '${GlobalApi.baseUrl}/appointments';
 
@@ -260,5 +261,60 @@ class AppointmentsProvider extends ChangeNotifier {
 
   void refresh() {
     fetchAppointments();
+  }
+
+  // ── UPDATE ──
+  Future<bool> updateAppointment(int id, Map<String, dynamic> data) async {
+    isLoading = true;
+    notifyListeners();
+    try {
+      final headers = await _authHeaders();
+      final response = await http.put(
+        Uri.parse('$_baseUrl/$id'),
+        headers: headers,
+        body: jsonEncode(data),
+      );
+      if (response.statusCode == 200) {
+        final resJson = jsonDecode(response.body);
+        if (resJson['success'] == true) {
+          await fetchAppointments();
+          return true;
+        }
+      }
+      errorMessage = 'Failed to update appointment';
+    } catch (e) {
+      errorMessage = 'Error updating appointment: $e';
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+    return false;
+  }
+
+  // ── CANCEL / DELETE ──
+  Future<bool> cancelAppointment(int id) async {
+    isLoading = true;
+    notifyListeners();
+    try {
+      final headers = await _authHeaders();
+      final response = await http.delete(
+        Uri.parse('$_baseUrl/$id'),
+        headers: headers,
+      );
+      if (response.statusCode == 200) {
+        final resJson = jsonDecode(response.body);
+        if (resJson['success'] == true) {
+          await fetchAppointments();
+          return true;
+        }
+      }
+      errorMessage = 'Failed to cancel appointment';
+    } catch (e) {
+      errorMessage = 'Error cancelling appointment: $e';
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+    return false;
   }
 }

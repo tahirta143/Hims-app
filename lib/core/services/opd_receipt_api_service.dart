@@ -202,6 +202,40 @@ class OpdReceiptApiService {
     }
   }
 
+  // ─── GET /api/lab/tests ───────────────────────────────────────────────────
+  Future<Map<String, dynamic>> fetchLabTests() async {
+    try {
+      final headers = await _authHeaders();
+      final response = await http
+          .get(Uri.parse('${GlobalApi.baseUrl}/lab/tests'), headers: headers)
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      return {'success': false, 'message': 'Server error: ${response.statusCode}'};
+    } catch (e) {
+      return {'success': false, 'message': 'Failed to fetch lab tests: $e'};
+    }
+  }
+
+  // ─── GET /api/radiology-tests ──────────────────────────────────────────────
+  Future<Map<String, dynamic>> fetchRadiologyTests() async {
+    try {
+      final headers = await _authHeaders();
+      final response = await http
+          .get(Uri.parse('${GlobalApi.baseUrl}/radiology-tests'), headers: headers)
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      return {'success': false, 'message': 'Server error: ${response.statusCode}'};
+    } catch (e) {
+      return {'success': false, 'message': 'Failed to fetch radiology tests: $e'};
+    }
+  }
+
   // ─── POST /api/opd-patient-data ──────────────────────────────────────────────
   Future<CreateOpdReceiptResult> createOpdReceipt(
       Map<String, dynamic> payload,
@@ -401,6 +435,32 @@ class OpdReceiptApiService {
         success: false,
         message: 'Failed to approve discount: $e',
       );
+    }
+  }
+
+  // ─── PUT /opd-patient-data/:id/finalize-discount ────────────────────────────
+  Future<Map<String, dynamic>> finalizeDiscountReceipt(int srlNo) async {
+    try {
+      final headers = await _authHeaders();
+      final response = await http
+          .put(
+        Uri.parse('${GlobalApi.baseUrl}/opd-patient-data/$srlNo/finalize-discount'),
+        headers: headers,
+      )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      return {
+        'success': false,
+        'message': 'Server error: ${response.statusCode}',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Failed to finalize discount: $e',
+      };
     }
   }
 }

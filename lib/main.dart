@@ -7,10 +7,13 @@ import 'package:hims_app/providers/opd/consultation_provider/cunsultation_provid
 import 'package:hims_app/providers/opd/opd_reciepts/opd_reciepts.dart';
 import 'package:hims_app/providers/shift_management/shift_management.dart';
 import 'package:hims_app/providers/consultant_payments_provider/consultant_payments_provider.dart';
+import 'package:hims_app/providers/vitals_provider/vitals_provider.dart';
 import 'package:hims_app/providers/voucher_provider/voucher.dart';
 import 'package:hims_app/providers/ai_chat/ai_chat_provider.dart';
 import 'package:hims_app/screens/splash%20screens/splash.dart';
 import 'package:hims_app/providers/mobile_auth_provider.dart';
+import 'package:hims_app/providers/appointments_provider/appointments_provider.dart';
+import 'package:hims_app/providers/prescription_provider/prescription_provider.dart';
 import 'package:hims_app/screens/main_shell.dart';
 import 'package:provider/provider.dart';
 
@@ -43,6 +46,9 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => DashboardProvider()),
         ChangeNotifierProvider(create: (_) => AiChatProvider()),
         ChangeNotifierProvider(create: (_) => MobileAuthProvider()),
+        ChangeNotifierProvider(create: (_) => AppointmentsProvider()),
+        ChangeNotifierProvider(create: (_) => PrescriptionProvider()),
+        ChangeNotifierProvider(create: (_) => VitalsProvider()),
       ],
       child: MaterialApp(
         title: 'HIMS',

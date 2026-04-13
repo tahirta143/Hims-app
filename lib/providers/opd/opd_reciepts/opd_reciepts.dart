@@ -53,6 +53,7 @@ class OpdService {
 
 class OpdSelectedService {
   final OpdService service;
+  final int quantity;
   String? doctorName;
   String? doctorSpecialty;
   String? doctorAvatar;
@@ -61,6 +62,7 @@ class OpdSelectedService {
 
   OpdSelectedService({
     required this.service,
+    this.quantity = 1,
     this.doctorName,
     this.doctorSpecialty,
     this.doctorAvatar,
@@ -111,13 +113,6 @@ class OpdProvider extends ChangeNotifier {
   set isSaving(bool value) {
     _isSaving = value;
     notifyListeners();
-  }
-  // ── Auto MR No counter ──
-  int _mrCounter = 6;
-  String get nextMrNo => (100000 + _mrCounter).toString();
-  void incrementMrNo() {
-    _mrCounter++;
-    _safeNotify();
   }
 
   // ── Refer to Discount ──
@@ -288,13 +283,25 @@ class OpdProvider extends ChangeNotifier {
     _safeNotify();
 
     try {
-      final result = await _apiService.fetchOpdServices();
+      // Parallelize API calls for better performance
+      final results = await Future.wait([
+        _apiService.fetchOpdServices(),
+        _apiService.fetchLabTests(),
+        _apiService.fetchRadiologyTests(),
+      ]);
+
+      final opdResult = results[0] as OpdServicesResult;
+      final labResult = results[1] as Map<String, dynamic>;
+      final radResult = results[2] as Map<String, dynamic>;
 
       if (_isDisposed) return; // CRASH FIX
 
-      if (result.success) {
-        services.removeWhere((key, _) => key != 'consultation' && key != 'emergency');
-        for (var s in result.services) {
+      // Clear dynamic categories but keep consultation/emergency if needed
+      services.removeWhere((key, _) => key != 'consultation' && key != 'emergency');
+
+      // 1. Process OPD Services
+      if (opdResult.success) {
+        for (var s in opdResult.services) {
           if (s.isActive != 1) continue;
 
           final rate = double.tryParse(s.serviceRate) ?? 0.0;
@@ -303,17 +310,20 @@ class OpdProvider extends ChangeNotifier {
           IconData icon = Icons.local_hospital_rounded;
 
           final head = s.serviceHead.toLowerCase();
-          if (head.contains('x-ray') || head.contains('xray')) {
+          final name = s.serviceName.toLowerCase();
+
+          // Categorize based on strings for standard OPD services
+          if (head.contains('x-ray') || head.contains('xray') || name.contains('x-ray') || name.contains('xray')) {
             category = 'xray'; color = const Color(0xFF1E88E5); icon = Icons.radio_rounded;
-          } else if (head.contains('ct scan') || head.contains('ctscan')) {
+          } else if (head.contains('ct scan') || head.contains('ctscan') || name.contains('ct scan') || name.contains('ctscan')) {
             category = 'ctscan'; color = const Color(0xFF8E24AA); icon = Icons.document_scanner_rounded;
-          } else if (head.contains('mri')) {
+          } else if (head.contains('mri') || name.contains('mri')) {
             category = 'mri'; color = const Color(0xFF00ACC1); icon = Icons.blur_circular_rounded;
-          } else if (head.contains('ultrasound')) {
+          } else if (head.contains('ultrasound') || name.contains('ultrasound') || head.contains('u/s') || name.contains('u/s')) {
             category = 'ultrasound'; color = const Color(0xFF43A047); icon = Icons.sensors_rounded;
-          } else if (head.contains('laboratory') || head.contains('lab')) {
+          } else if (head.contains('laboratory') || head.contains('lab') || name.contains('lab ') || name.contains(' laboratory')) {
             category = 'laboratory'; color = const Color(0xFFF4511E); icon = Icons.biotech_rounded;
-          } else if (head.contains('emergency')) {
+          } else if (head.contains('emergency') || name.contains('emergency')) {
             category = 'emergency'; color = const Color(0xFFE53935); icon = Icons.emergency_rounded;
           }
 
@@ -332,12 +342,69 @@ class OpdProvider extends ChangeNotifier {
             services[category]!.add(service);
           }
         }
-        _errorMessage = null;
-      } else {
-        _errorMessage = result.message;
       }
+
+      // 2. Process Lab Tests from Dedicated API
+      if (labResult['success'] == true) {
+        final list = labResult['data'] as List<dynamic>? ?? [];
+        for (var t in list) {
+          if (t['is_active'] == 0) continue;
+          
+          final service = OpdService(
+            id: 'LB_${t['id'] ?? t['srl_no']}',
+            name: t['test_name']?.toString() ?? 'Unnamed Lab Test',
+            category: 'laboratory',
+            price: double.tryParse(t['test_rate']?.toString() ?? '0') ?? 0.0,
+            icon: Icons.biotech_rounded,
+            color: const Color(0xFFF4511E),
+          );
+          
+          if (!services.containsKey('laboratory')) services['laboratory'] = [];
+          if (!services['laboratory']!.any((e) => e.id == service.id)) {
+            services['laboratory']!.add(service);
+          }
+        }
+      }
+
+      // 3. Process Radiology Tests from Dedicated API
+      if (radResult['success'] == true) {
+        final list = radResult['data'] as List<dynamic>? ?? [];
+        for (var t in list) {
+          if (t['is_active'] == 0) continue;
+
+          final testCatRaw = t['test_category']?.toString().toLowerCase() ?? '';
+          String category = 'xray';
+          Color color = const Color(0xFF1E88E5);
+          IconData icon = Icons.radio_rounded;
+
+          if (testCatRaw.contains('ct-scan') || testCatRaw.contains('ct scan')) {
+            category = 'ctscan'; color = const Color(0xFF8E24AA); icon = Icons.document_scanner_rounded;
+          } else if (testCatRaw.contains('mri')) {
+            category = 'mri'; color = const Color(0xFF00ACC1); icon = Icons.blur_circular_rounded;
+          } else if (testCatRaw.contains('ultrasound')) {
+            category = 'ultrasound'; color = const Color(0xFF43A047); icon = Icons.sensors_rounded;
+          }
+
+          final service = OpdService(
+            id: 'RD_${t['id'] ?? t['srl_no']}',
+            name: t['test_name']?.toString() ?? 'Unnamed Rad Test',
+            category: category,
+            price: double.tryParse(t['test_rate']?.toString() ?? '0') ?? 0.0,
+            icon: icon,
+            color: color,
+          );
+          
+          if (!services.containsKey(category)) services[category] = [];
+          if (!services[category]!.any((e) => e.id == service.id)) {
+            services[category]!.add(service);
+          }
+        }
+      }
+
+      _errorMessage = null;
     } catch (e) {
       if (!_isDisposed) _errorMessage = 'Failed to load services: $e';
+      debugPrint('❌ Error loading OPD/Ref/Lab/Rad services: $e');
     }
 
     _loadingServices = false;
@@ -761,11 +828,7 @@ class OpdProvider extends ChangeNotifier {
       return false;
     }
 
-    // Only increment the MR counter if the receipt was for the NEXT auto-generated MR No.
-    // If it's an existing patient (manually typed or found via lookup), don't increment.
-    if (patient.mrNo == nextMrNo) {
-      incrementMrNo();
-    }
+    // Post-save cleanup logic removed (MR incrementing handled by MrProvider + UI)
 
     // Consultant payment records
     for (var svc in services) {
@@ -821,7 +884,6 @@ class OpdProvider extends ChangeNotifier {
     }
 
     _emergencyAdmission = false;
-    incrementMrNo();
     _selectedServices.clear();
     _safeNotify();
     return true;

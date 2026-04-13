@@ -9,7 +9,17 @@ import '../../global/global_api.dart';
 import '../../providers/opd/opd_reciepts/opd_reciepts.dart';
 import '../../providers/mr_provider/mr_provider.dart';
 import '../../providers/shift_management/shift_management.dart';
+import '../../providers/voucher_provider/voucher.dart';
+import '../../providers/emergency_treatment_provider/emergency_provider.dart';
+import '../../providers/appointments_provider/appointments_provider.dart';
+import '../../core/services/opd_receipt_api_service.dart';
+import '../../models/opd_model/opd_receipt_model.dart';
+import 'package:intl/intl.dart';
+import '../../models/voucher_model/voucher_model.dart';
+import '../../models/appointment_model/appointments_model.dart';
 import '../../custum widgets/custom_loader.dart';
+import '../../core/utils/thermal_receipt_helper.dart';
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // THEME CONSTANTS
@@ -25,6 +35,8 @@ const _textLight = Color(0xFF718096);
 const _border = Color(0xFFE2E8F0);
 const _red = Color(0xFFE53E3E);
 const _green = Color(0xFF38A169);
+const _greenLight = Color(0xFFE6FFFA);
+const _white = Colors.white;
 
 class OpdReceiptScreen extends StatefulWidget {
   const OpdReceiptScreen({super.key});
@@ -70,10 +82,58 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
         _padMr();
       }
     });
+
+    // Always fetch latest MR on entry
+    context.read<MrProvider>().fetchNextMR();
+
+    // Refresh global auxiliary data
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final opdProv = Provider.of<OpdProvider>(context, listen: false);
-      _mrNoCtrl.text = opdProv.nextMrNo;
+      _refreshAuxData(isGlobalOnly: true);
     });
+
+    // Auto-populate when ready
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _autoPopulateNextMr();
+    });
+  }
+
+  void _refreshAuxData({bool isGlobalOnly = false}) {
+    // 1. Refresh Emergency Queue (Global)
+    Provider.of<EmergencyProvider>(context, listen: false).loadQueue();
+
+    if (!isGlobalOnly && _mrNoCtrl.text.isNotEmpty) {
+      // 2. Refresh Appointments/Tokens (Patient Specific)
+      Provider.of<AppointmentsProvider>(context, listen: false).fetchAppointments();
+
+      // 3. Refresh Discount Vouchers (Patient Specific)
+      Provider.of<VoucherProvider>(context, listen: false).loadData();
+    }
+  }
+
+  void _autoPopulateNextMr() {
+    final mrProv = context.read<MrProvider>();
+    if (mrProv.nextMrNumber != null && _mrNoCtrl.text.isEmpty) {
+      setState(() {
+        _mrNoCtrl.text = mrProv.nextMrNumber!;
+        _patientFound = false;
+        _patientNotFound = true;
+      });
+    } else if (mrProv.nextMrNumber == null) {
+      mrProv.addListener(_onMrProvChange);
+    }
+  }
+
+  void _onMrProvChange() {
+    if (!mounted) return;
+    final mrProv = context.read<MrProvider>();
+    if (mrProv.nextMrNumber != null && _mrNoCtrl.text.isEmpty) {
+      setState(() {
+        _mrNoCtrl.text = mrProv.nextMrNumber!;
+        _patientFound = false;
+        _patientNotFound = true;
+      });
+      mrProv.removeListener(_onMrProvChange);
+    }
   }
 
   void _padMr() {
@@ -87,6 +147,9 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
 
   @override
   void dispose() {
+    // Remove listener if screen is disposed before it was automatically removed
+    context.read<MrProvider>().removeListener(_onMrProvChange);
+
     _scrollController.dispose();
     _mrNoCtrl.dispose();
     _nameCtrl.dispose();
@@ -99,6 +162,25 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
     _amountPaidCtrl.dispose();
     _mrNoFocusNode.dispose();
     super.dispose();
+  }
+
+  Widget _chip(String text, Color fg, Color bg, {IconData? icon}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: fg.withOpacity(0.25))),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        if (icon != null) ...[
+          Icon(icon, size: 10, color: fg),
+          const SizedBox(width: 4)
+        ],
+        Text(text,
+            style: TextStyle(
+                fontSize: 10, fontWeight: FontWeight.w600, color: fg)),
+      ]),
+    );
   }
 
   void _onMrChanged(String val) async {
@@ -119,6 +201,8 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
       final mrProv = Provider.of<MrProvider>(context, listen: false);
       final patient = await mrProv.findByMrNumber(formatted);
 
+      if (!mounted) return;
+
       setState(() {
         _isSearching = false;
       });
@@ -134,6 +218,7 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
           _addressCtrl.text = patient.address;
           _cityCtrl.text = patient.city;
         });
+        _refreshAuxData();
       } else {
         setState(() {
           _patientFound = false;
@@ -171,13 +256,25 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
   }
 
   void _clearAll() {
-    final prov = Provider.of<OpdProvider>(context, listen: false);
+    final opdProv = Provider.of<OpdProvider>(context, listen: false);
+    final mrProv = Provider.of<MrProvider>(context, listen: false);
     _clearPatient();
-    _mrNoCtrl.text = prov.nextMrNo;
+
+    // Fetch next MR and update field
+    mrProv.fetchNextMR().then((_) {
+      if (mounted && _mrNoCtrl.text.isEmpty) {
+        setState(() {
+          if (mrProv.nextMrNumber != null) {
+            _mrNoCtrl.text = mrProv.nextMrNumber!;
+          }
+        });
+      }
+    });
+
     _discountCtrl.text = '0';
     _amountPaidCtrl.text = '0';
-    prov.clearServices();
-    prov.emergencyAdmission = false;
+    opdProv.clearServices();
+    opdProv.emergencyAdmission = false;
     setState(() {
       _activeCat = 'opd';
       _svcSearch = '';
@@ -236,12 +333,16 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
       currentShift: shiftProv.shift,
     )
         .then((ok) {
+      if (!mounted) return;
       if (!ok) {
         _snack(
             prov.errorMessage ?? 'Failed to save OPD receipt. Please try again.',
             err: true);
         return;
       }
+
+      // Success: refresh MR sequence in case we created a new patient
+      context.read<MrProvider>().fetchNextMR();
 
       // Success Dialog with Print Option
       showDialog(
@@ -264,9 +365,9 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
               child: Text('Don\'t Print', style: TextStyle(color: Colors.grey.shade600)),
             ),
             ElevatedButton.icon(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.pop(ctx);
-                _printReceipt(prov, patient);
+                await _printThermalReceiptFromPatient(prov, patient);
                 _clearAll();
               },
               icon: const Icon(Icons.print_rounded, size: 18),
@@ -283,85 +384,41 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
     });
   }
 
-  Future<void> _printReceipt(OpdProvider prov, OpdPatient patient) async {
-    final pdf = pw.Document();
-    final dateStr = AppDateFormatter.formatWithDay(DateTime.now());
-
-    pdf.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.a4,
-        build: (pw.Context context) {
-          return pw.Padding(
-            padding: const pw.EdgeInsets.all(20),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Center(
-                  child: pw.Text('HIMS - OPD RECEIPT',
-                      style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
-                ),
-                pw.SizedBox(height: 10),
-                pw.Divider(),
-                pw.SizedBox(height: 20),
-                pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    pw.Text('Date: $dateStr'),
-                    pw.Text('MR #: ${patient.mrNo}'),
-                  ],
-                ),
-                pw.SizedBox(height: 20),
-                pw.Text('Patient Details:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                pw.Text('Name: ${patient.fullName}'),
-                pw.Text('Phone: ${patient.phone}'),
-                pw.Text('Age/Gender: ${patient.age} / ${patient.gender}'),
-                pw.Text('City: ${patient.city}'),
-                pw.SizedBox(height: 20),
-                pw.Text('Services Requested:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                pw.Divider(),
-                ...prov.selectedServices.map((s) => pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    pw.Text(s.service.name),
-                    pw.Text('PKR ${s.service.price.toStringAsFixed(2)}'),
-                  ],
-                )),
-                pw.Divider(),
-                pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    pw.Text('Total:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                    pw.Text('PKR ${prov.servicesTotal.toStringAsFixed(2)}',
-                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                  ],
-                ),
-                pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    pw.Text('Discount:'),
-                    pw.Text('PKR ${_discountVal.toStringAsFixed(2)}'),
-                  ],
-                ),
-                pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    pw.Text('Amount Paid:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                    pw.Text('PKR ${_amountPaidVal.toStringAsFixed(2)}',
-                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                  ],
-                ),
-              ],
-            ),
-          );
-        },
-      ),
+  Future<void> _printThermalReceiptFromPatient(OpdProvider prov, OpdPatient patient) async {
+    final pdfBytes = await ThermalReceiptHelper.generateReceipt(
+      hospitalName: 'HIMS Hospital',
+      receiptId: 'PENDING',
+      mrNumber: patient.mrNo,
+      patientName: patient.fullName,
+      age: patient.age,
+      gender: patient.gender,
+      date: DateFormat('dd MMM yy').format(DateTime.now()),
+      time: DateFormat('hh:mm a').format(DateTime.now()),
+      items: prov.selectedServices.map((s) => {
+        'name': s.service.name,
+        'rate': s.service.price,
+        'qty': s.quantity,
+      }).toList(),
+      total: prov.servicesTotal,
+      discount: _discountVal,
+      payable: prov.servicesTotal - _discountVal,
+      cashier: 'RECEPTION',
+      qrData: '${GlobalApi.baseUrl}/receipts/pending',
     );
 
-    await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => pdf.save());
+    await Printing.layoutPdf(
+      onLayout: (format) async => pdfBytes,
+      name: 'Receipt_${patient.mrNo}',
+    );
   }
 
+
+
   void _snack(String msg, {required bool err}) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+    if (!mounted) return;
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    scaffoldMessenger.hideCurrentSnackBar();
+    scaffoldMessenger.showSnackBar(SnackBar(
       content: Row(children: [
         Icon(err ? Icons.error_outline : Icons.check_circle,
             color: Colors.white, size: 16),
@@ -394,50 +451,137 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
     );
   }
 
-  // ════════════════════════════════════════════ WIDE LAYOUT ═══════════════════
-  Widget _buildWide() {
-    return Consumer2<OpdProvider, MrProvider>(
-      builder: (_, opdProv, mrProv, __) => Column(children: [
-        _buildWideHeader(),
-        Expanded(
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Expanded(
-              flex: 63,
-              child: CustomScrollView(
-                physics: const BouncingScrollPhysics(),
-                slivers: [
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 8, 120),
-                    sliver: SliverList(delegate: SliverChildListDelegate([
-                      _patientCard(opdProv, mrProv),
-                      const SizedBox(height: 16),
-                      _servicesSection(opdProv),
-                    ])),
+  Widget _buildAuxiliaryTabsCard(MrProvider mrProv) {
+    return DefaultTabController(
+      length: 6,
+      child: Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: _border)),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            Container(
+              decoration: const BoxDecoration(
+                color: Color(0xFFF8FAFC),
+                border: Border(bottom: BorderSide(color: _border)),
+              ),
+              child: TabBar(
+                isScrollable: true,
+                indicatorColor: _teal,
+                labelColor: _teal,
+                unselectedLabelColor: _textMid,
+                indicatorWeight: 3,
+                labelPadding: const EdgeInsets.symmetric(horizontal: 16),
+                labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                unselectedLabelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                tabs: [
+                  const Tab(text: 'OPD'),
+                  const Tab(text: 'Emergency'),
+                  const Tab(text: 'IPD'),
+                  const Tab(text: 'Tokens'),
+                  const Tab(text: 'History'),
+                  Tab(
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Text('Disc.'),
+                      const SizedBox(width: 4),
+                      Consumer<VoucherProvider>(
+                        builder: (context, vProv, _) {
+                          final hasApproved = vProv.pendingVouchers.any((v) => v.status == VoucherStatus.approved);
+                          final hasPending = vProv.pendingVouchers.any((v) => v.status == VoucherStatus.pending);
+                          
+                          Color color = Colors.transparent;
+                          if (hasApproved) {
+                            color = _green; // Approved takes priority (pulse in React, steady green here)
+                          } else if (hasPending) {
+                            color = Colors.amber;
+                          }
+
+                          return Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                                color: color, 
+                                shape: BoxShape.circle),
+                          );
+                        },
+                      ),
+                    ]),
                   ),
                 ],
               ),
             ),
             SizedBox(
-              width: MediaQuery.of(context).size.width * 0.34,
-              child: CustomScrollView(
-                physics: const BouncingScrollPhysics(),
-                slivers: [
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(8, 16, 16, 120),
-                    sliver: SliverList(delegate: SliverChildListDelegate([
-                      _billingCard(opdProv),
-                    ])),
-                  ),
+              height: 480,
+              child: TabBarView(
+                children: [
+                  _buildOpdReferenceContent(),
+                  _buildEmergencyTabContent(),
+                  _buildPlaceholderTab('IPD Patients Data'),
+                  _buildTokensTabContent(mrProv),
+                  _buildHistoryTabContent(mrProv),
+                  _buildDiscountTabContent(mrProv),
                 ],
               ),
             ),
-          ]),
+          ],
         ),
+      ),
+    );
+  }
+
+  // ════════════════════════════════════════════ WIDE LAYOUT ═══════════════════
+  Widget _buildWide() {
+    return Consumer2<OpdProvider, MrProvider>(
+      builder: (_, opdProv, mrProv, __) => Column(children: [
+        _buildWideHeader(),
+        Expanded(child: _buildOpdTabViewWide(opdProv, mrProv)),
       ]),
     );
   }
 
-  // ════════════════════════════════════════════ WIDE HEADER ═══════════════════
+  Widget _buildOpdTabViewWide(OpdProvider opdProv, MrProvider mrProv) {
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Expanded(
+        flex: 63,
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 8, 120),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  _patientCard(opdProv, mrProv),
+                  const SizedBox(height: 16),
+                  _buildAuxiliaryTabsCard(mrProv),
+                  const SizedBox(height: 16),
+                  _servicesSection(opdProv),
+                ]),
+              ),
+            ),
+          ],
+        ),
+      ),
+      SizedBox(
+        width: MediaQuery.of(context).size.width * 0.34,
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(8, 16, 16, 120),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  _billingCard(opdProv),
+                ]),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ]);
+  }
+
   Widget _buildWideHeader() {
     final now = DateTime.now();
     final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
@@ -500,18 +644,39 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
           Expanded(
             child: GestureDetector(
               onTap: () => FocusScope.of(context).unfocus(),
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                padding: const EdgeInsets.fromLTRB(0, 0, 0, 120),
-                child: Column(
-                  children: [
-                    _mobileHeader(opdProv, mrProv),
-                    _stepContent(opdProv, mrProv),
-                  ],
-                ),
-              ),
+              child: _buildOpdTabViewMobile(opdProv, mrProv),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOpdTabViewMobile(OpdProvider opdProv, MrProvider mrProv) {
+    return SingleChildScrollView(
+      controller: _scrollController,
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 120),
+      child: Column(
+        children: [
+          _mobileHeader(opdProv, mrProv),
+          _stepContent(opdProv, mrProv),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlaceholderTab(String label) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey[300]),
+          const SizedBox(height: 16),
+          Text(label,
+              style: TextStyle(fontSize: 14, color: Colors.grey[500], fontWeight: FontWeight.w500)),
+          const SizedBox(height: 8),
+          Text('Syncing with live server...',
+              style: TextStyle(fontSize: 12, color: Colors.grey[400])),
         ],
       ),
     );
@@ -691,46 +856,52 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
             _buildMrSuffix(),
           ]),
         ),
+        // if (!_patientFound && _mrNoCtrl.text == context.watch<MrProvider>().nextMrNumber)
+        //   Padding(
+        //     padding: const EdgeInsets.only(top: 8),
+        //     child: _chip('AUTO-ASSIGNED MR#', Colors.amber[800]!, Colors.amber[50]!, icon: Icons.auto_awesome),
+        //   ),
 
         // Status Chips
-        if (_patientFound) ...[
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-                color: _tealLight,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: _teal.withOpacity(0.3))),
-            child: const Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.check_circle_rounded, size: 12, color: _teal),
-              SizedBox(width: 6),
-              Text('Patient found — fields locked',
-                  style: TextStyle(
-                      fontSize: 11,
-                      color: _teal,
-                      fontWeight: FontWeight.w500)),
-            ]),
-          ),
-        ] else if (_patientNotFound) ...[
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-                color: Colors.orange.shade50,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.orange.withOpacity(0.3))),
-            child: const Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.info_rounded, size: 12, color: Colors.orange),
-              SizedBox(width: 6),
-              Text('Not found — fill manually',
-                  style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.orange,
-                      fontWeight: FontWeight.w500)),
-            ]),
-          ),
-        ],
-      ]),
+        // if (_patientFound) ...[
+        //   const SizedBox(height: 8),
+        //   Container(
+        //     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        //     decoration: BoxDecoration(
+        //         color: _tealLight,
+        //         borderRadius: BorderRadius.circular(20),
+        //         border: Border.all(color: _teal.withOpacity(0.3))),
+        //     child: const Row(mainAxisSize: MainAxisSize.min, children: [
+        //       Icon(Icons.check_circle_rounded, size: 12, color: _teal),
+        //       SizedBox(width: 6),
+        //       Text('Patient found — fields locked',
+        //           style: TextStyle(
+        //               fontSize: 11,
+        //               color: _teal,
+        //               fontWeight: FontWeight.w500)),
+        //     ]),
+        //   ),
+        // ] else if (_patientNotFound) ...[
+        //   const SizedBox(height: 8),
+        //   Container(
+        //     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        //     decoration: BoxDecoration(
+        //         color: Colors.orange.shade50,
+        //         borderRadius: BorderRadius.circular(20),
+        //         border: Border.all(color: Colors.orange.withOpacity(0.3))),
+        //     child: const Row(mainAxisSize: MainAxisSize.min, children: [
+        //       Icon(Icons.info_rounded, size: 12, color: Colors.orange),
+        //       SizedBox(width: 6),
+        //       Text('Not found — fill manually',
+        //           style: TextStyle(
+        //               fontSize: 11,
+        //               color: Colors.orange,
+        //               fontWeight: FontWeight.w500)),
+        //     ]),
+        //   ),
+        // ],
+      ]
+      ),
     );
   }
 
@@ -922,12 +1093,10 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
           _stepTitle('Patient Selection', Icons.person_outline),
           const SizedBox(height: 16),
           _patientProfileCard(opdProv),
+          const SizedBox(height: 16),
+          _buildAuxiliaryTabsCard(mrProv),
         ],
       );
-    }
-
-    if (!_patientNotFound) {
-      return const SizedBox.shrink();
     }
 
     return Column(
@@ -1043,6 +1212,8 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
             ),
           ),
         ]),
+        const SizedBox(height: 20),
+        _buildAuxiliaryTabsCard(mrProv),
       ],
     );
   }
@@ -1172,13 +1343,7 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
       {'id': 'emergency', 'label': 'Emergency', 'icon': Icons.emergency_rounded, 'color': Color(0xFFE53935)},
     ];
 
-    List<OpdService> categoryServices = [];
-    if (prov.services.containsKey(_activeCat)) {
-      categoryServices = prov.services[_activeCat] ?? [];
-    } else if (cats.isNotEmpty) {
-      _activeCat = cats.first['id'] as String;
-      categoryServices = prov.services[_activeCat] ?? [];
-    }
+    final List<OpdService> categoryServices = prov.services[_activeCat] ?? [];
 
     final svcList = categoryServices.where((s) =>
     _svcSearch.isEmpty ||
@@ -1303,15 +1468,31 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
         // Services list
         if (svcList.isEmpty)
           Container(
-            height: 150,
-            alignment: Alignment.center,
+            height: 200,
+            width: double.infinity,
+            margin: const EdgeInsets.only(top: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _border.withOpacity(0.5)),
+            ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.inbox_rounded, color: Colors.grey.shade300, size: 40),
-                const SizedBox(height: 8),
-                Text('No services found',
-                    style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: _bg,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.search_off_rounded, color: Colors.grey.shade400, size: 40),
+                ),
+                const SizedBox(height: 16),
+                Text('No ${_activeCat.toUpperCase()} Services',
+                    style: TextStyle(color: _textDark, fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text('Try searching for something else',
+                    style: TextStyle(color: _textLight, fontSize: 13)),
               ],
             ),
           )
@@ -1392,7 +1573,29 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
               color: svc.color.withOpacity(0.12),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(svc.icon, color: svc.color, size: 22),
+            child: svc.imageUrl != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.network(
+                      svc.imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Icon(svc.icon, color: svc.color, size: 22),
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Center(
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(svc.color.withOpacity(0.5)),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  )
+                : Icon(svc.icon, color: svc.color, size: 22),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1789,6 +1992,11 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
                   ),
                 ),
               ),
+              if (!_patientFound && _mrNoCtrl.text == context.watch<MrProvider>().nextMrNumber)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _chip('AUTO', Colors.amber[800]!, Colors.amber[50]!, icon: Icons.auto_awesome),
+                ),
               _buildWideMrSuffix(),
             ]),
           ),
@@ -2110,9 +2318,26 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
         const SizedBox(height: 16),
 
         // Services list
-        ...prov.services[_activeCat]?.where((s) =>
-        _svcSearch.isEmpty || s.name.toLowerCase().contains(_svcSearch.toLowerCase()))
-            .map((s) => _wideSvcTile(s, prov)) ?? [],
+        if ((prov.services[_activeCat] ?? []).where((s) =>
+            _svcSearch.isEmpty || s.name.toLowerCase().contains(_svcSearch.toLowerCase())).isEmpty)
+          Container(
+            height: 150,
+            alignment: Alignment.center,
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.search_off_rounded, color: Colors.grey.shade300, size: 32),
+                const SizedBox(height: 8),
+                Text('No services found in ${_activeCat.toUpperCase()}',
+                    style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
+              ],
+            ),
+          )
+        else
+          ...prov.services[_activeCat]?.where((s) =>
+          _svcSearch.isEmpty || s.name.toLowerCase().contains(_svcSearch.toLowerCase()))
+              .map((s) => _wideSvcTile(s, prov)) ?? [],
       ]),
     );
   }
@@ -2145,7 +2370,16 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
               color: svc.color.withOpacity(0.12),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(svc.icon, color: svc.color, size: 18),
+            child: svc.imageUrl != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      svc.imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Icon(svc.icon, color: svc.color, size: 18),
+                    ),
+                  )
+                : Icon(svc.icon, color: svc.color, size: 18),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -2351,6 +2585,369 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
           ),
         ]),
       ]),
+    );
+  }
+  Widget _buildEmergencyTabContent() {
+    return Consumer<EmergencyProvider>(
+      builder: (context, emProv, _) {
+        if (emProv.isLoadingQueue) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32.0),
+              child: CircularProgressIndicator(strokeWidth: 2, color: _red),
+            ),
+          );
+        }
+        final queue = emProv.queue;
+        if (queue.isEmpty) {
+          return _buildPlaceholderTab('No Emergency Patients');
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.all(12),
+          itemCount: queue.length,
+          itemBuilder: (ctx, idx) {
+            final p = queue[idx];
+            return Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: BorderSide(color: _red.withOpacity(0.2))),
+              color: Colors.red.shade50.withOpacity(0.3),
+              child: ListTile(
+                onTap: () {
+                  _mrNoCtrl.text = p.mrNo;
+                  _onMrChanged(p.mrNo);
+                  DefaultTabController.of(ctx).animateTo(0);
+                },
+                title: Text(p.name,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13, color: _red)),
+                subtitle: Text('MR: ${p.mrNo} • ${p.age}y',
+                    style: const TextStyle(fontSize: 11)),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded,
+                    size: 14, color: _red),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildTokensTabContent(MrProvider mrProv) {
+    return Consumer<AppointmentsProvider>(
+      builder: (context, apptProv, _) {
+        final mr = _mrNoCtrl.text;
+        if (mr.isEmpty) {
+          return _buildPlaceholderTab('Enter MR to view tokens');
+        }
+        final mine =
+            apptProv.filtered.where((a) => a.mrNumber == mr).toList();
+        if (mine.isEmpty) {
+          return _buildPlaceholderTab('No tokens for this patient');
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.all(12),
+          itemCount: mine.length,
+          itemBuilder: (ctx, idx) {
+            final a = mine[idx];
+            return Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: const BorderSide(color: _border)),
+              child: ListTile(
+                title: Text(a.doctorName,
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: _teal)),
+                subtitle: Text('${a.appointmentDate} • ${a.slotTime}',
+                    style: const TextStyle(fontSize: 11)),
+                trailing: a.tokenNumber != null
+                    ? _chip('Token #${a.tokenNumber}', _green,
+                        _green.withOpacity(0.1))
+                    : null,
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildHistoryTabContent(MrProvider mrProv) {
+    final mr = _mrNoCtrl.text;
+    if (mr.isEmpty) {
+      return _buildPlaceholderTab('Enter MR to view history');
+    }
+    return FutureBuilder<OpdReceiptsResult>(
+      future: OpdReceiptApiService().fetchOpdReceipts(mrNumber: mr),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32.0),
+              child: CircularProgressIndicator(strokeWidth: 2, color: _teal),
+            ),
+          );
+        }
+        final receipts = snapshot.data?.receipts ?? [];
+        if (receipts.isEmpty) {
+          return _buildPlaceholderTab('No previous history');
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.all(12),
+          itemCount: receipts.length,
+          itemBuilder: (ctx, idx) {
+            final r = receipts[idx];
+            return Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: const BorderSide(color: _border)),
+              child: ListTile(
+                title: Text('Receipt #${r.receiptId}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13)),
+                subtitle: Text('${r.date} • PKR ${r.payable}',
+                    style: const TextStyle(fontSize: 11)),
+                trailing: const Icon(Icons.history_edu_rounded,
+                    size: 16, color: Colors.blueGrey),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildOpdReferenceContent() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.receipt_long_outlined, size: 48, color: Colors.grey[300]),
+          const SizedBox(height: 12),
+          Text('OPD Dashboard',
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[600])),
+          const SizedBox(height: 4),
+          Text('Real-time OPD stats & tools',
+              style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDiscountTabContent(MrProvider mrProv) {
+    return Consumer<VoucherProvider>(
+      builder: (context, vProv, _) {
+        if (vProv.isLoading) {
+          return const Center(child: CustomLoader(size: 30));
+        }
+
+        final vouchers = vProv.pendingVouchers;
+
+        if (vouchers.isEmpty) {
+          return _buildPlaceholderTab('No discount receipts');
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(12),
+          itemCount: vouchers.length,
+          itemBuilder: (ctx, idx) {
+            final v = vouchers[idx];
+            final isApproved = v.status == VoucherStatus.approved;
+            final color = isApproved ? _green : Colors.amber;
+            final bgColor = isApproved ? const Color(0xFFF0FFF4) : const Color(0xFFFFFBEB);
+
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: color.withOpacity(0.3))),
+              color: bgColor,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(v.invoiceId,
+                            style: const TextStyle(
+                                fontFamily: 'Monospace',
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12)),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                              color: color.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: color.withOpacity(0.2))),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                  isApproved
+                                      ? Icons.check_circle_outline
+                                      : Icons.access_time_rounded,
+                                  size: 12,
+                                  color: color),
+                              const SizedBox(width: 4),
+                              Text(isApproved ? 'Approved' : 'Pending',
+                                  style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: color)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(v.patientName,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 13)),
+                    const SizedBox(height: 4),
+                    Text('MR: ${v.patientMrNumber} · ${v.time}',
+                        style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                          color: _white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: _border)),
+                      child: Column(
+                        children: [
+                          _rowItem('Total', 'PKR ${v.totalAmount.toInt()}'),
+                          const SizedBox(height: 4),
+                          _rowItem(
+                              'Discount ${isApproved ? '' : '(req.)'}',
+                              '− PKR ${v.discountAmount.toInt()}',
+                              valColor: color),
+                          if (isApproved) ...[
+                            const Divider(height: 12),
+                            _rowItem(
+                                'Net Payable', 'PKR ${v.payableAmt.toInt()}',
+                                isBold: true, valColor: _green),
+                          ]
+                        ],
+                      ),
+                    ),
+                    if (isApproved) ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () => _finalizeVoucher(v),
+                          icon: const Icon(Icons.receipt_long, size: 16),
+                          label: const Text('Generate Receipt & Finalize',
+                              style: TextStyle(fontSize: 12)),
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blueGrey[800],
+                              foregroundColor: _white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8))),
+                        ),
+                      ),
+                    ]
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _rowItem(String label, String val,
+      {bool isBold = false, Color? valColor}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label,
+            style: TextStyle(
+                fontSize: 10,
+                color: Colors.grey[600],
+                fontWeight: isBold ? FontWeight.bold : FontWeight.normal)),
+        Text(val,
+            style: TextStyle(
+                fontSize: 11,
+                fontFamily: 'Monospace',
+                fontWeight: FontWeight.bold,
+                color: valColor ?? _textDark)),
+      ],
+    );
+  }
+
+  Future<void> _finalizeVoucher(VoucherDetail voucher) async {
+    final vProv = Provider.of<VoucherProvider>(context, listen: false);
+    
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(child: CircularProgressIndicator(color: _teal)),
+    );
+
+    final res = await vProv.finalizeVoucher(voucher.srlNo);
+    
+    if (!mounted) return;
+    Navigator.of(context).pop(); // Close loading
+
+    if (res['success'] == true) {
+      _snack('Voucher finalized successfully!', err: false);
+      
+      // Auto-trigger thermal receipt print for finalized voucher
+      await _printThermalReceiptForVoucher(voucher);
+      
+      // Refresh pending discounts
+      if (mounted) {
+        Provider.of<VoucherProvider>(context, listen: false).loadData();
+      }
+    } else {
+      _snack(res['message'] ?? 'Failed to finalize voucher', err: true);
+    }
+  }
+
+  Future<void> _printThermalReceiptForVoucher(VoucherDetail v) async {
+    final pdfBytes = await ThermalReceiptHelper.generateReceipt(
+      hospitalName: 'HIMS Hospital',
+      receiptId: v.invoiceId,
+      mrNumber: v.patientMrNumber,
+      patientName: v.patientName,
+      age: v.age,
+      gender: v.gender,
+      date: v.date,
+      time: v.time,
+      items: v.services.map((s) => {
+        'name': s.service,
+        'rate': s.rate,
+        'qty': s.qty,
+      }).toList(),
+      total: v.totalAmount,
+      discount: v.discountAmountValue,
+      payable: v.payableAmt,
+      cashier: 'RECEPTION',
+      qrData: '${GlobalApi.baseUrl}/receipts/${v.invoiceId}',
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (format) async => pdfBytes,
+      name: 'Receipt_${v.invoiceId}',
     );
   }
 }

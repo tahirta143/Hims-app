@@ -458,7 +458,7 @@ class _DiscountVoucherApprovalScreenState
           Flexible(
             child: SingleChildScrollView(
               child: Column(
-                children: p.pendingVouchers.map((voucher) => Padding(
+                children: p.trulyPendingVouchers.map((voucher) => Padding(
                   padding: const EdgeInsets.only(bottom: 4),
                   child: PendingApprovalTile(
                     voucher: voucher,

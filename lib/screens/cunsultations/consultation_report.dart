@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../custum widgets/drawer/base_scaffold.dart';
 import '../../models/appointment_model/appointments_model.dart';
+import '../../models/consultation_model/doctor_model.dart';
+import '../../models/consultation_model/appointment_model.dart' as appt_model;
+import 'widgets/appointment_dialog.dart';
 import '../../providers/appointments_provider/appointments_provider.dart';
 import '../../custum widgets/custom_loader.dart';
 
@@ -846,7 +849,7 @@ class _AppointmentDetailsCard extends StatelessWidget {
                 // Rows
                 if (list.isEmpty)
                   Container(
-                    width: 980,
+                    width: 1000,
                     padding: const EdgeInsets.all(32),
                     child: const Center(
                       child: Text('No appointments found',
@@ -919,6 +922,7 @@ class _TableHeader extends StatelessWidget {
         // _th('TYPE', w: 90),
         _th('FEE', w: 120),
         _th('STATUS', w: 90),
+        _th('ACTIONS', w: 120),
       ]),
     );
   }
@@ -1096,6 +1100,91 @@ class _AppointmentRow extends StatelessWidget {
                         color: _statusColor(appt.status))),
               ),
             ),
+          ),
+          // ACTIONS
+          SizedBox(
+            width: 120,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, color: Colors.blue, size: 20),
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(),
+                  onPressed: () => _onEdit(context),
+                  tooltip: 'Edit',
+                ),
+                const SizedBox(width: 12),
+                IconButton(
+                  icon: const Icon(Icons.cancel_outlined, color: Colors.red, size: 20),
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(),
+                  onPressed: () => _onCancel(context),
+                  tooltip: 'Cancel',
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _onEdit(BuildContext context) {
+    // Map AppointmentModel to DoctorInfo and ConsultationAppointment for the dialog
+    final doctor = DoctorInfo(
+      id: appt.doctorSrlNo.toString(),
+      name: appt.doctorName.startsWith('Dr. ') ? appt.doctorName : 'Dr. ${appt.doctorName}',
+      specialty: appt.doctorSpecialization,
+      consultationFee: appt.fee.toString(),
+      followUpCharges: appt.followUpCharges.toString(),
+      availableDays: [], // Not strictly needed for edit
+      timings: '${appt.consultationTimeFrom} - ${appt.consultationTimeTo}',
+      hospital: 'WMCTH', // Default
+      imageAsset: '',
+      avatarColor: Colors.blue,
+      totalAppointments: 0,
+    );
+
+    final consultationAppt = appt.toConsultationAppointment('WMCTH');
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AppointmentDialog(
+        doctor: doctor,
+        availableSlots: 10, // Dummy
+        editAppointment: consultationAppt,
+      ),
+    );
+  }
+
+  void _onCancel(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel Appointment'),
+        content: Text('Are you sure you want to cancel appointment for ${appt.patientName}?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('No')),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final provider = context.read<AppointmentsProvider>();
+              final success = await provider.cancelAppointment(appt.id);
+              if (success) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('Appointment cancelled successfully'),
+                  backgroundColor: Colors.green,
+                ));
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(provider.errorMessage ?? 'Failed to cancel'),
+                  backgroundColor: Colors.red,
+                ));
+              }
+            },
+            child: const Text('Yes, Cancel', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),

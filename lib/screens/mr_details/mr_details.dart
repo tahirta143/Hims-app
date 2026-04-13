@@ -64,7 +64,9 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
   final _ageCtrl = TextEditingController();
   final _profCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  final _whatsappCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
+  final _eduCtrl = TextEditingController();
   final _cnicCtrl = TextEditingController();
   final _addrCtrl = TextEditingController();
   final _cityCtrl = TextEditingController();
@@ -98,6 +100,13 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
 
     // Always fetch latest MR on entry
     context.read<MrProvider>().fetchNextMR();
+
+    // Auto-sync Phone to WhatsApp
+    _phoneCtrl.addListener(() {
+      if (_whatsappCtrl.text.isEmpty || _whatsappCtrl.text == _phoneCtrl.text) {
+        _whatsappCtrl.text = _phoneCtrl.text;
+      }
+    });
 
     // Auto-populate when ready
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -144,7 +153,9 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
     _guardianCtrl.dispose();
     _ageCtrl.dispose();
     _profCtrl.dispose();
+    _eduCtrl.dispose();
     _phoneCtrl.dispose();
+    _whatsappCtrl.dispose();
     _emailCtrl.dispose();
     _cnicCtrl.dispose();
     _addrCtrl.dispose();
@@ -228,7 +239,9 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
     _guardianCtrl.clear();
     _ageCtrl.clear();
     _profCtrl.clear();
+    _eduCtrl.clear();
     _phoneCtrl.clear();
+    _whatsappCtrl.clear();
     _emailCtrl.clear();
     _cnicCtrl.clear();
     _addrCtrl.clear();
@@ -257,7 +270,9 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
       age: int.tryParse(_ageCtrl.text),
       bloodGroup: _bloodGroup,
       profession: _profCtrl.text,
+      education: _eduCtrl.text,
       phoneNumber: _phoneCtrl.text,
+      whatsappNo: _whatsappCtrl.text,
       email: _emailCtrl.text,
       cnic: _cnicCtrl.text,
       address: _addrCtrl.text,
@@ -561,13 +576,19 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
                 _dd(label: 'Blood Group', value: _bloodGroup.isEmpty ? null : _bloodGroup, items: _bloodGroups, hint: 'Select', onChanged: (v) => setState(() => _bloodGroup = v ?? '')),
               ], isMobile),
               const SizedBox(height: 16),
-              _f(ctrl: _profCtrl, label: 'Profession', icon: Icons.work_outline),
+              _responsiveGrid([
+                _f(ctrl: _profCtrl, label: 'Profession', icon: Icons.work_outline),
+                _f(ctrl: _eduCtrl, label: 'Education', icon: Icons.book_outlined),
+              ], isMobile),
               
               const SizedBox(height: 32),
               // --- Section: Contact Details ---
               _sectionHeader('Contact Details', Icons.contact_phone_outlined),
               const SizedBox(height: 16),
-              _f(ctrl: _phoneCtrl, label: 'Phone Number', icon: Icons.phone_outlined, type: TextInputType.phone),
+              _responsiveGrid([
+                _f(ctrl: _phoneCtrl, label: 'Phone Number', icon: Icons.phone_outlined, type: TextInputType.phone),
+                _f(ctrl: _whatsappCtrl, label: 'WhatsApp No', icon: Icons.message_outlined, type: TextInputType.phone),
+              ], isMobile),
               const SizedBox(height: 16),
               _responsiveGrid([
                 _f(ctrl: _emailCtrl, label: 'Email Address', icon: Icons.email_outlined, type: TextInputType.emailAddress),
@@ -733,12 +754,14 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
   Widget _detailGrid(PatientModel p) {
     final items = [
       {'icon': Icons.phone_outlined, 'label': 'Phone', 'value': p.phoneNumber, 'full': false},
+      {'icon': Icons.message_outlined, 'label': 'WhatsApp', 'value': p.whatsappNo, 'full': false},
       {'icon': Icons.credit_card_outlined, 'label': 'CNIC', 'value': p.cnic, 'full': false},
       {'icon': Icons.email_outlined, 'label': 'Email', 'value': p.email, 'full': true},
       {'icon': Icons.people_outline, 'label': 'Guardian', 'value': p.guardianName, 'full': false},
       {'icon': Icons.family_restroom_outlined, 'label': 'Relation', 'value': p.relation, 'full': false},
       {'icon': Icons.cake_outlined, 'label': 'Date of Birth', 'value': p.dateOfBirth, 'full': false},
       {'icon': Icons.work_outline, 'label': 'Profession', 'value': p.profession, 'full': false},
+      {'icon': Icons.book_outlined, 'label': 'Education', 'value': p.education, 'full': false},
       {'icon': Icons.location_on_outlined, 'label': 'Address', 'value': p.address, 'full': true},
       {'icon': Icons.location_city_outlined, 'label': 'City', 'value': p.city, 'full': false},
     ];

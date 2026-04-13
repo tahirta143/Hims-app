@@ -503,6 +503,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final prov = Provider.of<DashboardProvider>(context, listen: false);
       prov.fetchAvailableShifts(prov.selectedDate);
       prov.fetchCalendarData(prov.selectedDate);
@@ -705,6 +706,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
                 child: SizedBox(
                   height: MediaQuery.of(context).size.height * 0.3,
                   child: SfCartesianChart(
+                    key: ValueKey('shift_rev_${dashboardProv.selectedDate}_${dashboardProv.selectedShiftType}'),
                     margin: EdgeInsets.zero,
                     plotAreaBorderWidth: 0,
                     primaryXAxis: CategoryAxis(
@@ -754,6 +756,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
                     SizedBox(
                       height: 120,
                       child: SfCartesianChart(
+                        key: ValueKey('trend_${dashboardProv.selectedDate}'),
                         margin: EdgeInsets.zero,
                         plotAreaBorderWidth: 0,
                         primaryXAxis: CategoryAxis(

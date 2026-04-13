@@ -223,6 +223,139 @@ class ConsultationApiService {
       );
     }
   }
+
+  // ─── PUT /api/appointments/:id ─────────────────────────────────────
+  Future<CreateAppointmentResult> updateAppointment(
+      int id, Map<String, dynamic> appointmentData) async {
+    try {
+      final headers = await _authHeaders();
+      final response = await http
+          .put(
+            Uri.parse('${GlobalApi.baseUrl}/appointments/$id'),
+            headers: headers,
+            body: jsonEncode(appointmentData),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 401) {
+        return CreateAppointmentResult(
+          success: false,
+          message: 'Session expired. Please log in again.',
+        );
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode == 200) {
+        if (data['success'] == true) {
+          final appointmentJson = data['data'] as Map<String, dynamic>?;
+          AppointmentModel? appointment;
+          if (appointmentJson != null) {
+            appointment = AppointmentModel.fromJson(appointmentJson);
+          }
+          return CreateAppointmentResult(
+            success: true,
+            message: data['message'] as String? ?? 'Appointment updated successfully',
+            appointment: appointment,
+          );
+        }
+      }
+
+      return CreateAppointmentResult(
+        success: false,
+        message: data['message'] as String? ?? 'Failed to update appointment',
+      );
+    } catch (e) {
+      return CreateAppointmentResult(
+        success: false,
+        message: 'Failed to update appointment: $e',
+      );
+    }
+  }
+
+  // ─── DELETE /api/appointments/:id ──────────────────────────────────
+  Future<AppointmentsResult> deleteAppointment(int id) async {
+    try {
+      final headers = await _authHeaders();
+      final response = await http
+          .delete(
+            Uri.parse('${GlobalApi.baseUrl}/appointments/$id'),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 401) {
+        return AppointmentsResult(
+          success: false,
+          message: 'Session expired. Please log in again.',
+        );
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode == 200) {
+        if (data['success'] == true) {
+          return AppointmentsResult(success: true);
+        }
+      }
+
+      return AppointmentsResult(
+        success: false,
+        message: data['message'] as String? ?? 'Failed to delete appointment',
+      );
+    } catch (e) {
+      return AppointmentsResult(
+        success: false,
+        message: 'Failed to delete appointment: $e',
+      );
+    }
+  }
+
+  // ─── GET /api/appointments?mr_number=... ───────────────────────────
+  Future<AppointmentsResult> fetchAppointmentsByMr(String mrNumber) async {
+    try {
+      final headers = await _authHeaders();
+      final uri = Uri.parse('${GlobalApi.baseUrl}/appointments').replace(
+        queryParameters: {'mr_number': mrNumber},
+      );
+
+      final response = await http
+          .get(uri, headers: headers)
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 401) {
+        return AppointmentsResult(
+          success: false,
+          message: 'Session expired. Please log in again.',
+        );
+      }
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data['success'] == true) {
+          final appointmentsJson = data['data'] as List<dynamic>;
+          final appointments = appointmentsJson
+              .map((json) => AppointmentModel.fromJson(json as Map<String, dynamic>))
+              .toList();
+          return AppointmentsResult(success: true, appointments: appointments);
+        }
+        return AppointmentsResult(
+          success: false,
+          message: data['message'] as String? ?? 'Failed to fetch patient history',
+        );
+      }
+
+      return AppointmentsResult(
+        success: false,
+        message: 'Server error: ${response.statusCode}',
+      );
+    } catch (e) {
+      return AppointmentsResult(
+        success: false,
+        message: 'Failed to fetch patient history: $e',
+      );
+    }
+  }
 }
 
 // ─── Result Classes ────────────────────────────────────────────────

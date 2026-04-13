@@ -12,10 +12,12 @@ class ConsultationProvider extends ChangeNotifier {
   // ── State ──
   bool _isLoading = false;
   bool _isLoadingAppointments = false;
+  bool _isLoadingHistory = false;
   String? _errorMessage;
   
   bool get isLoading => _isLoading;
   bool get isLoadingAppointments => _isLoadingAppointments;
+  bool get isLoadingHistory => _isLoadingHistory;
   String? get errorMessage => _errorMessage;
 
   // ── Doctors ──
@@ -101,6 +103,42 @@ class ConsultationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ── Patient History ──
+  List<ConsultationAppointment> _patientHistory = [];
+  List<ConsultationAppointment> get patientHistory => _patientHistory;
+
+  Future<void> fetchPatientHistory(String mrNumber) async {
+    _isLoadingHistory = true;
+    _patientHistory = [];
+    notifyListeners();
+
+    final result = await _apiService.fetchAppointmentsByMr(mrNumber);
+
+    if (result.success) {
+      _patientHistory = result.appointments.map((appointment) {
+        final doctor = _doctors.firstWhere(
+          (d) => d.id == appointment.doctorSrlNo.toString(),
+          orElse: () => DoctorInfo(
+            id: '',
+            name: '',
+            specialty: '',
+            consultationFee: '',
+            followUpCharges: '',
+            availableDays: [],
+            timings: '',
+            hospital: 'WMCTH',
+            imageAsset: '',
+            avatarColor: Colors.grey,
+            totalAppointments: 0,
+          ),
+        );
+        return appointment.toConsultationAppointment(doctor.hospital);
+      }).toList();
+    }
+    _isLoadingHistory = false;
+    notifyListeners();
+  }
+
   // ── Summary stats ──
   int get totalConsultations => _appointments.length;
   int get upcomingAppointments =>
@@ -172,7 +210,53 @@ class ConsultationProvider extends ChangeNotifier {
     }
   }
 
-  // ── DELETE ──
+  // ── DELETE / CANCEL ──
+  Future<bool> cancelAppointment(String id) async {
+    final appointmentId = int.tryParse(id);
+    if (appointmentId == null) return false;
+
+    final result = await _apiService.deleteAppointment(appointmentId);
+    if (result.success) {
+      _appointments.removeWhere((a) => a.id == id);
+      notifyListeners();
+      return true;
+    } else {
+      _errorMessage = result.message;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // ── UPDATE ──
+  Future<bool> updateAppointment(String id, ConsultationAppointment appointment) async {
+    final appointmentId = int.tryParse(id);
+    if (appointmentId == null) return false;
+
+    // Find doctor srl_no
+    final doctorName = appointment.consultantName.replaceAll('Dr. ', '');
+    final doctor = _doctors.firstWhere(
+      (d) => d.name.contains(doctorName),
+      orElse: () => _doctors.first,
+    );
+    final doctorSrlNo = int.tryParse(doctor.id) ?? 0;
+
+    final requestData = appointment.toApiRequest(doctorSrlNo);
+    final result = await _apiService.updateAppointment(appointmentId, requestData);
+
+    if (result.success) {
+      final index = _appointments.indexWhere((a) => a.id == id);
+      if (index != -1) {
+        _appointments[index] = appointment;
+      }
+      notifyListeners();
+      return true;
+    } else {
+      _errorMessage = result.message;
+      notifyListeners();
+      return false;
+    }
+  }
+
   void removeAppointment(String id) {
     _appointments.removeWhere((a) => a.id == id);
     notifyListeners();

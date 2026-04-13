@@ -46,6 +46,8 @@ class MrPatientApiModel {
   final String phone;
   final String? email;
   final String? profession;
+  final String? education;
+  final String? whatsappNo;
   final String? address;
   final String? city;
   final String? bloodGroup;
@@ -72,6 +74,8 @@ class MrPatientApiModel {
     required this.phone,
     this.email,
     this.profession,
+    this.education,
+    this.whatsappNo,
     this.address,
     this.city,
     this.bloodGroup,
@@ -100,6 +104,8 @@ class MrPatientApiModel {
       phone: (json['phone'] as String?) ?? '',
       email: json['email'] as String?,
       profession: json['profession'] as String?,
+      education: json['education'] as String?,
+      whatsappNo: (json['whatsapp_no'] as String?) ?? (json['whatsapp'] as String?),
       address: json['address'] as String?,
       city: json['city'] as String?,
       bloodGroup: json['blood_group'] as String?,
@@ -133,6 +139,8 @@ class MrPatientApiModel {
       'phone': phone,
       'email': email,
       'profession': profession,
+      'education': education,
+      'whatsapp_no': whatsappNo,
       'address': address,
       'city': city,
       'blood_group': bloodGroup,
@@ -189,6 +197,8 @@ class MrPatientApiModel {
       age: age,
       bloodGroup: bloodGroup ?? '',
       profession: profession ?? '',
+      education: education ?? '',
+      whatsappNo: whatsappNo ?? phone,
       phoneNumber: phone,
       email: email ?? '',
       cnic: cnic ?? '',
@@ -214,6 +224,8 @@ class PatientModel {
   final int? age;
   final String bloodGroup;
   final String profession;
+  final String education;
+  final String whatsappNo;
   final String phoneNumber;
   final String email;
   final String cnic;
@@ -235,6 +247,8 @@ class PatientModel {
     this.age,
     this.bloodGroup = '',
     this.profession = '',
+    this.education = '',
+    this.whatsappNo = '',
     this.phoneNumber = '',
     this.email = '',
     this.cnic = '',
@@ -260,8 +274,10 @@ class PatientModel {
       'age': age,
       'gender': gender,
       'phone': phoneNumber,
+      'whatsapp_no': whatsappNo.isEmpty ? null : whatsappNo,
       'email': email.isEmpty ? null : email,
       'profession': profession.isEmpty ? null : profession,
+      'education': education.isEmpty ? null : education,
       'address': address.isEmpty ? null : address,
       'city': city.isEmpty ? null : city,
       'blood_group': bloodGroup.isEmpty ? null : bloodGroup,

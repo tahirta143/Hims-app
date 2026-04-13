@@ -154,7 +154,11 @@ class VoucherDetail {
       payableAmt: double.tryParse(json['payable']?.toString() ?? '0') ?? 0.0,
       discountReason: json['discount_reason']?.toString() ?? '',
       opdService: json['opd_service']?.toString() ?? '',
-      status: VoucherStatus.pending,
+      status: json['discount_approval_status'] == 'approved' 
+          ? VoucherStatus.approved 
+          : json['discount_approval_status'] == 'rejected'
+              ? VoucherStatus.rejected
+              : VoucherStatus.pending,
     );
   }
 }

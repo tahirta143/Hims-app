@@ -27,9 +27,12 @@ class _CustomDrawerState extends State<CustomDrawer> {
   static const List<int> _opdIndices = [1, 3, 4, 6, 7, 10];
   // Reports dropdown indices: 11
   static const List<int> _reportsIndices = [11];
+  // Prescription dropdown indices: 9, 12, 13
+  static const List<int> _prescriptionIndices = [9, 12, 13];
 
   late bool _opdExpanded;
   late bool _reportsExpanded;
+  late bool _prescriptionExpanded;
 
   @override
   void initState() {
@@ -37,6 +40,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
     // Auto-expand the group that contains the currently selected item
     _opdExpanded = _opdIndices.contains(widget.selectedIndex);
     _reportsExpanded = _reportsIndices.contains(widget.selectedIndex);
+    _prescriptionExpanded = _prescriptionIndices.contains(widget.selectedIndex);
   }
 
   Future<void> _handleLogout(BuildContext context) async {
@@ -114,6 +118,27 @@ class _CustomDrawerState extends State<CustomDrawer> {
           icon: Icons.timelapse_outlined,
           title: 'Appointment Reports',
           index: 11,
+        ),
+    ];
+
+    // ── Visible Prescription sub-items ───────────────────────────────────────
+    final List<_DrawerItemData> prescriptionItems = [
+      if (perm.canAny([Perm.mrRead, Perm.mrCreate])) // Assume similar permissions for GP
+        const _DrawerItemData(
+          icon: Icons.medical_services_outlined,
+          title: 'Prescription GP',
+          index: 9,
+        ),
+        const _DrawerItemData(
+          icon: Icons.remove_red_eye_outlined,
+          title: 'Eye Prescription',
+          index: 12,
+        ),
+      if (perm.canAny([Perm.mrRead, Perm.mrCreate]))
+        const _DrawerItemData(
+          icon: Icons.monitor_heart_outlined,
+          title: 'Patient Vitals',
+          index: 13,
         ),
     ];
 
@@ -203,11 +228,26 @@ class _CustomDrawerState extends State<CustomDrawer> {
                       icon: Icons.person_outline_rounded,
                       title: 'MR Details',
                       index: 8,
-                    ),if (perm.canAny([Perm.mrRead, Perm.mrCreate]))
-                    _buildDrawerItem(
-                      icon: Icons.person_outline_rounded,
+                    ),
+
+                  // ── Prescription Dropdown ──────────────────────────────────
+                  if (prescriptionItems.isNotEmpty)
+                    _buildGroupHeader(
+                      icon: Icons.description_outlined,
                       title: 'Prescription',
-                      index: 9,
+                      isExpanded: _prescriptionExpanded,
+                      hasActiveChild: _prescriptionIndices.contains(
+                        widget.selectedIndex,
+                      ),
+                      onTap: () => setState(() => _prescriptionExpanded = !_prescriptionExpanded),
+                    ),
+                  if (_prescriptionExpanded)
+                    ...prescriptionItems.map(
+                      (item) => _buildSubDrawerItem(
+                        icon: item.icon,
+                        title: item.title,
+                        index: item.index,
+                      ),
                     ),
 
                   // ── OPD Dropdown ───────────────────────────────────────────

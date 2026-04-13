@@ -32,8 +32,11 @@ class VoucherProvider extends ChangeNotifier {
   bool get isApproving => _isApproving;
   String? get errorMessage => _errorMessage;
 
-  int get pendingCount => _pendingVouchers.length;
-  bool get hasPending => _pendingVouchers.isNotEmpty;
+  int get pendingCount => _pendingVouchers.where((v) => v.status == VoucherStatus.pending).length;
+  bool get hasPending => _pendingVouchers.any((v) => v.status == VoucherStatus.pending);
+
+  List<VoucherDetail> get trulyPendingVouchers => 
+    _pendingVouchers.where((v) => v.status == VoucherStatus.pending).toList();
 
   // ─── Init ────────────────────────────────────────────────────────────────────
   VoucherProvider() {
@@ -50,14 +53,22 @@ class VoucherProvider extends ChangeNotifier {
     // Fetch pending receipts
     final pendingRes = await _opdReceiptApiService.fetchPendingDiscountReceipts();
     if (pendingRes.success) {
-      _pendingVouchers = pendingRes.receipts;
+      // Include both pending and approved (matches React logic)
+      _pendingVouchers = pendingRes.receipts
+          .where((r) => r.status == VoucherStatus.pending || r.status == VoucherStatus.approved)
+          .toList();
     } else {
       _pendingVouchers = [];
       _errorMessage = pendingRes.message;
     }
 
     if (_pendingVouchers.isNotEmpty && (_selectedVoucher == null || !_pendingVouchers.any((v) => v.srlNo == _selectedVoucher!.srlNo))) {
-      _selectedVoucher = _pendingVouchers.first;
+      // Prefer selecting a pending one first
+      final firstPending = _pendingVouchers.firstWhere(
+        (v) => v.status == VoucherStatus.pending,
+        orElse: () => _pendingVouchers.first,
+      );
+      _selectedVoucher = firstPending;
     }
 
     _setLoading(false);
@@ -144,6 +155,23 @@ class VoucherProvider extends ChangeNotifier {
 
     notifyListeners();
     return true;
+  }
+
+  /// Finalize a voucher after approval (calling the backend)
+  Future<Map<String, dynamic>> finalizeVoucher(int srlNo) async {
+    _setApproving(true);
+    try {
+      final res = await _opdReceiptApiService.finalizeDiscountReceipt(srlNo);
+      if (res['success'] == true) {
+        _pendingVouchers.removeWhere((v) => v.srlNo == srlNo);
+        if (_selectedVoucher?.srlNo == srlNo) {
+          _selectedVoucher = _pendingVouchers.isNotEmpty ? _pendingVouchers.first : null;
+        }
+      }
+      return res;
+    } finally {
+      _setApproving(false);
+    }
   }
 
   void clearError() {

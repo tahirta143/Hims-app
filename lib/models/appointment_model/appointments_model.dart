@@ -1,3 +1,5 @@
+import '../consultation_model/appointment_model.dart' as appt_model;
+
 class AppointmentModel {
   final int id;
   final String appointmentId;
@@ -17,6 +19,7 @@ class AppointmentModel {
   final String doctorSpecialization;
   final String consultationTimeFrom;
   final String consultationTimeTo;
+  final int? tokenNumber;
 
   AppointmentModel({
     required this.id,
@@ -37,6 +40,7 @@ class AppointmentModel {
     required this.doctorSpecialization,
     required this.consultationTimeFrom,
     required this.consultationTimeTo,
+    this.tokenNumber,
   });
 
   factory AppointmentModel.fromJson(Map<String, dynamic> json) {
@@ -60,6 +64,7 @@ class AppointmentModel {
       doctorSpecialization: json['doctor_specialization'] ?? '',
       consultationTimeFrom: json['consultation_time_from'] ?? '',
       consultationTimeTo: json['consultation_time_to'] ?? '',
+      tokenNumber: int.tryParse(json['token_number']?.toString() ?? ''),
     );
   }
 
@@ -115,5 +120,32 @@ class AppointmentModel {
   static String get todayStr {
     final now = DateTime.now();
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  }
+
+  // Convert to ConsultationAppointment for UI compatibility
+  appt_model.ConsultationAppointment toConsultationAppointment(String hospitalName) {
+    // Parse date
+    final date = DateTime.parse(appointmentDate);
+
+    return appt_model.ConsultationAppointment(
+      id: id.toString(),
+      consultantName: 'Dr. $doctorName',
+      specialty: doctorSpecialization,
+      consultationFee: fee.toString(),
+      followUpCharges: followUpCharges.toString(),
+      availableDays: [],
+      timings: '$consultationTimeFrom - $consultationTimeTo',
+      hospital: hospitalName,
+      mrNo: mrNumber,
+      patientName: patientName,
+      contactNo: patientContact,
+      address: patientAddress ?? '',
+      isFirstVisit: isFirstVisit,
+      appointmentDate: date,
+      timeSlot: formattedSlotTime,
+      type: 'In-Person',
+      status: status,
+      tokenNumber: tokenNumber,
+    );
   }
 }

@@ -9,7 +9,14 @@ import '../../../../custum widgets/custom_loader.dart';
 class AppointmentDialog extends StatefulWidget {
   final DoctorInfo doctor;
   final int availableSlots;
-  const AppointmentDialog({super.key, required this.doctor, required this.availableSlots});
+  final ConsultationAppointment? editAppointment;
+
+  const AppointmentDialog({
+    super.key,
+    required this.doctor,
+    required this.availableSlots,
+    this.editAppointment,
+  });
 
   @override
   State<AppointmentDialog> createState() => _AppointmentDialogState();
@@ -34,6 +41,24 @@ class _AppointmentDialogState extends State<AppointmentDialog> {
   @override
   void initState() {
     super.initState();
+    if (widget.editAppointment != null) {
+      final appt = widget.editAppointment!;
+      _mrCtrl.text = appt.mrNo;
+      _nameCtrl.text = appt.patientName;
+      _contactCtrl.text = appt.contactNo;
+      _addressCtrl.text = appt.address;
+      _isFirstVisit = appt.isFirstVisit;
+      _selectedDate = appt.appointmentDate;
+      _selectedSlot = appt.timeSlot;
+      _patientFound = true;
+      
+      // Fetch visit history for existing patient
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && appt.mrNo.isNotEmpty) {
+          context.read<ConsultationProvider>().fetchPatientHistory(appt.mrNo);
+        }
+      });
+    }
     _mrFocusNode.addListener(() {
       if (!_mrFocusNode.hasFocus) {
         _padMr();
@@ -95,6 +120,9 @@ class _AppointmentDialogState extends State<AppointmentDialog> {
       _nameCtrl.text = patient.fullName;
       _contactCtrl.text = patient.phoneNumber;
       _addressCtrl.text = patient.address;
+      
+      // Fetch visit history
+      context.read<ConsultationProvider>().fetchPatientHistory(raw.padLeft(5, '0'));
     } else {
       setState(() {
         _patientFound = false;
@@ -297,8 +325,8 @@ class _AppointmentDialogState extends State<AppointmentDialog> {
       builder: (_) => const Center(child: CustomLoader(size: 80)),
     );
 
-    final success = await prov.addAppointment(ConsultationAppointment(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+    final appointment = ConsultationAppointment(
+      id: widget.editAppointment?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
       consultantName: widget.doctor.name,
       specialty: widget.doctor.specialty,
       consultationFee: widget.doctor.consultationFee,
@@ -314,16 +342,24 @@ class _AppointmentDialogState extends State<AppointmentDialog> {
       appointmentDate: _selectedDate,
       timeSlot: _selectedSlot!,
       type: _selectedType,
-      status: 'Upcoming',
-    ));
+      status: widget.editAppointment?.status ?? 'Upcoming',
+      tokenNumber: widget.editAppointment?.tokenNumber,
+    );
+
+    bool success;
+    if (widget.editAppointment != null) {
+      success = await prov.updateAppointment(widget.editAppointment!.id, appointment);
+    } else {
+      success = await prov.addAppointment(appointment);
+    }
 
     if (mounted) Navigator.pop(context);
 
     if (success) {
       if (mounted) Navigator.pop(context);
-      _snack('Appointment booked successfully!', err: false);
+      _snack(widget.editAppointment != null ? 'Appointment updated successfully!' : 'Appointment booked successfully!', err: false);
     } else {
-      _snack(prov.errorMessage ?? 'Failed to book appointment', err: true);
+      _snack(prov.errorMessage ?? 'Operation failed', err: true);
     }
   }
 
@@ -743,7 +779,7 @@ class _AppointmentDialogState extends State<AppointmentDialog> {
                                 borderRadius: BorderRadius.circular(sw * 0.02),
                                 menuWidth: sw * 0.45,
                                 items: allSlots
-                                    .where((slot) => !booked.contains(slot))
+                                    .where((slot) => !booked.contains(slot) || slot == widget.editAppointment?.timeSlot)
                                     .map((slot) {
                                   return DropdownMenuItem<String>(
                                     value: slot,
@@ -899,6 +935,8 @@ class _AppointmentDialogState extends State<AppointmentDialog> {
                         ]),
                       ]),
                 ),
+                SizedBox(height: sw * 0.03),
+                _buildVisitHistory(prov, sw, fsS),
                 SizedBox(height: sw * 0.04),
                 Row(children: [
                   Expanded(
@@ -930,8 +968,8 @@ class _AppointmentDialogState extends State<AppointmentDialog> {
                               borderRadius: BorderRadius.circular(sw * 0.025)),
                         ),
                         icon: Icon(Icons.check_rounded, size: sw * 0.04),
-                        label: const Text('Book Appointment',
-                            style: TextStyle(
+                        label: Text(widget.editAppointment != null ? 'Update Appointment' : 'Book Appointment',
+                            style: const TextStyle(
                                 fontSize: 13, fontWeight: FontWeight.bold)),
                       )),
                 ]),
@@ -1000,4 +1038,96 @@ class _AppointmentDialogState extends State<AppointmentDialog> {
             borderRadius: BorderRadius.circular(sw * 0.022),
             borderSide: const BorderSide(color: primary, width: 1.5)),
       );
+
+  Widget _buildVisitHistory(ConsultationProvider prov, double sw, double fsS) {
+    if (!_patientFound || (prov.patientHistory.isEmpty && !prov.isLoadingHistory)) {
+      return const SizedBox();
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(sw * 0.03),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)
+        ],
+      ),
+      padding: EdgeInsets.all(sw * 0.035),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(Icons.history_rounded, color: primary, size: sw * 0.042),
+            SizedBox(width: sw * 0.02),
+            Text('Visit History',
+                style: TextStyle(
+                    fontSize: sw * 0.035,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87)),
+            const Spacer(),
+            if (prov.isLoadingHistory)
+              const SizedBox(
+                  width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: primary)),
+          ]),
+          const SizedBox(height: 12),
+          if (prov.patientHistory.isEmpty && !prov.isLoadingHistory)
+            const Text('No previous visits found.', style: TextStyle(fontSize: 12, color: Colors.grey))
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: prov.patientHistory.length > 3 ? 3 : prov.patientHistory.length,
+              separatorBuilder: (_, __) => const Divider(height: 16),
+              itemBuilder: (_, i) {
+                final visit = prov.patientHistory[i];
+                return Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(visit.consultantName,
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          Text(
+                            '${_dateLabel(visit.appointmentDate)} at ${visit.timeSlot}',
+                            style: const TextStyle(fontSize: 10, color: Colors.grey),
+                          ),
+                          if (visit.tokenNumber != null)
+                            Text(
+                              'Token No: ${visit.tokenNumber}',
+                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: primary),
+                            ),
+                        ],
+                      ),
+                    ),
+                    // Container(
+                    //   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    //   decoration: BoxDecoration(
+                    //     color: _getStatusColor(visit.status).withOpacity(0.1),
+                    //     borderRadius: BorderRadius.circular(4),
+                    //   ),
+                    //   child: Text(
+                    //     visit.status,
+                    //     style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: _getStatusColor(visit.status)),
+                    //   ),
+                    // ),
+                  ],
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  // Color _getStatusColor(String status) {
+  //   switch (status.toLowerCase()) {
+  //     case 'completed': return Colors.green;
+  //     case 'cancelled': return Colors.red;
+  //     case 'upcoming': return Colors.blue;
+  //     case 'booked': return Colors.blue;
+  //     case 'booked (upcoming)': return Colors.blue;
+  //     default: return Colors.grey;
+  //   }
+  // }
 }

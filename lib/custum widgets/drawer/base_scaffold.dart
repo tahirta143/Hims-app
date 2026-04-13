@@ -17,6 +17,8 @@ import '../../custum widgets/bottombar/bottombar.dart';
 import '../../core/providers/permission_provider.dart';
 import '../../core/utils/date_formatter.dart';
 import '../../screens/prescription/prescription.dart';
+import '../../screens/prescription/eye_prescription.dart';
+import '../../screens/prescription/vitals.dart';
 import 'drawer.dart';
 import '../../custum widgets/ai_chat_widget.dart';
 
@@ -184,10 +186,10 @@ class _BaseScaffoldState extends State<BaseScaffold> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.only(
-          bottomLeft:Radius.circular(20),
-          bottomRight:Radius.circular(20),
-        )
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(20.0),
+          bottomRight: Radius.circular(20.0),
+        ),
       ),
       padding: EdgeInsets.only(
         top: MediaQuery.of(context).padding.top + 12,
@@ -291,13 +293,19 @@ class _BaseScaffoldState extends State<BaseScaffold> {
         screen = const MrDetailsScreen();
         break;
       case 9:
-      screen = const PrescriptionScreen();
+        screen = const PrescriptionScreen();
+        break;
+      case 12:
+        screen = const EyePrescriptionScreen();
         break;
       case 10:
         screen = const DiscountVoucherApprovalScreen();
         break;
       case 11:
         screen = const AppointmentReportScreen();
+        break;
+      case 13:
+        screen = const VitalsScreen();
         break;
       case -1:
         _showLogoutDialog(context);

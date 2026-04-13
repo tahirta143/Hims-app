@@ -93,6 +93,8 @@ class EmergencyProvider extends ChangeNotifier {
 
   /// Load the emergency queue from the API.
   Future<void> loadQueue() async {
+    // Ensure we are not notifying during a build phase
+    await Future.value();
     _loadingQueue = true;
     notifyListeners();
     final result = await _emergencyApi.fetchEmergencyQueue();
