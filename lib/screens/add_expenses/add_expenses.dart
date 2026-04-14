@@ -8,6 +8,8 @@ import '../../providers/shift_management/shift_management.dart';
 import '../../models/shift_model/shift_model.dart';
 import '../../core/services/auth_storage_service.dart';
 
+const Color _teal = Color(0xFF00B5AD);
+
 class ExpensesScreen extends StatelessWidget {
   final bool useScaffold;
   const ExpensesScreen({super.key, this.useScaffold = true});
@@ -83,7 +85,12 @@ class _ExpensesBody extends StatelessWidget {
     return Container(
       color: const Color(0xFFF0F4F8),
       child: provider.isLoading
-          ? const Center(child: CustomLoader(size: 60))
+          ? const Center(
+              child: CustomLoader(
+                size: 50,
+                color: _teal,
+              ),
+            )
           : provider.errorMessage != null
           ? Center(
         child: Column(
@@ -111,7 +118,7 @@ class _ExpensesBody extends StatelessWidget {
       )
           : RefreshIndicator(
         onRefresh: () => provider.fetchExpenses(),
-        color: const Color(0xFF00B5AD),
+        color: _teal,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -429,7 +436,7 @@ class _ExpenseDialogState extends State<_ExpenseDialog> {
             const SizedBox(width: 10),
             Text(_isEditMode ? 'Expense updated successfully!' : 'Expense saved successfully!'),
           ]),
-          backgroundColor: const Color(0xFF00B5AD),
+          backgroundColor: _teal,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ));
@@ -590,11 +597,12 @@ class _ExpenseDialogState extends State<_ExpenseDialog> {
                   child: ElevatedButton.icon(
                     onPressed: _isSaving ? null : _save,
                     icon: _isSaving
-                        ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
+                        ? const Center(
+                            child: CustomLoader(
+                              size: 20,
+                              color: Colors.white,
+                            ),
+                          )
                         : Icon(_isEditMode
                         ? Icons.save_outlined
                         : Icons.check_circle_outline,

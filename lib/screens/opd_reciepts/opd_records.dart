@@ -3,9 +3,12 @@ import 'package:provider/provider.dart';
 import '../../custum widgets/drawer/base_scaffold.dart';
 import '../../providers/opd/opd_reciepts/opd_reciepts.dart';
 import '../../custum widgets/custom_loader.dart';
+import '../../custum widgets/animations/animations.dart';
+import 'package:animate_do/animate_do.dart';
 
 class OpdRecordsScreen extends StatefulWidget {
-  const OpdRecordsScreen({super.key});
+  final String? initialSearch;
+  const OpdRecordsScreen({super.key, this.initialSearch});
 
   @override
   State<OpdRecordsScreen> createState() => _OpdRecordsScreenState();
@@ -54,6 +57,10 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    if (widget.initialSearch != null && widget.initialSearch!.isNotEmpty) {
+      _searchCtrl.text = widget.initialSearch!;
+      _fSearch = widget.initialSearch!;
+    }
   }
 
   @override
@@ -301,91 +308,107 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
       title: 'OPD Records',
       drawerIndex: 4,
       showAppBar: false,
-      body: Consumer<OpdProvider>(builder: (_, prov, __) {
-        // Show initial load spinner
-        if (prov.isLoadingReceipts && prov.receipts.isEmpty) {
+      body: CustomPageTransition(
+        child: Consumer<OpdProvider>(builder: (_, prov, __) {
+          // Show initial load spinner
+          if (prov.isLoadingReceipts && prov.receipts.isEmpty) {
+            return Column(children: [
+              _buildTopBar(),
+              const Expanded(
+                child: Center(
+                  child: CustomLoader(
+                    size: 50,
+                    color: primary,
+                  ),
+                ),
+              ),
+            ]);
+          }
+
+          final allReceipts = prov.receipts.toList().reversed.toList();
+          final hasActiveFilters = _fSearch.isNotEmpty || _fStart != null || _fEnd != null || _fYear != 'All' || _fMonth != 'All';
+          final filtered = hasActiveFilters ? _applyFilters(allReceipts) : <Map<String, dynamic>>[];
+
           return Column(children: [
             _buildTopBar(),
-            const Expanded(child: Center(child: CustomLoader(size: 70))),
-          ]);
-        }
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () async => prov.loadReceipts(),
+                color: primary,
+                child: CustomScrollView(
+                  controller: _scrollController,
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  SliverToBoxAdapter(child: Padding(
+                    padding: EdgeInsets.all(_pad),
+                    child: Column(children: [
+                      FadeInUp(delay: const Duration(milliseconds: 100), child: _filterCard()),
+                      SizedBox(height: _pad * 0.8),
+                      FadeInUp(delay: const Duration(milliseconds: 200), child: _statsBar(filtered.length, prov, hasActiveFilters)),
+                      SizedBox(height: _pad * 0.8),
+                    ]),
+                  )),
 
-        final allReceipts = prov.receipts.toList().reversed.toList();
-        final hasActiveFilters = _fSearch.isNotEmpty || _fStart != null || _fEnd != null || _fYear != 'All' || _fMonth != 'All';
-        final filtered = hasActiveFilters ? _applyFilters(allReceipts) : <Map<String, dynamic>>[];
+                  if (filtered.isEmpty)
+                    SliverFillRemaining(hasScrollBody: false, child: _emptyState(hasActiveFilters))
+                  else if (_isWide)
+                    _wideTable(filtered, prov)
+                  else
+                    _narrowList(filtered, prov),
 
-        return Column(children: [
-          _buildTopBar(),
-          Expanded(
-            child: CustomScrollView(
-              controller: _scrollController,
-              physics: const BouncingScrollPhysics(),
-              slivers: [
-                SliverToBoxAdapter(child: Padding(
-                  padding: EdgeInsets.all(_pad),
-                  child: Column(children: [
-                    _filterCard(),
-                    SizedBox(height: _pad * 0.8),
-                    _statsBar(filtered.length, prov, hasActiveFilters),
-                    SizedBox(height: _pad * 0.8),
-                  ]),
-                )),
-
-                if (filtered.isEmpty)
-                  SliverFillRemaining(hasScrollBody: false, child: _emptyState(hasActiveFilters))
-                else if (_isWide)
-                  _wideTable(filtered, prov)
-                else
-                  _narrowList(filtered, prov),
-
-                // ── Bottom loading indicator ──
-                if (prov.isFetchingMore)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: _sh * 0.025),
-                      child: const Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            SizedBox(
-                              width: 24, height: 24,
-                              child: CustomLoader(
-                                size: 24,
+                  // ── Bottom loading indicator ──
+                  if (prov.isFetchingMore)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: _sh * 0.025),
+                        child: const Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CustomLoader(
+                                  size: 24,
+                                  color: primary,
+                                ),
                               ),
-                            ),
-                            SizedBox(height: 8),
-                            Text('Loading more records...',
-                              style: TextStyle(fontSize: 12, color: Colors.grey),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-
-                // ── All loaded footer ──
-                if (!prov.hasMorePages && prov.receipts.isNotEmpty)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: _sh * 0.015),
-                      child: Center(
-                        child: Text(
-                          'All ${prov.totalReceiptsCount} records loaded',
-                          style: TextStyle(
-                            fontSize: _fsS, color: Colors.grey.shade400,
-                            fontWeight: FontWeight.w500,
+                              SizedBox(height: 8),
+                              Text(
+                                'Loading more records...',
+                                style: TextStyle(fontSize: 12, color: Colors.grey),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
-                  ),
 
-                SliverToBoxAdapter(child: SizedBox(height: 120)),
-              ],
+                  // ── All loaded footer ──
+                  if (!prov.hasMorePages && prov.receipts.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: _sh * 0.015),
+                        child: Center(
+                          child: Text(
+                            'All ${prov.totalReceiptsCount} records loaded',
+                            style: TextStyle(
+                              fontSize: _fsS, color: Colors.grey.shade400,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  SliverToBoxAdapter(child: SizedBox(height: 120)),
+                ],
+              ),
             ),
           ),
-        ]);
-      }),
+          ]);
+        }),
+      ),
     );
   }
 
@@ -679,8 +702,12 @@ class _OpdRecordsScreenState extends State<OpdRecordsScreen> {
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             if (prov.isFetchingMore) ...[
               const SizedBox(
-                width: 10, height: 10,
-                child: CustomLoader(size: 10),
+                width: 10,
+                height: 10,
+                child: CustomLoader(
+                  size: 10,
+                  color: Colors.white,
+                ),
               ),
               const SizedBox(width: 6),
             ],

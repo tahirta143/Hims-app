@@ -10,12 +10,18 @@ import '../../providers/mr_provider/mr_provider.dart';
 import '../../models/consultation_model/doctor_model.dart';
 import '../../models/dashboard_model.dart';
 import '../../providers/dashboard/dashboard_provider.dart';
+import '../../custum widgets/animations/animations.dart';
+import 'package:animate_do/animate_do.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../global/global_api.dart';
 
 import '../add_expenses/add_expenses.dart';
 import '../cunsultations/cunsultations.dart';
 import '../cunsultations/widgets/appointment_dialog.dart';
 import '../emergency_treatment/emergency_treatment.dart';
 import '../mr_details/mr_view/mr_view.dart';
+
+const Color _teal = Color(0xFF00B5AD);
 
 // ─────────────────────────────────────────────
 //  ANIMATED COUNTER WIDGET
@@ -383,16 +389,22 @@ class _DoctorCard extends StatelessWidget {
                   ClipRRect(
                     borderRadius:
                     BorderRadius.circular(screenSize.width * 0.05),
-                    child: doctor.imageAsset.isNotEmpty
-                        ? Image.network(
-                      doctor.imageAsset,
-                      width: screenSize.width * 0.28,
-                      height: screenSize.width * 0.28,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          _buildAvatarFallback(screenSize),
-                    )
-                        : _buildAvatarFallback(screenSize),
+                    child: Builder(
+                      builder: (context) {
+                        final url = GlobalApi.getImageUrl(doctor.imageAsset);
+                        if (url != null) {
+                          return CachedNetworkImage(
+                            imageUrl: url,
+                            width: screenSize.width * 0.28,
+                            height: screenSize.width * 0.28,
+                            fit: BoxFit.cover,
+                            placeholder: (context, _) => _buildAvatarFallback(screenSize),
+                            errorWidget: (context, _, __) => _buildAvatarFallback(screenSize),
+                          );
+                        }
+                        return _buildAvatarFallback(screenSize);
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -502,9 +514,12 @@ class _DashboardBodyState extends State<_DashboardBody> {
   @override
   void initState() {
     super.initState();
+    final prov = Provider.of<DashboardProvider>(context, listen: false);
+    // Set loading immediately to avoid showing old data for 1 frame
+    prov.resetLoading();
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final prov = Provider.of<DashboardProvider>(context, listen: false);
       prov.fetchAvailableShifts(prov.selectedDate);
       prov.fetchCalendarData(prov.selectedDate);
     });
@@ -517,280 +532,311 @@ class _DashboardBodyState extends State<_DashboardBody> {
 
     return RefreshIndicator(
       onRefresh: () => dashboardProv.refresh(),
-      color: primaryColor,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(
-            parent: BouncingScrollPhysics()),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Header ──────────────────────────────────────────────────────
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+      color: _teal,
+      child: CustomPageTransition(
+        child: dashboardProv.isLoading
+            ? Center(
+          key: const ValueKey('loader'),
+          child: CustomLoader(
+            size: 50,
+            color: _teal,
+          ),
+        )
+            : SingleChildScrollView(
+          key: const ValueKey('content'),
+          physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics()),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+                  // ── Header ──────────────────────────────────────────────────────
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // const Text(
-                      //   'Hims Dashboard',
-                      //   style: TextStyle(
-                      //     fontSize: 24,
-                      //     fontWeight: FontWeight.bold,
-                      //     letterSpacing: -0.5,
-                      //   ),
-                      // ),
-                      Text(
-                        _dateFormat.format(dashboardProv.selectedDate),
-                        style: TextStyle(
-                            color: Colors.grey.shade500, fontSize: 13),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // const Text(
+                            //   'Hims Dashboard',
+                            //   style: TextStyle(
+                            //     fontSize: 24,
+                            //     fontWeight: FontWeight.bold,
+                            //     letterSpacing: -0.5,
+                            //   ),
+                            // ),
+                            Text(
+                              _dateFormat.format(dashboardProv.selectedDate),
+                              style: TextStyle(
+                                  color: Colors.grey.shade500, fontSize: 13),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
+                  const SizedBox(height: 10),
 
-            // ── Date + shift filters ─────────────────────────────────────────
-            Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: dashboardProv.selectedDate,
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime(2030),
-                      );
-                      if (picked != null) dashboardProv.setSelectedDate(picked);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.grey.shade100),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.calendar_today_rounded,
-                              size: 14, color: Colors.grey.shade400),
-                          const SizedBox(width: 8),
-                          Text(
-                            DateFormat('dd/MM/yyyy')
-                                .format(dashboardProv.selectedDate),
-                            style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF334155)),
+                  // ── Date + shift filters ─────────────────────────────────────────
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: dashboardProv.selectedDate,
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime(2030),
+                            );
+                            if (picked != null) dashboardProv.setSelectedDate(picked);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.grey.shade100),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.calendar_today_rounded,
+                                    size: 14, color: Colors.grey.shade400),
+                                const SizedBox(width: 8),
+                                Text(
+                                  DateFormat('dd/MM/yyyy')
+                                      .format(dashboardProv.selectedDate),
+                                  style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF334155)),
+                                ),
+                              ],
+                            ),
                           ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey.shade100),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: dashboardProv.selectedShiftType,
-                        isExpanded: true,
-                        style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF334155)),
-                        items: ['All', 'Morning', 'Evening', 'Night']
-                            .map((t) => DropdownMenuItem(
-                            value: t,
-                            child: Text(
-                                t == 'All' ? 'All Shifts' : t)))
-                            .toList(),
-                        onChanged: (val) =>
-                            dashboardProv.setSelectedShiftType(val!),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.grey.shade100),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: dashboardProv.selectedShiftType,
+                              isExpanded: true,
+                              style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF334155)),
+                              items: ['All', 'Morning', 'Evening', 'Night']
+                                  .map((t) => DropdownMenuItem(
+                                  value: t,
+                                  child: Text(
+                                      t == 'All' ? 'All Shifts' : t)))
+                                  .toList(),
+                              onChanged: (val) =>
+                                  dashboardProv.setSelectedShiftType(val!),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                ),
-              ],
-            ),
-            // const SizedBox(height: 20),
-// import '../../custum widgets/custom_loader.dart';
-// import '../add_expenses/add_expenses.dart';
-            if (dashboardProv.isLoading)
-              const Center(
-                  child: Padding(
-                      padding: EdgeInsets.all(40.0),
-                      child: CustomLoader(size: 80)))
-            else ...[
+                  // const SizedBox(height: 20),
+                  const SizedBox(height: 16),
+                  // ── 2×2 compact summary cards ──────────────────────────────────
               // ── 2×2 compact summary cards ──────────────────────────────────
               GridView.count(
-                padding: EdgeInsets.only(top: 8, bottom: 16),
+                padding: const EdgeInsets.only(top: 8, bottom: 16),
                 crossAxisCount: 2,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 mainAxisSpacing: 6,
                 crossAxisSpacing: 6,
-                // taller ratio = more vertical space per card
                 childAspectRatio: 1.55,
                 children: [
-                  _SummaryCard(
-                    title: 'OPD Revenue',
-                    numericValue: dashboardProv.totalOpdRevenue,
-                    isCurrency: true,
-                    icon: Icons.attach_money,
-                    color: const Color(0xFF10B981),
-                    trend: '+4.2%',
-                    trendUp: true,
-                    subtitle: 'All OPD services',
+                  FadeInUp(
+                    duration: const Duration(milliseconds: 400),
+                    delay: const Duration(milliseconds: 100),
+                    child: _SummaryCard(
+                      title: 'OPD Revenue',
+                      numericValue: dashboardProv.totalOpdRevenue,
+                      isCurrency: true,
+                      icon: Icons.attach_money,
+                      color: const Color(0xFF10B981),
+                      trend: '+4.2%',
+                      trendUp: true,
+                      subtitle: 'All OPD services',
+                    ),
                   ),
-                  _SummaryCard(
-                    title: 'Consultations',
-                    numericValue: dashboardProv.totalConsultRevenue,
-                    isCurrency: true,
-                    icon: Icons.medical_services_rounded,
-                    color: Colors.indigo,
-                    trend: '+1.8%',
-                    trendUp: true,
-                    subtitle:
-                    '${dashboardProv.totalConsultCount} consultants',
+                  FadeInUp(
+                    duration: const Duration(milliseconds: 400),
+                    delay: const Duration(milliseconds: 200),
+                    child: _SummaryCard(
+                      title: 'Consultations',
+                      numericValue: dashboardProv.totalConsultRevenue,
+                      isCurrency: true,
+                      icon: Icons.medical_services_rounded,
+                      color: Colors.indigo,
+                      trend: '+1.8%',
+                      trendUp: true,
+                      subtitle:
+                      '${dashboardProv.totalConsultCount} consultants',
+                    ),
                   ),
-                  _SummaryCard(
-                    title: 'Patients',
-                    numericValue: dashboardProv.totalPatients.toDouble(),
-                    isCurrency: false,
-                    icon: Icons.people_outline_rounded,
-                    color: Colors.cyan.shade600,
-                    trend: '-0.6%',
-                    trendUp: false,
-                    subtitle: 'Total OPD entries',
+                  FadeInUp(
+                    duration: const Duration(milliseconds: 400),
+                    delay: const Duration(milliseconds: 300),
+                    child: _SummaryCard(
+                      title: 'Patients',
+                      numericValue: dashboardProv.totalPatients.toDouble(),
+                      isCurrency: false,
+                      icon: Icons.people_outline_rounded,
+                      color: Colors.cyan.shade600,
+                      trend: '-0.6%',
+                      trendUp: false,
+                      subtitle: 'Total OPD entries',
+                    ),
                   ),
-                  _SummaryCard(
-                    title: 'Expenses',
-                    numericValue: dashboardProv.totalExpenses,
-                    isCurrency: true,
-                    icon: Icons.payments_outlined,
-                    color: Colors.amber.shade700,
-                    trend: '+2.1%',
-                    trendUp: false,
-                    subtitle: 'Direct expenses',
+                  FadeInUp(
+                    duration: const Duration(milliseconds: 400),
+                    delay: const Duration(milliseconds: 400),
+                    child: _SummaryCard(
+                      title: 'Expenses',
+                      numericValue: dashboardProv.totalExpenses,
+                      isCurrency: true,
+                      icon: Icons.payments_outlined,
+                      color: Colors.amber.shade700,
+                      trend: '+2.1%',
+                      trendUp: false,
+                      subtitle: 'Direct expenses',
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 4),
 
               // ── Revenue by Shift chart ──────────────────────────────────────
-              _buildGlassPanel(
-                title: 'Revenue by Shift',
-                subtitle: 'OPD vs Consultation split',
-                trailing: Row(
-                  children: [
-                    _chartLegend('Morning', const Color(0xFF10B981)),
-                    const SizedBox(width: 8),
-                    _chartLegend('Evening', Colors.indigo),
-                    const SizedBox(width: 8),
-                    _chartLegend('Night', Colors.amber),
-                  ],
-                ),
-                child: SizedBox(
-                  height: MediaQuery.of(context).size.height * 0.3,
-                  child: SfCartesianChart(
-                    key: ValueKey('shift_rev_${dashboardProv.selectedDate}_${dashboardProv.selectedShiftType}'),
-                    margin: EdgeInsets.zero,
-                    plotAreaBorderWidth: 0,
-                    primaryXAxis: CategoryAxis(
-                      majorGridLines: const MajorGridLines(width: 0),
-                      axisLine: const AxisLine(width: 0),
-                      labelStyle: const TextStyle(
-                          fontSize: 10, color: Colors.grey),
+              FadeInUp(
+                duration: const Duration(milliseconds: 500),
+                delay: const Duration(milliseconds: 500),
+                child: _buildGlassPanel(
+                  title: 'Revenue by Shift',
+                  subtitle: 'OPD vs Consultation split',
+                  trailing: Row(
+                    children: [
+                      _chartLegend('Morning', const Color(0xFF10B981)),
+                      const SizedBox(width: 8),
+                      _chartLegend('Evening', Colors.indigo),
+                      const SizedBox(width: 8),
+                      _chartLegend('Night', Colors.amber),
+                    ],
+                  ),
+                  child: SizedBox(
+                    height: MediaQuery.of(context).size.height * 0.3,
+                    child: SfCartesianChart(
+                      key: ValueKey('shift_rev_${dashboardProv.selectedDate}_${dashboardProv.selectedShiftType}'),
+                      margin: EdgeInsets.zero,
+                      plotAreaBorderWidth: 0,
+                      primaryXAxis: CategoryAxis(
+                        majorGridLines: const MajorGridLines(width: 0),
+                        axisLine: const AxisLine(width: 0),
+                        labelStyle: const TextStyle(
+                            fontSize: 10, color: Colors.grey),
+                      ),
+                      primaryYAxis: NumericAxis(
+                        majorGridLines: MajorGridLines(
+                            width: 1,
+                            color: Colors.grey.shade100,
+                            dashArray: const [4, 4]),
+                        axisLine: const AxisLine(width: 0),
+                        axisLabelFormatter: (details) => ChartAxisLabel(
+                            '${(details.value / 1000).toStringAsFixed(0)}k',
+                            const TextStyle(
+                                fontSize: 10, color: Colors.grey)),
+                      ),
+                      tooltipBehavior:
+                      TooltipBehavior(enable: true, header: ''),
+                      series: _getColumnSeries(dashboardProv),
                     ),
-                    primaryYAxis: NumericAxis(
-                      majorGridLines: MajorGridLines(
-                          width: 1,
-                          color: Colors.grey.shade100,
-                          dashArray: const [4, 4]),
-                      axisLine: const AxisLine(width: 0),
-                      axisLabelFormatter: (details) => ChartAxisLabel(
-                          '${(details.value / 1000).toStringAsFixed(0)}k',
-                          const TextStyle(
-                              fontSize: 10, color: Colors.grey)),
-                    ),
-                    tooltipBehavior:
-                    TooltipBehavior(enable: true, header: ''),
-                    series: _getColumnSeries(dashboardProv),
                   ),
                 ),
               ),
               const SizedBox(height: 24),
-              _buildCalendarPanel(dashboardProv),
+              FadeInUp(
+                duration: const Duration(milliseconds: 500),
+                delay: const Duration(milliseconds: 600),
+                child: _buildCalendarPanel(dashboardProv),
+              ),
               const SizedBox(height: 24),
               const SizedBox(height: 24),
 
               // ── Revenue Trend ───────────────────────────────────────────────
-              _buildGlassPanel(
-                title: 'Revenue Trend',
-                subtitle: 'Intraday estimate',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _AnimatedCounter(
-                      targetValue: dashboardProv.totalOpdRevenue,
-                      isCurrency: true,
-                      style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'monospace'),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: 120,
-                      child: SfCartesianChart(
-                        key: ValueKey('trend_${dashboardProv.selectedDate}'),
-                        margin: EdgeInsets.zero,
-                        plotAreaBorderWidth: 0,
-                        primaryXAxis: CategoryAxis(
-                          majorGridLines: const MajorGridLines(width: 0),
-                          axisLine: const AxisLine(width: 0),
-                          majorTickLines: const MajorTickLines(size: 0),
-                          labelStyle: const TextStyle(fontSize: 9, color: Color(0xFF94A3B8)),
-                        ),
-                        primaryYAxis: NumericAxis(isVisible: false),
-                        series: <CartesianSeries>[
-                          LineSeries<ChartDataPoint, String>(
-                            animationDuration: 0,
-                            dataSource: dashboardProv.trendData,
-                            xValueMapper: (ChartDataPoint data, _) =>
-                            data.x,
-                            yValueMapper: (ChartDataPoint data, _) =>
-                            data.y,
-                            dataLabelMapper: (ChartDataPoint data, _) =>
-                            'PKR ${NumberFormat('#,###').format(data.y)}',
-                            color: const Color(0xFF10B981),
-                            width: 2,
-                            markerSettings: const MarkerSettings(isVisible: true),
-                            dataLabelSettings: const DataLabelSettings(
-                              isVisible: true,
-                              textStyle: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
+              FadeInUp(
+                duration: const Duration(milliseconds: 500),
+                delay: const Duration(milliseconds: 700),
+                child: _buildGlassPanel(
+                  title: 'Revenue Trend',
+                  subtitle: 'Intraday estimate',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _AnimatedCounter(
+                        targetValue: dashboardProv.totalOpdRevenue,
+                        isCurrency: true,
+                        style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'monospace'),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 120,
+                        child: SfCartesianChart(
+                          key: ValueKey('trend_${dashboardProv.selectedDate}'),
+                          margin: EdgeInsets.zero,
+                          plotAreaBorderWidth: 0,
+                          primaryXAxis: CategoryAxis(
+                            majorGridLines: const MajorGridLines(width: 0),
+                            axisLine: const AxisLine(width: 0),
+                            majorTickLines: const MajorTickLines(size: 0),
+                            labelStyle: const TextStyle(fontSize: 9, color: Color(0xFF94A3B8)),
+                          ),
+                          primaryYAxis: NumericAxis(isVisible: false),
+                          series: <CartesianSeries>[
+                            LineSeries<ChartDataPoint, String>(
+                              animationDuration: 0,
+                              dataSource: dashboardProv.trendData,
+                              xValueMapper: (ChartDataPoint data, _) =>
+                              data.x,
+                              yValueMapper: (ChartDataPoint data, _) =>
+                              data.y,
+                              dataLabelMapper: (ChartDataPoint data, _) =>
+                              'PKR ${NumberFormat('#,###').format(data.y)}',
+                              color: const Color(0xFF10B981),
+                              width: 2,
+                              markerSettings: const MarkerSettings(isVisible: true),
+                              dataLabelSettings: const DataLabelSettings(
+                                isVisible: true,
+                                textStyle: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 32),
@@ -826,11 +872,14 @@ class _DashboardBodyState extends State<_DashboardBody> {
               else if (consultationProv.doctors.isEmpty)
                 const Center(child: Text('No doctors available'))
               else
-                ListView.builder(
+              FadeInUp(
+                duration: const Duration(milliseconds: 500),
+                delay: const Duration(milliseconds: 800),
+                child: ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   padding: EdgeInsets.zero,
-                  itemCount: consultationProv.doctors.take(3).length,
+                  itemCount: consultationProv.doctors.length,
                   itemBuilder: (context, index) {
                     final doctor = consultationProv.doctors[index];
                     return _DoctorCard(
@@ -844,9 +893,10 @@ class _DashboardBodyState extends State<_DashboardBody> {
                     );
                   },
                 ),
+              ),
               const SizedBox(height: 120),
             ],
-          ],
+          ),
         ),
       ),
     );

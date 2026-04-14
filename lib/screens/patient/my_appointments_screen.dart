@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../global/global_api.dart';
@@ -93,13 +94,6 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
     }
   }
 
-  String _getFullImageUrl(String? path) {
-    if (path == null || path.isEmpty) return '';
-    if (path.startsWith('http')) return path;
-    final baseUrl =
-    GlobalApi.mobileBaseUrl.replaceAll('/api/mobile', '');
-    return '$baseUrl$path';
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -148,7 +142,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
                   titleFontSize: titleFontSize,
                   subFontSize: subFontSize,
                   isSmall: isSmall,
-                  getFullImageUrl: _getFullImageUrl,
+                  getFullImageUrl: (p) => GlobalApi.getImageUrl(p) ?? '',
                   formatTime: _formatTime,
                   onCancel: () =>
                       _handleCancel(appt['id'].toString()),
@@ -384,14 +378,20 @@ class _AppointmentCard extends StatelessWidget {
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: (appt['image_url'] != null &&
-                              appt['image_url'].isNotEmpty)
-                              ? Image.network(
-                            getFullImageUrl(appt['image_url']),
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _avatarIcon,
-                          )
-                              : _avatarIcon,
+                          child: Builder(
+                            builder: (context) {
+                              final url = GlobalApi.getImageUrl(appt['image_url']);
+                              if (url != null) {
+                                return CachedNetworkImage(
+                                  imageUrl: url,
+                                  fit: BoxFit.cover,
+                                  placeholder: (context, _) => _avatarIcon,
+                                  errorWidget: (context, _, __) => _avatarIcon,
+                                );
+                              }
+                              return _avatarIcon;
+                            },
+                          ),
                         ),
                       ),
                       const SizedBox(width: 10),

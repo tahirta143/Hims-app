@@ -159,9 +159,7 @@ class EmergencyProvider extends ChangeNotifier {
             case 'opd':       color = const Color(0xFF1E88E5); icon = Icons.local_hospital_rounded; break;
           }
 
-          final imageUrl = s.imageUrl != null && s.imageUrl!.isNotEmpty
-              ? (s.imageUrl!.startsWith('http') ? s.imageUrl : '${GlobalApi.baseUrl}${s.imageUrl}')
-              : null;
+          final imageUrl = GlobalApi.getImageUrl(s.imageUrl);
 
           _emergencyServices.add(EmergencyService(
             id: s.serviceId,

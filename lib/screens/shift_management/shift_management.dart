@@ -1033,6 +1033,8 @@ import 'package:provider/provider.dart';
 import '../../custum widgets/drawer/base_scaffold.dart';
 import '../../providers/shift_management/shift_management.dart';
 import '../../custum widgets/custom_loader.dart';
+import '../../custum widgets/animations/animations.dart';
+import 'package:animate_do/animate_do.dart';
 
 class ShiftManagementScreen extends StatelessWidget {
   const ShiftManagementScreen({super.key});
@@ -1046,7 +1048,9 @@ class ShiftManagementScreen extends StatelessWidget {
         drawerIndex: 7,
         showNotificationIcon: false,
         actions: [const SizedBox(width: 8), _RefreshButton()],
-        body: const _ShiftManagementBody(),
+        body: CustomPageTransition(
+          child: const _ShiftManagementBody(),
+        ),
       ),
     );
   }
@@ -1103,7 +1107,7 @@ class _ShiftManagementBody extends StatelessWidget {
     return Container(
       color: const Color(0xFFF0F4F8),
       child: provider.isLoading
-          ? const Center(child: CustomLoader(size: 60))
+          ? const Center(child: CustomLoader(size: 50, color: Color(0xFF00B5AD)))
           : RefreshIndicator(
         color: const Color(0xFF00B5AD),
         onRefresh: () => provider.refresh(),
@@ -1118,24 +1122,23 @@ class _ShiftManagementBody extends StatelessWidget {
                 _ErrorBanner(message: provider.errorMessage!),
 
               // ── Date picker + Timeline in ONE ROW ─────────
-              _DateAndTimelineRow(),
+              FadeInUp(delay: const Duration(milliseconds: 100), child: _DateAndTimelineRow()),
               SizedBox(height: sh * 0.018),
 
               // ── Gross Amount + Total Collected ─────────────
-              // Show whenever any shift is loaded (active or closed)
               if (provider.shift.shiftId != 0) ...[
-                _SummaryAmountCards(),
+                FadeInUp(delay: const Duration(milliseconds: 200), child: _SummaryAmountCards()),
                 SizedBox(height: sh * 0.018),
               ],
 
               // ── Existing cards (unchanged) ─────────────────
-              const _ActiveShiftCard(),
+              FadeInUp(delay: const Duration(milliseconds: 300), child: const _ActiveShiftCard()),
               SizedBox(height: sh * 0.018),
-              const _ShiftDetailsCard(),
+              FadeInUp(delay: const Duration(milliseconds: 400), child: const _ShiftDetailsCard()),
               SizedBox(height: sh * 0.018),
-              const _ManualClosingCard(),
+              FadeInUp(delay: const Duration(milliseconds: 500), child: const _ManualClosingCard()),
               SizedBox(height: sh * 0.018),
-              const _ShiftHistoryCard(),
+              FadeInUp(delay: const Duration(milliseconds: 600), child: const _ShiftHistoryCard()),
               SizedBox(height: sh * 0.03),
             ],
           ),
@@ -1573,9 +1576,10 @@ class _SummaryAmountCards extends StatelessWidget {
             child: SizedBox(
                 width: 24,
                 height: 24,
-                child: CircularProgressIndicator(
-                    color: Color(0xFF00B5AD), strokeWidth: 2))),
-      );
+                child: CustomLoader(
+                    size: 24,
+                    color: Color(0xFF00B5AD))),
+      ));
     }
 
     final receiptRange = summary.receiptCount == 0

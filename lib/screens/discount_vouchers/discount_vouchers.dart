@@ -8,6 +8,8 @@ import '../../custum widgets/drawer/base_scaffold.dart';
 import '../../models/voucher_model/voucher_model.dart';
 import '../../providers/voucher_provider/voucher.dart';
 import '../../custum widgets/custom_loader.dart';
+import '../../custum widgets/animations/animations.dart';
+import 'package:animate_do/animate_do.dart';
 
 // ─── Theme constants ──────────────────────────────────────────────────────────
 const Color kPrimary      = Color(0xFF00B5AD);
@@ -355,8 +357,10 @@ class _DiscountVoucherApprovalScreenState
             title: 'Discount Voucher Approval',
             drawerIndex: 10, // no drawer item selected for this screen
             showNotificationIcon: false,
-            body: const Center(
-                child: CustomLoader(size: 80)),
+            body: const CustomPageTransition(
+              child: Center(
+                  child: CustomLoader(size: 50, color: kPrimary)),
+            ),
           );
         }
 
@@ -368,48 +372,52 @@ class _DiscountVoucherApprovalScreenState
           showNotificationIcon: false,
           // ── Pending badge injected as a custom action ──────────────────
           actions: [_pendingBadge(provider)],
-          // ── Body ──────────────────────────────────────────────────────
-          body: Stack(
-            children: [
-              // Main scrollable content
-              Positioned.fill(
-                child: v == null
-                    ? _buildEmptyState()
-                    : SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(
-                    MediaQuery.of(context).size.width > 800 
-                        ? MediaQuery.of(context).size.width * 0.15 
-                        : MediaQuery.of(context).size.width > 600 
-                            ? MediaQuery.of(context).size.width * 0.08 
-                            : 12,
-                    12,
-                    MediaQuery.of(context).size.width > 800 
-                        ? MediaQuery.of(context).size.width * 0.15 
-                        : MediaQuery.of(context).size.width > 600 
-                            ? MediaQuery.of(context).size.width * 0.08 
-                            : 12,
-                    120,
+          body: CustomPageTransition(
+            child: Stack(
+              children: [
+                // Main scrollable content
+                Positioned.fill(
+                  child: v == null
+                      ? _buildEmptyState()
+                      : SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(
+                      MediaQuery.of(context).size.width > 800 
+                          ? MediaQuery.of(context).size.width * 0.15 
+                          : MediaQuery.of(context).size.width > 600 
+                              ? MediaQuery.of(context).size.width * 0.08 
+                              : 12,
+                      12,
+                      MediaQuery.of(context).size.width > 800 
+                          ? MediaQuery.of(context).size.width * 0.15 
+                          : MediaQuery.of(context).size.width > 600 
+                              ? MediaQuery.of(context).size.width * 0.08 
+                              : 12,
+                      120,
+                    ),
+                    child: Column(children: [
+                      FadeInUp(delay: const Duration(milliseconds: 100), child: _buildVoucherDetailsCard(v)),
+                      const SizedBox(height: 12),
+                      FadeInUp(delay: const Duration(milliseconds: 200), child: _buildServicesCard(v)),
+                      const SizedBox(height: 12),
+                      FadeInUp(delay: const Duration(milliseconds: 300), child: _buildDiscountCard(v, provider)),
+                      const SizedBox(height: 20),
+                    ]),
                   ),
-                  child: Column(children: [
-                    _buildVoucherDetailsCard(v),
-                    const SizedBox(height: 12),
-                    _buildServicesCard(v),
-                    const SizedBox(height: 12),
-                    _buildDiscountCard(v, provider),
-                    const SizedBox(height: 20),
-                  ]),
                 ),
-              ),
 
-              // Pending approvals dropdown panel (overlay)
-              if (_isPendingPanelOpen)
-                Positioned(
-                  top: 8,
-                  right: 12,
-                  width: MediaQuery.of(context).size.width > 400 ? 320 : MediaQuery.of(context).size.width * 0.85,
-                  child: _buildPendingPanel(provider),
-                ),
-            ],
+                // Pending approvals dropdown panel (overlay)
+                if (_isPendingPanelOpen)
+                  Positioned(
+                    top: 8,
+                    right: 12,
+                    width: MediaQuery.of(context).size.width > 400 ? 320 : MediaQuery.of(context).size.width * 0.85,
+                    child: FadeInDown(
+                      duration: const Duration(milliseconds: 300),
+                      child: _buildPendingPanel(provider),
+                    ),
+                  ),
+              ],
+            ),
           ),
         );
       },
@@ -641,18 +649,20 @@ class _DiscountVoucherApprovalScreenState
 
   // ── Empty state ─────────────────────────────────────────────────────────────
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Icon(Icons.check_circle_outline_rounded,
-            size: 64, color: kPrimary.withOpacity(0.4)),
-        const SizedBox(height: 16),
-        const Text('All vouchers approved!',
-            style: TextStyle(
-                fontSize: 16, fontWeight: FontWeight.w600, color: kSubText)),
-        const SizedBox(height: 8),
-        const Text('No pending discount approvals remaining.',
-            style: TextStyle(fontSize: 13, color: kSubText)),
-      ]),
+    return FadeInUp(
+      child: Center(
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(Icons.check_circle_outline_rounded,
+              size: 64, color: kPrimary.withOpacity(0.4)),
+          const SizedBox(height: 16),
+          const Text('All vouchers approved!',
+              style: TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.w600, color: kSubText)),
+          const SizedBox(height: 8),
+          const Text('No pending discount approvals remaining.',
+              style: TextStyle(fontSize: 13, color: kSubText)),
+        ]),
+      ),
     );
   }
 }

@@ -27,6 +27,12 @@ class PrescriptionProvider extends ChangeNotifier {
   String _inputLang = 'en'; // 'en' or 'ur'
   List<dynamic> _medicineSearchResults = [];
   String _medSearchQuery = '';
+  
+  // Investigation Search
+  String _labSearch = '';
+  String _xraySearch = '';
+  String _ultrasoundSearch = '';
+  String _ctSearch = '';
 
   bool get isLoading => _isLoading;
   bool get isSaving => _isSaving;
@@ -41,6 +47,10 @@ class PrescriptionProvider extends ChangeNotifier {
   String get inputLang => _inputLang;
   List<dynamic> get medicineSearchResults => _medicineSearchResults;
   String get medSearchQuery => _medSearchQuery;
+  String get labSearch => _labSearch;
+  String get xraySearch => _xraySearch;
+  String get ultrasoundSearch => _ultrasoundSearch;
+  String get ctSearch => _ctSearch;
 
   // ─── Patient State ────────────────────────────────────────────────
   PatientModel? _currentPatient;
@@ -156,6 +166,7 @@ class PrescriptionProvider extends ChangeNotifier {
 
   Future<void> selectConsultationPatient(dynamic patient, {String? department}) async {
     final mr = patient['patient_mr_number']?.toString() ?? '';
+    final paddedMr = mr.padLeft(5, '0');
     _receiptId = patient['receipt_id']?.toString();
     _doctorSrlNo = int.tryParse(patient['doctor_srl_no']?.toString() ?? '');
     _doctorName = patient['doctor_name']?.toString();
@@ -163,7 +174,7 @@ class PrescriptionProvider extends ChangeNotifier {
     // Update vitality check or similar if needed
     vitalControllers['receiptId']?.text = _receiptId ?? '';
 
-    await searchPatient(mr, department: department);
+    await searchPatient(paddedMr, department: department);
   }
 
   void setMedMode(String mode) {
@@ -177,6 +188,11 @@ class PrescriptionProvider extends ChangeNotifier {
     _inputLang = lang;
     notifyListeners();
   }
+
+  void updateLabSearch(String q) { _labSearch = q; notifyListeners(); }
+  void updateXraySearch(String q) { _xraySearch = q; notifyListeners(); }
+  void updateUltrasoundSearch(String q) { _ultrasoundSearch = q; notifyListeners(); }
+  void updateCtSearch(String q) { _ctSearch = q; notifyListeners(); }
 
   void updateMedSearch(String query) async {
     _medSearchQuery = query;
@@ -199,12 +215,15 @@ class PrescriptionProvider extends ChangeNotifier {
     _currentPatient = null;
     notifyListeners();
 
-    final result = await _mrApiService.fetchPatientByMR(mrNumber);
+    // Pad MR number to 5 digits (Align with React)
+    final paddedMr = mrNumber.padLeft(5, '0');
+
+    final result = await _mrApiService.fetchPatientByMR(paddedMr);
     if (result.success && result.patient != null) {
       _currentPatient = result.patient!.toPatientModel();
       await fetchDiagnosis(department ?? 'General'); 
-      await fetchVitals(mrNumber, receiptId: _receiptId);
-      await fetchHistory(mrNumber);
+      await fetchVitals(paddedMr, receiptId: _receiptId);
+      await fetchHistory(paddedMr);
     } else {
       _errorMessage = result.message ?? 'Patient not found';
     }
@@ -216,9 +235,17 @@ class PrescriptionProvider extends ChangeNotifier {
     _currentVitals = null;
     notifyListeners();
     try {
-      final res = receiptId != null && receiptId.isNotEmpty
-          ? await _vitalsApiService.getVitalsByReceipt(receiptId)
-          : await _vitalsApiService.getVitalsByMR(mrNumber);
+      Map<String, dynamic> res = {'success': false};
+
+      // 1. Try fetching by Receipt ID first if available
+      if (receiptId != null && receiptId.isNotEmpty) {
+        res = await _vitalsApiService.getVitalsByReceipt(receiptId);
+      }
+
+      // 2. Fallback to MR Number if Receipt fetch failed or returned no data
+      if (res['success'] != true || res['data'] == null) {
+        res = await _vitalsApiService.getVitalsByMR(mrNumber);
+      }
       
       if (res['success'] == true && res['data'] != null) {
         _currentVitals = VitalsModel.fromJson(res['data']);

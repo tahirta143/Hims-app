@@ -8,6 +8,7 @@ import '../../custum widgets/drawer/base_scaffold.dart';
 import '../../global/global_api.dart';
 import '../../providers/opd/opd_reciepts/opd_reciepts.dart';
 import '../../providers/mr_provider/mr_provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../providers/shift_management/shift_management.dart';
 import '../../providers/voucher_provider/voucher.dart';
 import '../../providers/emergency_treatment_provider/emergency_provider.dart';
@@ -19,6 +20,8 @@ import '../../models/voucher_model/voucher_model.dart';
 import '../../models/appointment_model/appointments_model.dart';
 import '../../custum widgets/custom_loader.dart';
 import '../../core/utils/thermal_receipt_helper.dart';
+import '../../custum widgets/animations/animations.dart';
+import 'package:animate_do/animate_do.dart';
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -447,7 +450,9 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
       title: 'OPD Receipt',
       drawerIndex: 3,
       showAppBar: false,
-      body: isWide ? _buildWide() : _buildMobile(bottomPadding),
+      body: CustomPageTransition(
+        child: isWide ? _buildWide() : _buildMobile(bottomPadding),
+      ),
     );
   }
 
@@ -552,11 +557,11 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
               padding: const EdgeInsets.fromLTRB(16, 16, 8, 120),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  _patientCard(opdProv, mrProv),
+                  FadeInUp(delay: const Duration(milliseconds: 100), child: _patientCard(opdProv, mrProv)),
                   const SizedBox(height: 16),
-                  _buildAuxiliaryTabsCard(mrProv),
+                  FadeInUp(delay: const Duration(milliseconds: 200), child: _buildAuxiliaryTabsCard(mrProv)),
                   const SizedBox(height: 16),
-                  _servicesSection(opdProv),
+                  FadeInUp(delay: const Duration(milliseconds: 300), child: _servicesSection(opdProv)),
                 ]),
               ),
             ),
@@ -572,7 +577,7 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
               padding: const EdgeInsets.fromLTRB(8, 16, 16, 120),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  _billingCard(opdProv),
+                  FadeInUp(delay: const Duration(milliseconds: 400), child: _billingCard(opdProv)),
                 ]),
               ),
             ),
@@ -1014,11 +1019,11 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
       child: Column(
         children: [
-          _stepPatientInfo(opdProv, mrProv),
+          FadeInUp(delay: const Duration(milliseconds: 100), child: _stepPatientInfo(opdProv, mrProv)),
           const SizedBox(height: 16),
-          _stepServices(opdProv),
+          FadeInUp(delay: const Duration(milliseconds: 200), child: _stepServices(opdProv)),
           const SizedBox(height: 16),
-          _stepBilling(opdProv),
+          FadeInUp(delay: const Duration(milliseconds: 300), child: _stepBilling(opdProv)),
           const SizedBox(height: 24),
           _buildActionButtons(),
         ],
@@ -1395,7 +1400,6 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
             ),
           ),
         ),
-
         const SizedBox(height: 12),
 
         // Categories horizontal scroll
@@ -1465,45 +1469,39 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
 
         const SizedBox(height: 12),
 
-        // Services list
-        if (svcList.isEmpty)
-          Container(
-            height: 200,
-            width: double.infinity,
-            margin: const EdgeInsets.only(top: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _border.withOpacity(0.5)),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
+        SizedBox(
+          height: MediaQuery.of(context).size.height * 0.38,
+          child: svcList.isEmpty
+              ? Container(
+                  alignment: Alignment.center,
                   padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: _bg,
-                    shape: BoxShape.circle,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: _bg,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.search_off_rounded, color: Colors.grey.shade400, size: 40),
+                      ),
+                      const SizedBox(height: 16),
+                      Text('No ${_activeCat.toUpperCase()} Services',
+                          style: TextStyle(color: _textDark, fontSize: 16, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      Text('Try searching for something else',
+                          style: TextStyle(color: _textLight, fontSize: 13)),
+                    ],
                   ),
-                  child: Icon(Icons.search_off_rounded, color: Colors.grey.shade400, size: 40),
+                )
+              : ListView.separated(
+                  physics: const BouncingScrollPhysics(),
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemCount: svcList.length,
+                  itemBuilder: (_, i) => _mobileSvcTile(svcList[i], prov),
                 ),
-                const SizedBox(height: 16),
-                Text('No ${_activeCat.toUpperCase()} Services',
-                    style: TextStyle(color: _textDark, fontSize: 16, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text('Try searching for something else',
-                    style: TextStyle(color: _textLight, fontSize: 13)),
-              ],
-            ),
-          )
-        else
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemCount: svcList.length,
-            itemBuilder: (_, i) => _mobileSvcTile(svcList[i], prov),
-          ),
+        ),
 
         const SizedBox(height: 12),
 
@@ -1573,29 +1571,32 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
               color: svc.color.withOpacity(0.12),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: svc.imageUrl != null
-                ? ClipRRect(
+            child: Builder(
+              builder: (context) {
+                final url = GlobalApi.getImageUrl(svc.imageUrl);
+                if (url != null) {
+                  return ClipRRect(
                     borderRadius: BorderRadius.circular(10),
-                    child: Image.network(
-                      svc.imageUrl!,
+                    child: CachedNetworkImage(
+                      imageUrl: url,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Icon(svc.icon, color: svc.color, size: 22),
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Center(
-                          child: SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(svc.color.withOpacity(0.5)),
-                            ),
+                      placeholder: (context, _) => Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(svc.color.withOpacity(0.5)),
                           ),
-                        );
-                      },
+                        ),
+                      ),
+                      errorWidget: (context, _, __) => Icon(svc.icon, color: svc.color, size: 22),
                     ),
-                  )
-                : Icon(svc.icon, color: svc.color, size: 22),
+                  );
+                }
+                return Icon(svc.icon, color: svc.color, size: 22);
+              },
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1719,6 +1720,66 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
         ),
 
         const SizedBox(height: 10),
+
+        const SizedBox(height: 12),
+
+        // Refer to Discount Button (Mirrors React)
+        Consumer<OpdProvider>(
+          builder: (context, p, _) => Column(
+            children: [
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => p.setReferredToDiscount(!p.isReferredToDiscount),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: p.isReferredToDiscount ? Colors.amber[600] : Colors.white,
+                    foregroundColor: p.isReferredToDiscount ? Colors.white : Colors.amber[800],
+                    side: BorderSide(color: p.isReferredToDiscount ? Colors.amber[600]! : Colors.amber[200]!),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        p.isReferredToDiscount ? Icons.check_circle_rounded : Icons.percent_rounded,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        p.isReferredToDiscount ? 'Referred' : 'Refer To Discount',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (p.isReferredToDiscount) ...[
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.amber[50],
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.amber[100]!),
+                  ),
+                  child: Text(
+                    'Discount will be applied at the time of approval',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.amber[800],
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 12),
 
         // Balance
         Container(
@@ -2317,27 +2378,35 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
 
         const SizedBox(height: 16),
 
-        // Services list
-        if ((prov.services[_activeCat] ?? []).where((s) =>
-            _svcSearch.isEmpty || s.name.toLowerCase().contains(_svcSearch.toLowerCase())).isEmpty)
-          Container(
-            height: 150,
-            alignment: Alignment.center,
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.search_off_rounded, color: Colors.grey.shade300, size: 32),
-                const SizedBox(height: 8),
-                Text('No services found in ${_activeCat.toUpperCase()}',
-                    style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
-              ],
-            ),
-          )
-        else
-          ...prov.services[_activeCat]?.where((s) =>
-          _svcSearch.isEmpty || s.name.toLowerCase().contains(_svcSearch.toLowerCase()))
-              .map((s) => _wideSvcTile(s, prov)) ?? [],
+        // Services list in Scrollable Container
+        SizedBox(
+          height: MediaQuery.of(context).size.height * 0.52,
+          child: (prov.services[_activeCat] ?? []).where((s) =>
+              _svcSearch.isEmpty || s.name.toLowerCase().contains(_svcSearch.toLowerCase())).isEmpty
+              ? Container(
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.search_off_rounded, color: Colors.grey.shade300, size: 32),
+                      const SizedBox(height: 8),
+                      Text('No services found in ${_activeCat.toUpperCase()}',
+                          style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
+                    ],
+                  ),
+                )
+              : SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    children: [
+                      ...prov.services[_activeCat]?.where((s) =>
+                          _svcSearch.isEmpty || s.name.toLowerCase().contains(_svcSearch.toLowerCase()))
+                          .map((s) => _wideSvcTile(s, prov)) ?? [],
+                    ],
+                  ),
+                ),
+        ),
       ]),
     );
   }
@@ -2370,16 +2439,32 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
               color: svc.color.withOpacity(0.12),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: svc.imageUrl != null
-                ? ClipRRect(
+            child: Builder(
+              builder: (context) {
+                final url = GlobalApi.getImageUrl(svc.imageUrl);
+                if (url != null) {
+                  return ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      svc.imageUrl!,
+                    child: CachedNetworkImage(
+                      imageUrl: url,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Icon(svc.icon, color: svc.color, size: 18),
+                      placeholder: (context, _) => Center(
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(svc.color.withOpacity(0.5)),
+                          ),
+                        ),
+                      ),
+                      errorWidget: (context, _, __) => Icon(svc.icon, color: svc.color, size: 18),
                     ),
-                  )
-                : Icon(svc.icon, color: svc.color, size: 18),
+                  );
+                }
+                return Icon(svc.icon, color: svc.color, size: 18);
+              },
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -2468,6 +2553,60 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
           ),
         ]),
         const Divider(height: 24, color: _border),
+        // Refer to Discount Button (Mirrors React)
+        Column(
+          children: [
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () => prov.setReferredToDiscount(!prov.isReferredToDiscount),
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: prov.isReferredToDiscount ? Colors.amber[600] : Colors.white,
+                  foregroundColor: prov.isReferredToDiscount ? Colors.white : Colors.amber[800],
+                  side: BorderSide(color: prov.isReferredToDiscount ? Colors.amber[600]! : Colors.amber[200]!),
+                  padding: const EdgeInsets.symmetric(vertical: 11),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      prov.isReferredToDiscount ? Icons.check_circle_rounded : Icons.percent_rounded,
+                      size: 14,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      prov.isReferredToDiscount ? 'Referred' : 'Refer To Discount',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (prov.isReferredToDiscount) ...[
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.amber[50],
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.amber[100]!),
+                  ),
+                  child: Text(
+                    'Discount will be applied at the time of approval',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.amber[800],
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              ],
+          ],
+        ),
+        const SizedBox(height: 12),
         _billRow('Total Payable', 'PKR ${totalPayable.toStringAsFixed(2)}',
             bold: true, color: _teal),
         const SizedBox(height: 8),

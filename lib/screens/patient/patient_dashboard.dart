@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import '../../global/global_api.dart';
 import '../../providers/mobile_auth_provider.dart';
@@ -228,12 +229,6 @@ class _DoctorCard extends StatelessWidget {
 
   const _DoctorCard({required this.doctor, required this.onTap});
 
-  String _getFullImageUrl(String? path) {
-    if (path == null || path.isEmpty) return '';
-    if (path.startsWith('http')) return path;
-    final baseUrl = GlobalApi.mobileBaseUrl.replaceAll('/api/mobile', '');
-    return '$baseUrl$path';
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -309,15 +304,22 @@ class _DoctorCard extends StatelessWidget {
                   const SizedBox(width: 12),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(15),
-                    child: (doctor['image_url'] != null && doctor['image_url'].isNotEmpty)
-                        ? Image.network(
-                            _getFullImageUrl(doctor['image_url']),
+                    child: Builder(
+                      builder: (context) {
+                        final url = GlobalApi.getImageUrl(doctor['image_url']);
+                        if (url != null) {
+                          return CachedNetworkImage(
+                            imageUrl: url,
                             width: 80,
                             height: 80,
                             fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => _buildAvatarFallback(primaryColor),
-                          )
-                        : _buildAvatarFallback(primaryColor),
+                            placeholder: (context, _) => _buildAvatarFallback(primaryColor),
+                            errorWidget: (context, _, __) => _buildAvatarFallback(primaryColor),
+                          );
+                        }
+                        return _buildAvatarFallback(primaryColor);
+                      },
+                    ),
                   ),
                 ],
               ),

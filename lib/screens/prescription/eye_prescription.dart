@@ -33,6 +33,13 @@ class _EyePrescriptionScreenState extends State<EyePrescriptionScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 6, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final provider = context.read<PrescriptionProvider>();
+        provider.clearForm();
+        provider.loadConsultationPatients();
+      }
+    });
   }
 
   @override
@@ -73,7 +80,7 @@ class _EyePrescriptionScreenState extends State<EyePrescriptionScreen>
             ],
           ),
           if (provider.isSaving || provider.isLoading)
-            const CustomLoader(),
+            const CustomLoader(color: kTeal,),
         ],
       ),
     );
@@ -137,9 +144,6 @@ class _EyeConsultationSidebarState extends State<_EyeConsultationSidebar> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<PrescriptionProvider>().loadConsultationPatients();
-    });
   }
 
   @override
@@ -521,19 +525,19 @@ class _EyeTabSection extends StatelessWidget {
               Tab(text: 'Old Visits'),
             ],
           ),
-          SizedBox(
-            height: 600,
-            child: TabBarView(
-              controller: tabController,
-              children: [
-                _DiagnosisTab(provider: provider),
-                _OptometristTab(provider: provider),
-                _ExaminationTab(provider: provider),
-                _ManagementTab(provider: provider),
-                _MedicinesTab(provider: provider),
-                _OldVisitsTab(provider: provider),
-              ],
-            ),
+          AnimatedBuilder(
+            animation: tabController,
+            builder: (context, child) {
+              return switch (tabController.index) {
+                0 => _DiagnosisTab(provider: provider),
+                1 => _OptometristTab(provider: provider),
+                2 => _ExaminationTab(provider: provider),
+                3 => _ManagementTab(provider: provider),
+                4 => _MedicinesTab(provider: provider),
+                5 => _OldVisitsTab(provider: provider),
+                _ => const SizedBox.shrink(),
+              };
+            },
           ),
         ],
       ),
@@ -548,7 +552,7 @@ class _OptometristTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
+    return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -718,6 +722,8 @@ class _DiagnosisTab extends StatelessWidget {
     }
 
     return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       itemCount: provider.diagnosisQuestions.length,
       separatorBuilder: (context, index) => const SizedBox(height: 16),
@@ -777,7 +783,7 @@ class _ExaminationTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
+    return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -816,7 +822,7 @@ class _ManagementTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
+    return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -981,7 +987,7 @@ class _MedicinesTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
+    return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1301,6 +1307,8 @@ class _OldVisitsTab extends StatelessWidget {
     if (provider.prescriptionHistory.isEmpty) return const Center(child: Text('No previous visits found.'));
 
     return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       itemCount: provider.prescriptionHistory.length,
       separatorBuilder: (context, index) => const SizedBox(height: 12),

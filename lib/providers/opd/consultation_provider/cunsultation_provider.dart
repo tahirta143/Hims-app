@@ -57,6 +57,11 @@ class ConsultationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void resetLoading() {
+    _isLoading = true;
+    notifyListeners();
+  }
+
   // ── Appointments ──
   List<ConsultationAppointment> _appointments = [];
 

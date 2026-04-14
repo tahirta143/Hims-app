@@ -5,6 +5,8 @@ import '../models/chat_message.dart';
 import 'package:hims_app/screens/mr_details/mr_details.dart';
 import 'dart:math';
 
+import '../screens/opd_reciepts/opd_records.dart';
+
 class AiChatWidget extends StatefulWidget {
   const AiChatWidget({super.key});
 
@@ -23,22 +25,7 @@ class _AiChatWidgetState extends State<AiChatWidget> {
   static const double _fabSize = 56.0;
   static const double _fabMargin = 16.0;
 
-  bool hasPatientInfo(String message) {
-    final msg = message.toLowerCase();
-    final patientKeywords = [
-      'patient',
-      'mr',
-      'medical record',
-      'consultation',
-      'service',
-      'visits',
-      'treatment'
-    ];
-    final hasKeywords =
-    patientKeywords.any((keyword) => msg.contains(keyword));
-    final hasPatientOrMR = msg.contains('mr') || msg.contains('patient');
-    return hasKeywords && hasPatientOrMR;
-  }
+  // We now use msg.entities check instead of text parsing
 
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
@@ -329,7 +316,7 @@ class _AiChatWidgetState extends State<AiChatWidget> {
   }
 
   Widget _buildMessageBubble(ChatMessage msg) {
-    bool showButton = msg.isAi && hasPatientInfo(msg.content);
+    bool showButton = msg.isAi && msg.entities != null && msg.entities!.isNotEmpty;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -396,14 +383,17 @@ class _AiChatWidgetState extends State<AiChatWidget> {
                     const SizedBox(height: 8),
                     TextButton.icon(
                       onPressed: () {
+                        final e = msg.entities ?? {};
+                        final mr = e['mr_number']?.toString();
+                        final name = e['patient_name']?.toString();
+                        final search = mr ?? name ?? '';
+
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (_) => const MrDetailsScreen()),
+                              builder: (_) => OpdRecordsScreen(initialSearch: search)),
                         );
-                        Provider.of<AiChatProvider>(context,
-                            listen: false)
-                            .closeChat();
+                        Provider.of<AiChatProvider>(context, listen: false).closeChat();
                       },
                       icon: const Icon(Icons.visibility, size: 16),
                       label: const Text('View Records'),

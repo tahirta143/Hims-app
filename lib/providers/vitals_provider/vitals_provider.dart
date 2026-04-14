@@ -80,11 +80,13 @@ class VitalsProvider extends ChangeNotifier {
     _doctorName = customDoctor;
     notifyListeners();
 
+    final paddedMr = mrNumber.padLeft(5, '0');
+
     try {
-      final res = await _mrApiService.fetchPatientByMR(mrNumber);
+      final res = await _mrApiService.fetchPatientByMR(paddedMr);
       if (res.success && res.patient != null) {
         _currentPatient = res.patient!.toPatientModel();
-        await _fetchVitalsHistory(mrNumber, customReceiptId);
+        await _fetchVitalsHistory(paddedMr, customReceiptId);
       } else {
         _errorMessage = res.message ?? 'Patient not found';
       }
@@ -99,9 +101,17 @@ class VitalsProvider extends ChangeNotifier {
 
   Future<void> _fetchVitalsHistory(String mrNumber, String? rId) async {
     try {
-      final res = rId != null 
-          ? await _apiService.getVitalsByReceipt(rId)
-          : await _apiService.getVitalsByMR(mrNumber);
+      Map<String, dynamic> res = {'success': false};
+
+      // 1. Try by Receipt ID first
+      if (rId != null && rId.isNotEmpty) {
+        res = await _apiService.getVitalsByReceipt(rId);
+      }
+
+      // 2. Fallback to MR Number if Receipt fetch failed
+      if (res['success'] != true || res['data'] == null) {
+        res = await _apiService.getVitalsByMR(mrNumber);
+      }
       
       if (res['success'] == true && res['data'] != null) {
         final data = res['data'];

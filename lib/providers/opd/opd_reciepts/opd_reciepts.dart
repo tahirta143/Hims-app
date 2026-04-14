@@ -327,10 +327,10 @@ class OpdProvider extends ChangeNotifier {
             category = 'emergency'; color = const Color(0xFFE53935); icon = Icons.emergency_rounded;
           }
 
-          final baseUrlRoot = GlobalApi.baseUrl.replaceAll('/api', '');
-          final imageUrl = s.imageUrl != null && s.imageUrl!.isNotEmpty
-              ? (s.imageUrl!.startsWith('http') ? s.imageUrl : '$baseUrlRoot${s.imageUrl}')
-              : null;
+          final imageUrl = s.imageUrl;
+          if (imageUrl != null && imageUrl.isNotEmpty) {
+            debugPrint('🎯 Found image for OPD Service [${s.serviceName}]: $imageUrl');
+          }
 
           final service = OpdService(
             id: s.serviceId, name: s.serviceName, category: category,
@@ -357,6 +357,7 @@ class OpdProvider extends ChangeNotifier {
             price: double.tryParse(t['test_rate']?.toString() ?? '0') ?? 0.0,
             icon: Icons.biotech_rounded,
             color: const Color(0xFFF4511E),
+            imageUrl: t['image_url']?.toString(),
           );
           
           if (!services.containsKey('laboratory')) services['laboratory'] = [];
@@ -392,6 +393,7 @@ class OpdProvider extends ChangeNotifier {
             price: double.tryParse(t['test_rate']?.toString() ?? '0') ?? 0.0,
             icon: icon,
             color: color,
+            imageUrl: t['image_url']?.toString(),
           );
           
           if (!services.containsKey(category)) services[category] = [];
@@ -437,10 +439,10 @@ class OpdProvider extends ChangeNotifier {
           final d = entry.value;
           final fee = double.tryParse(d.consultationFee) ?? 0.0;
           final spec = d.doctorSpecialization.isNotEmpty ? ' (${d.doctorSpecialization})' : '';
-          final baseUrlRoot = GlobalApi.baseUrl.replaceAll('/api', '');
-          final imageUrl = d.imageUrl != null && d.imageUrl!.isNotEmpty
-              ? (d.imageUrl!.startsWith('http') ? d.imageUrl : '$baseUrlRoot${d.imageUrl}')
-              : null;
+          final imageUrl = d.imageUrl;
+          if (imageUrl != null && imageUrl.isNotEmpty) {
+            debugPrint('👨‍⚕️ Found image for Doctor [${d.doctorName}]: $imageUrl');
+          }
 
           return OpdService(
             id: d.doctorId, name: 'Dr. ${d.doctorName}$spec',
@@ -811,7 +813,7 @@ class OpdProvider extends ChangeNotifier {
       'shift_type': currentShift?.shiftType ?? 'N/A',
       'shift_date': currentShift?.shiftDate ?? dateStr,
       'emergency_paid': servicesHeads.any((h) => h.toLowerCase() == 'emergency'),
-      'is_referred_to_discount': _isReferredToDiscount,
+      'refer_to_discount': _isReferredToDiscount,
     };
 
     debugPrint('══ OPD RECEIPT PAYLOAD ══\n$payload');
@@ -831,7 +833,8 @@ class OpdProvider extends ChangeNotifier {
     // Post-save cleanup logic removed (MR incrementing handled by MrProvider + UI)
 
     // Consultant payment records
-    for (var svc in services) {
+    if (!_isReferredToDiscount) {
+      for (var svc in services) {
       double drShareAmount = svc.service.category == 'consultation' ? svc.service.price : 0;
       if (drShareAmount > 0) {
         final dName = svc.doctorName ??
@@ -851,6 +854,7 @@ class OpdProvider extends ChangeNotifier {
         });
       }
     }
+  }
 
     if (_isDisposed) return true;
 

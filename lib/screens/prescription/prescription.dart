@@ -8,6 +8,8 @@ import '../../providers/prescription_provider/prescription_provider.dart';
 import '../../core/providers/permission_provider.dart';
 import '../../core/utils/date_formatter.dart';
 import '../../custum widgets/custom_loader.dart';
+import '../../custum widgets/animations/animations.dart';
+import 'package:animate_do/animate_do.dart';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const kTeal = Color(0xFF00B5AD);
@@ -33,7 +35,14 @@ class _PrescriptionScreenState extends State<PrescriptionScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 7, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final provider = context.read<PrescriptionProvider>();
+        provider.clearForm();
+        provider.loadConsultationPatients();
+      }
+    });
   }
 
   @override
@@ -51,32 +60,34 @@ class _PrescriptionScreenState extends State<PrescriptionScreen>
       title: 'Prescription',
       drawerIndex: 9,
       showNotificationIcon: true,
-      body: Stack(
-        children: [
-          Column(
-            children: [
-              if (isMobile) _ConsultationDropdown(provider: provider),
-              Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      flex: 9,
-                      child: _PrescriptionBody(tabController: _tabController, provider: provider),
-                    ),
-                    if (!isMobile)
-                      const Expanded(
-                        flex: 3,
-                        child: _ConsultationSidebar(),
+      body: CustomPageTransition(
+        child: Stack(
+          children: [
+            Column(
+              children: [
+                if (isMobile) _ConsultationDropdown(provider: provider),
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 9,
+                        child: _PrescriptionBody(tabController: _tabController, provider: provider),
                       ),
-                  ],
+                      if (!isMobile)
+                        const Expanded(
+                          flex: 3,
+                          child: _ConsultationSidebar(),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          if (provider.isSaving || provider.isLoading)
-            const CustomLoader(),
-        ],
+              ],
+            ),
+            if (provider.isSaving || provider.isLoading)
+              const CustomLoader(color: kTeal,),
+          ],
+        ),
       ),
     );
   }
@@ -139,9 +150,6 @@ class _ConsultationSidebarState extends State<_ConsultationSidebar> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<PrescriptionProvider>().loadConsultationPatients();
-    });
   }
 
   @override
@@ -248,19 +256,19 @@ class _PrescriptionBody extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ── Date strip ────────────────────────────────────────────────────
-          _DateStrip(isTablet: isTablet),
+          FadeInUp(delay: const Duration(milliseconds: 100), child: _DateStrip(isTablet: isTablet)),
           SizedBox(height: mq.size.height * 0.014),
 
           // ── Patient Info ──────────────────────────────────────────────────
-          _PatientInfoCard(isTablet: isTablet, screenW: screenW, provider: provider),
+          FadeInUp(delay: const Duration(milliseconds: 200), child: _PatientInfoCard(isTablet: isTablet, screenW: screenW, provider: provider)),
           SizedBox(height: mq.size.height * 0.018),
 
           // ── Tabs ──────────────────────────────────────────────────────────
-          _TabSection(tabController: tabController, isTablet: isTablet, provider: provider),
+          FadeInUp(delay: const Duration(milliseconds: 300), child: _TabSection(tabController: tabController, isTablet: isTablet, provider: provider)),
           SizedBox(height: mq.size.height * 0.022),
 
           // ── Save & Print Button (bottom, full width) ──────────────────────
-          _SavePrintButton(isTablet: isTablet, provider: provider),
+          FadeInUp(delay: const Duration(milliseconds: 400), child: _SavePrintButton(isTablet: isTablet, provider: provider)),
           SizedBox(height: mq.size.height * 0.01),
         ],
       ),
@@ -455,7 +463,7 @@ class _PatientInfoCard extends StatelessWidget {
     return Column(
       children: [
         _FieldRow(fields: [
-          _FieldData('MR No.*', 'Enter MR no.', required: true, initialValue: patient?.mrNumber, onSearch: provider.searchPatient),
+          _FieldData('MR No.*', 'Enter MR no.', required: true, initialValue: patient?.mrNumber, onSearch: (val) => provider.searchPatient(val)),
           _FieldData('Patient Name', '', initialValue: patient?.fullName, readOnly: true),
         ]),
         const SizedBox(height: 10),
@@ -484,7 +492,7 @@ class _PatientInfoCard extends StatelessWidget {
     return Column(
       children: [
         Row(children: [
-          Expanded(child: _InputField(label: 'MR No.*', hint: 'Enter MR no.', required: true, initialValue: patient?.mrNumber, onSubmitted: provider.searchPatient)),
+          Expanded(child: _InputField(label: 'MR No.*', hint: 'Enter MR no.', required: true, initialValue: patient?.mrNumber, onSubmitted: (val) => provider.searchPatient(val))),
           const SizedBox(width: 12),
           Expanded(child: _InputField(label: 'Patient Name', hint: '', initialValue: patient?.fullName, readOnly: true)),
           const SizedBox(width: 12),
@@ -908,7 +916,7 @@ class _TabSection extends StatelessWidget {
     [Icons.medication_outlined, 'Medicines'],
     [Icons.assignment_outlined, 'Instructions'],
     [Icons.history_outlined, 'Old Visits'],
-    [Icons.people_outline, 'Waiting List'],
+    // [Icons.people_outline, 'Waiting List'],
   ];
 
   @override
@@ -1010,17 +1018,19 @@ class _TabViewBodyState extends State<_TabViewBody> {
 
   @override
   Widget build(BuildContext context) {
-    return IndexedStack(
-      index: widget.tabController.index,
-      children: [
-        _NotesTab(isTablet: widget.isTablet, provider: widget.provider),
-        _DiagnosisTab(isTablet: widget.isTablet, provider: widget.provider),
-        _InvestigationsTab(isTablet: widget.isTablet, provider: widget.provider),
-        _MedicinesTab(isTablet: widget.isTablet, provider: widget.provider),
-        _InstructionsTab(isTablet: widget.isTablet, provider: widget.provider),
-        _OldVisitsTab(isTablet: widget.isTablet, provider: widget.provider),
-        _WaitingListTab(isTablet: widget.isTablet, provider: widget.provider),
-      ],
+    return AnimatedBuilder(
+      animation: widget.tabController,
+      builder: (context, child) {
+        return switch (widget.tabController.index) {
+          0 => _NotesTab(isTablet: widget.isTablet, provider: widget.provider),
+          1 => _DiagnosisTab(isTablet: widget.isTablet, provider: widget.provider),
+          2 => _InvestigationsTab(isTablet: widget.isTablet, provider: widget.provider),
+          3 => _MedicinesTab(isTablet: widget.isTablet, provider: widget.provider),
+          4 => _InstructionsTab(isTablet: widget.isTablet, provider: widget.provider),
+          5 => _OldVisitsTab(isTablet: widget.isTablet, provider: widget.provider),
+          _ => const SizedBox.shrink(),
+        };
+      },
     );
   }
 }
@@ -1050,10 +1060,32 @@ class _InvestigationsTabState extends State<_InvestigationsTab> {
       return const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator(color: kTeal)));
     }
 
-    final labTests = widget.provider.labTests;
-    final xrayTests = widget.provider.radiologyTests.where((t) => t['test_category'] == 'X-Ray').toList();
-    final usTests = widget.provider.radiologyTests.where((t) => t['test_category'] == 'Ultrasound').toList();
-    final ctTests = widget.provider.radiologyTests.where((t) => t['test_category'] == 'CT-Scan').toList();
+    final labTests = widget.provider.labTests.where((t) => 
+      t['test_name'].toString().toLowerCase().contains(widget.provider.labSearch.toLowerCase())).toList();
+    
+    // Support variants like X-Ray, Xray, X Ray
+    final xrayTests = widget.provider.radiologyTests.where((t) {
+      final cat = t['test_category']?.toString().toLowerCase() ?? '';
+      final matchesCat = cat.contains('x-ray') || cat.contains('xray') || cat.contains('x ray');
+      final matchesSearch = t['test_name'].toString().toLowerCase().contains(widget.provider.xraySearch.toLowerCase());
+      return matchesCat && matchesSearch;
+    }).toList();
+
+    // Support variants like Ultrasound, Ultra Sound
+    final usTests = widget.provider.radiologyTests.where((t) {
+      final cat = t['test_category']?.toString().toLowerCase() ?? '';
+      final matchesCat = cat.contains('ultrasound') || cat.contains('ultra sound');
+      final matchesSearch = t['test_name'].toString().toLowerCase().contains(widget.provider.ultrasoundSearch.toLowerCase());
+      return matchesCat && matchesSearch;
+    }).toList();
+
+    // Support variants like CT-Scan, CT Scan, CTScan
+    final ctTests = widget.provider.radiologyTests.where((t) {
+      final cat = t['test_category']?.toString().toLowerCase() ?? '';
+      final matchesCat = cat.contains('ct-scan') || cat.contains('ct scan') || cat.contains('ctscan');
+      final matchesSearch = t['test_name'].toString().toLowerCase().contains(widget.provider.ctSearch.toLowerCase());
+      return matchesCat && matchesSearch;
+    }).toList();
 
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -1061,49 +1093,84 @@ class _InvestigationsTabState extends State<_InvestigationsTab> {
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         children: [
-          _testSection('LAB TESTS', labTests, 'lab', Icons.science_outlined, Colors.blue),
+          _testSection('LAB TESTS', labTests, 'lab', Icons.science_outlined, Colors.blue, 
+            widget.provider.labSearch, widget.provider.updateLabSearch),
           const SizedBox(height: 20),
-          _testSection('X-RAYS', xrayTests, 'xray', Icons.settings_overscan, Colors.indigo),
+          _testSection('X-RAYS', xrayTests, 'xray', Icons.settings_overscan, Colors.indigo,
+            widget.provider.xraySearch, widget.provider.updateXraySearch),
           const SizedBox(height: 20),
-          _testSection('ULTRA SOUND', usTests, 'ultrasound', Icons.waves, Colors.amber),
+          _testSection('ULTRA SOUND', usTests, 'ultrasound', Icons.waves, Colors.green,
+            widget.provider.ultrasoundSearch, widget.provider.updateUltrasoundSearch),
           const SizedBox(height: 20),
-          _testSection('CT SCAN', ctTests, 'ct_scan', Icons.biotech, Colors.amber),
+          _testSection('CT SCAN', ctTests, 'ct_scan', Icons.biotech, Colors.amber,
+            widget.provider.ctSearch, widget.provider.updateCtSearch),
         ],
       ),
     );
   }
 
-  Widget _testSection(String title, List<dynamic> tests, String type, IconData icon, Color color) {
-    if (tests.isEmpty) return const SizedBox.shrink();
+  Widget _testSection(String title, List<dynamic> tests, String type, IconData icon, Color color, 
+      String searchQuery, Function(String) onSearch) {
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(width: 8),
-            Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: color.withOpacity(0.8), letterSpacing: 1.1)),
+            Row(
+              children: [
+                Icon(icon, size: 16, color: color),
+                const SizedBox(width: 8),
+                Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: color.withOpacity(0.8), letterSpacing: 1.1)),
+              ],
+            ),
+            if (tests.isNotEmpty || searchQuery.isNotEmpty)
+              SizedBox(
+                width: 150,
+                height: 30,
+                child: TextField(
+                  onChanged: onSearch,
+                  style: const TextStyle(fontSize: 11),
+                  decoration: InputDecoration(
+                    hintText: 'Search...',
+                    prefixIcon: const Icon(Icons.search, size: 14),
+                    contentPadding: EdgeInsets.zero,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: color, width: 1)),
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                  ),
+                ),
+              ),
           ],
         ),
         const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: tests.map((t) {
-            final name = t['test_name'];
-            final isSelected = widget.provider.selectedInvestigations.any((i) => i.investigationType == type && i.testName == name);
-            
-            return FilterChip(
-              label: Text(name.toString(), style: TextStyle(fontSize: 12, color: isSelected ? kTeal : kTextDark)),
-              selected: isSelected,
-              onSelected: (_) => widget.provider.toggleInvestigation(type, name),
-              selectedColor: kTeal.withOpacity(0.1),
-              checkmarkColor: kTeal,
-              backgroundColor: kBg,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: isSelected ? kTeal : kBorder)),
-            );
-          }).toList(),
-        ),
+        if (tests.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(searchQuery.isEmpty ? 'No data available in this category' : 'No matches found', 
+              style: TextStyle(fontSize: 11, color: kTextMid.withOpacity(0.6), fontStyle: FontStyle.italic)),
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: tests.map((t) {
+              final name = t['test_name'];
+              final isSelected = widget.provider.selectedInvestigations.any((i) => i.investigationType == type && i.testName == name);
+              
+              return FilterChip(
+                label: Text(name.toString(), style: TextStyle(fontSize: 12, color: isSelected ? kTeal : kTextDark)),
+                selected: isSelected,
+                onSelected: (_) => widget.provider.toggleInvestigation(type, name),
+                selectedColor: kTeal.withOpacity(0.1),
+                checkmarkColor: kTeal,
+                backgroundColor: kBg,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: isSelected ? kTeal : kBorder)),
+              );
+            }).toList(),
+          ),
       ],
     );
   }
@@ -1180,43 +1247,327 @@ class _InstructionsTab extends StatelessWidget {
   }
 }
 
-// ─── Old Visits Tab ───────────────────────────────────────────────────────────
-class _OldVisitsTab extends StatelessWidget {
+// ─── Old Visits Tab — TREE VIEW (matches React) ──────────────────────────────
+class _OldVisitsTab extends StatefulWidget {
   final bool isTablet;
   final PrescriptionProvider provider;
   const _OldVisitsTab({required this.isTablet, required this.provider});
 
   @override
+  State<_OldVisitsTab> createState() => _OldVisitsTabState();
+}
+
+class _OldVisitsTabState extends State<_OldVisitsTab> {
+  final Map<String, bool> _expanded = {};
+
+  void _toggle(String key) => setState(() => _expanded[key] = !(_expanded[key] ?? false));
+  bool _isExpanded(String key) => _expanded[key] ?? false;
+
+  String _fmtDate(String? raw) {
+    if (raw == null) return '';
+    try {
+      final d = DateTime.parse(raw);
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return '${d.day.toString().padLeft(2,'0')} ${months[d.month-1]} ${d.year}';
+    } catch (_) { return raw; }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final provider = widget.provider;
+
     if (provider.isLoadingHistory) {
       return const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator(color: kTeal)));
     }
-
     if (provider.prescriptionHistory.isEmpty) {
       return const _PlaceholderTab(label: 'No previous visits found for this patient');
     }
 
+    final visits = provider.prescriptionHistory;
+
     return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: ListView.separated(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: provider.prescriptionHistory.length,
-        separatorBuilder: (_, __) => const Divider(height: 1, color: kBorder),
-        itemBuilder: (context, index) {
-          final h = provider.prescriptionHistory[index];
-          return ListTile(
-            title: Text('Prescription #${h['id']} - ${h['doctor_name'] ?? 'Doctor'}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-            subtitle: Text('Date: ${h['prescription_date'] ?? 'N/A'}', style: const TextStyle(fontSize: 11)),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('${visits.length} visit(s) found — tap a category to expand',
+            style: TextStyle(fontSize: 10, color: kTextMid, fontWeight: FontWeight.w600, letterSpacing: 0.3)),
+          const SizedBox(height: 8),
+
+          // ─── NOTES ───
+          _buildCategory(
+            key: 'notes',
+            title: 'Notes',
+            icon: Icons.description_outlined,
+            color: const Color(0xFF2563EB),
+            entries: visits.where((v) =>
+              (v['history_examination'] ?? '').toString().isNotEmpty ||
+              (v['treatment'] ?? '').toString().isNotEmpty ||
+              (v['consultant_notes'] ?? '').toString().isNotEmpty ||
+              (v['remarks'] ?? '').toString().isNotEmpty
+            ).toList(),
+            contentBuilder: (v) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                IconButton(icon: const Icon(Icons.print_outlined, size: 20, color: kTeal), onPressed: () {}),
-                const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
+                if ((v['history_examination'] ?? '').toString().isNotEmpty)
+                  _labelValue('History', v['history_examination']),
+                if ((v['treatment'] ?? '').toString().isNotEmpty)
+                  _labelValue('Treatment', v['treatment']),
+                if ((v['consultant_notes'] ?? '').toString().isNotEmpty)
+                  _labelValue('Notes', v['consultant_notes']),
+                if ((v['remarks'] ?? '').toString().isNotEmpty)
+                  _labelValue('Remarks', v['remarks']),
               ],
             ),
-          );
-        },
+          ),
+          const SizedBox(height: 4),
+
+          // ─── DIAGNOSIS ───
+          _buildCategory(
+            key: 'diagnosis',
+            title: 'Diagnosis',
+            icon: Icons.assignment_outlined,
+            color: const Color(0xFF9333EA),
+            entries: visits.where((v) {
+              final ans = v['diagnosis_answers'];
+              return ans != null && ans is List && ans.isNotEmpty;
+            }).toList(),
+            contentBuilder: (v) {
+              final answers = v['diagnosis_answers'] as List;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: answers.map<Widget>((ans) {
+                  final qText = ans['question_text'] ?? 'Q#${ans['question_id']}';
+                  final aText = (ans['answer_display'] ?? ans['answer_text'] ?? '—').toString();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: RichText(text: TextSpan(
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF374151), fontFamily: 'Roboto'),
+                      children: [
+                        TextSpan(text: '$qText: ', style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF6B7280))),
+                        TextSpan(text: aText),
+                      ],
+                    )),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+          const SizedBox(height: 4),
+
+          // ─── INVESTIGATION ───
+          _buildCategory(
+            key: 'investigation',
+            title: 'Investigation',
+            icon: Icons.science_outlined,
+            color: const Color(0xFF059669),
+            entries: visits.where((v) {
+              final inv = v['investigations'];
+              return inv != null && inv is List && inv.isNotEmpty;
+            }).toList(),
+            contentBuilder: (v) {
+              final invs = v['investigations'] as List;
+              return Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: invs.map<Widget>((inv) => Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFECFDF5),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: const Color(0xFFA7F3D0)),
+                  ),
+                  child: Text.rich(TextSpan(children: [
+                    TextSpan(text: inv['test_name'] ?? '', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Color(0xFF065F46))),
+                    TextSpan(text: ' (${inv['investigation_type'] ?? ''})', style: const TextStyle(fontSize: 9, color: Color(0xFF6EE7B7))),
+                  ])),
+                )).toList(),
+              );
+            },
+          ),
+          const SizedBox(height: 4),
+
+          // ─── MEDICINES ───
+          _buildCategory(
+            key: 'medicines',
+            title: 'Medicines',
+            icon: Icons.medication_outlined,
+            color: const Color(0xFFD97706),
+            entries: visits.where((v) {
+              final meds = v['medicines'];
+              return meds != null && meds is List && meds.isNotEmpty;
+            }).toList(),
+            contentBuilder: (v) {
+              final meds = v['medicines'] as List;
+              return Table(
+                columnWidths: const {
+                  0: FixedColumnWidth(24),
+                  1: FlexColumnWidth(3),
+                  2: FixedColumnWidth(28),
+                  3: FixedColumnWidth(28),
+                  4: FixedColumnWidth(28),
+                  5: FixedColumnWidth(28),
+                  6: FixedColumnWidth(36),
+                },
+                defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+                children: [
+                  TableRow(
+                    decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey.shade200))),
+                    children: const ['#', 'Medicine', 'M', 'A', 'E', 'N', 'Days']
+                      .map((h) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Text(h, textAlign: h == 'Medicine' || h == '#' ? TextAlign.left : TextAlign.center,
+                          style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Colors.grey.shade500)),
+                      )).toList(),
+                  ),
+                  ...meds.asMap().entries.map((e) {
+                    final m = e.value;
+                    final idx = e.key;
+                    return TableRow(
+                      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey.shade50))),
+                      children: [
+                        Padding(padding: const EdgeInsets.symmetric(vertical: 2), child: Text('${idx+1}', style: TextStyle(fontSize: 10, color: Colors.grey.shade400))),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Text.rich(TextSpan(children: [
+                            TextSpan(text: m['medicine_name'] ?? '', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF1F2937))),
+                            if (m['is_formula'] == true) const TextSpan(text: ' (F)', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Color(0xFF16A34A))),
+                          ])),
+                        ),
+                        _medCell('${m['morning'] ?? '-'}'),
+                        _medCell('${m['afternoon'] ?? '-'}'),
+                        _medCell('${m['evening'] ?? '-'}'),
+                        _medCell('${m['night'] ?? '-'}'),
+                        _medCell('${m['for_days'] ?? '-'}'),
+                      ],
+                    );
+                  }),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 4),
+
+          // ─── INSTRUCTIONS ───
+          _buildCategory(
+            key: 'instructions',
+            title: 'Instructions',
+            icon: Icons.checklist_outlined,
+            color: const Color(0xFFE11D48),
+            entries: visits.where((v) {
+              final inst = v['instructions'];
+              if (inst == null) return false;
+              if (inst is List) return inst.isNotEmpty;
+              if (inst is String) {
+                try { final parsed = List.from(inst as dynamic); return parsed.isNotEmpty; } catch (_) { return false; }
+              }
+              return false;
+            }).toList(),
+            contentBuilder: (v) {
+              List<dynamic> arr;
+              final raw = v['instructions'];
+              if (raw is List) { arr = raw; } else { try { arr = List.from(raw as dynamic); } catch (_) { arr = []; } }
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: arr.map<Widget>((inst) => Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: Text('• $inst', style: const TextStyle(fontSize: 11, color: Color(0xFF374151))),
+                )).toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _medCell(String val) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 2),
+    child: Text(val, textAlign: TextAlign.center, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+  );
+
+  Widget _labelValue(String label, dynamic value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: RichText(text: TextSpan(
+        style: const TextStyle(fontSize: 11, color: Color(0xFF374151), fontFamily: 'Roboto'),
+        children: [
+          TextSpan(text: '$label: ', style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF6B7280))),
+          TextSpan(text: '$value'),
+        ],
+      )),
+    );
+  }
+
+  Widget _buildCategory({
+    required String key,
+    required String title,
+    required IconData icon,
+    required Color color,
+    required List<dynamic> entries,
+    required Widget Function(dynamic v) contentBuilder,
+  }) {
+    final isOpen = _isExpanded(key);
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          InkWell(
+            onTap: () => _toggle(key),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  Icon(isOpen ? Icons.keyboard_arrow_down : Icons.chevron_right, size: 16, color: color),
+                  const SizedBox(width: 6),
+                  Icon(icon, size: 14, color: color),
+                  const SizedBox(width: 6),
+                  Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
+                  const Spacer(),
+                  Text('${entries.length} entries', style: TextStyle(fontSize: 10, color: color.withOpacity(0.6))),
+                ],
+              ),
+            ),
+          ),
+          if (isOpen) ...[
+            const Divider(height: 1, color: Color(0xFFF3F4F6)),
+            if (entries.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text('No $title in any visit', style: const TextStyle(fontSize: 11, color: Color(0xFF9CA3AF), fontStyle: FontStyle.italic)),
+              )
+            else
+              ...entries.map((v) => Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFF3F4F6)))),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.calendar_today, size: 10, color: color.withOpacity(0.7)),
+                        const SizedBox(width: 4),
+                        Text(_fmtDate(v['created_at']?.toString()), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1F2937))),
+                        const SizedBox(width: 6),
+                        Text('—', style: TextStyle(fontSize: 10, color: Colors.grey.shade400)),
+                        const SizedBox(width: 6),
+                        Text(v['doctor_name'] != null ? 'Dr. ${v['doctor_name']}' : '', style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 20),
+                      child: contentBuilder(v),
+                    ),
+                  ],
+                ),
+              )),
+          ],
+        ],
       ),
     );
   }
@@ -1231,7 +1582,7 @@ class _MedicinesTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
+    return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1264,7 +1615,7 @@ class _MedModeToggle extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildBtn('Medicine', 'medicine', Icons.medical_services, const Color(0xFF2563EB)),
+          _buildBtn('Medicine', 'medicine', Icons.medical_services,Color(0xFF00B5AD),),
           _buildBtn('Formula', 'formula', Icons.science, const Color(0xFF16A34A)),
         ],
       ),
@@ -1543,64 +1894,64 @@ class _MedicineTable extends StatelessWidget {
 
 
 // ─── Waiting List Tab ────────────────────────────────────────────────────────
-class _WaitingListTab extends StatefulWidget {
-  final bool isTablet;
-  final PrescriptionProvider provider;
-  const _WaitingListTab({required this.isTablet, required this.provider});
-
-  @override
-  State<_WaitingListTab> createState() => _WaitingListTabState();
-}
-
-class _WaitingListTabState extends State<_WaitingListTab> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      widget.provider.loadConsultationPatients();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (widget.provider.isLoadingPatients) {
-      return const Center(child: Padding(
-        padding: EdgeInsets.all(20.0),
-        child: CircularProgressIndicator(color: kTeal),
-      ));
-    }
-
-    if (widget.provider.consultationPatients.isEmpty) {
-      return const _PlaceholderTab(label: 'No patients in waiting list');
-    }
-
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: ListView.separated(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: widget.provider.consultationPatients.length,
-        separatorBuilder: (_, __) => const Divider(height: 1, color: kBorder),
-        itemBuilder: (context, index) {
-          final p = widget.provider.consultationPatients[index];
-          return ListTile(
-            leading: CircleAvatar(
-              backgroundColor: kTeal.withOpacity(0.1),
-              child: const Icon(Icons.person, color: kTeal, size: 20),
-            ),
-            title: Text(p['full_name'] ?? 'Unknown', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-            subtitle: Text('MR: ${p['mr_number']} | Token: ${p['token_no'] ?? 'N/A'}', style: const TextStyle(fontSize: 11)),
-            trailing: const Icon(Icons.chevron_right, size: 18),
-            onTap: () {
-              widget.provider.searchPatient(p['mr_number'].toString());
-            },
-          );
-        },
-      ),
-    );
-  }
-}
-
+// class _WaitingListTab extends StatefulWidget {
+//   final bool isTablet;
+//   final PrescriptionProvider provider;
+//   const _WaitingListTab({required this.isTablet, required this.provider});
+//
+//   @override
+//   State<_WaitingListTab> createState() => _WaitingListTabState();
+// }
+//
+// class _WaitingListTabState extends State<_WaitingListTab> {
+//   @override
+//   void initState() {
+//     super.initState();
+//     WidgetsBinding.instance.addPostFrameCallback((_) {
+//       widget.provider.loadConsultationPatients();
+//     });
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     if (widget.provider.isLoadingPatients) {
+//       return const Center(child: Padding(
+//         padding: EdgeInsets.all(20.0),
+//         child: CircularProgressIndicator(color: kTeal),
+//       ));
+//     }
+//
+//     if (widget.provider.consultationPatients.isEmpty) {
+//       return const _PlaceholderTab(label: 'No patients in waiting list');
+//     }
+//
+//     return Padding(
+//       padding: const EdgeInsets.all(8.0),
+//       child: ListView.separated(
+//         shrinkWrap: true,
+//         physics: const NeverScrollableScrollPhysics(),
+//         itemCount: widget.provider.consultationPatients.length,
+//         separatorBuilder: (_, __) => const Divider(height: 1, color: kBorder),
+//         itemBuilder: (context, index) {
+//           final p = widget.provider.consultationPatients[index];
+//           return ListTile(
+//             leading: CircleAvatar(
+//               backgroundColor: kTeal.withOpacity(0.1),
+//               child: const Icon(Icons.person, color: kTeal, size: 20),
+//             ),
+//             title: Text(p['full_name'] ?? 'Unknown', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+//             subtitle: Text('MR: ${p['mr_number']} | Token: ${p['token_no'] ?? 'N/A'}', style: const TextStyle(fontSize: 11)),
+//             trailing: const Icon(Icons.chevron_right, size: 18),
+//             onTap: () {
+//               widget.provider.searchPatient(p['mr_number'].toString());
+//             },
+//           );
+//         },
+//       ),
+//     );
+//   }
+// }
+//
 
 // ─── Notes Tab ────────────────────────────────────────────────────────────────
 class _NotesTab extends StatelessWidget {

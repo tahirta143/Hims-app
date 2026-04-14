@@ -5,6 +5,8 @@ import '../../custum widgets/drawer/base_scaffold.dart';
 import '../../models/mr_model/mr_patient_model.dart';
 import '../../providers/mr_provider/mr_provider.dart';
 import '../../custum widgets/custom_loader.dart';
+import '../../custum widgets/animations/animations.dart';
+import 'package:animate_do/animate_do.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // THEME CONSTANTS
@@ -32,10 +34,12 @@ class MrDetailsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!useScaffold) return const _MrDetailsBody();
-    return const BaseScaffold(
+    return BaseScaffold(
       title: 'MR Details',
       drawerIndex: 8,
-      body: _MrDetailsBody(),
+      body: CustomPageTransition(
+        child: const _MrDetailsBody(),
+      ),
     );
   }
 }
@@ -402,25 +406,39 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
             ),
         ]),
         const SizedBox(height: 16),
-        _mrSearchBar(),
+        FadeInUp(delay: const Duration(milliseconds: 100), child: _mrSearchBar()),
         const SizedBox(height: 16),
         
-        if (_isLoading)
-          const Center(child: Padding(padding: EdgeInsets.all(60), child: CustomLoader(size: 80)))
+        if (_isLoading || context.watch<MrProvider>().isLoading)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(60),
+              child: CustomLoader(
+                size: 50,
+                color: _teal,
+              ),
+            ),
+          )
         else if (_patient != null)
-          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Expanded(flex: 3, child: _patientInfoCard()),
-            const SizedBox(width: 16),
-            SizedBox(width: 300, child: _wideSidebar()),
-          ])
+          FadeInUp(
+            delay: const Duration(milliseconds: 200),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(flex: 3, child: _patientInfoCard()),
+              const SizedBox(width: 16),
+              SizedBox(width: 300, child: _wideSidebar()),
+            ]),
+          )
         else if (_isNewPatient)
-          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Expanded(flex: 3, child: _registrationForm()),
-            const SizedBox(width: 16),
-            SizedBox(width: 300, child: _wideSidebar()),
-          ])
+          FadeInUp(
+            delay: const Duration(milliseconds: 200),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(flex: 3, child: _registrationForm()),
+              const SizedBox(width: 16),
+              SizedBox(width: 300, child: _wideSidebar()),
+            ]),
+          )
         else
-          _emptyState(),
+          FadeInUp(delay: const Duration(milliseconds: 200), child: _emptyState()),
         const SizedBox(height: 24),
       ]),
     );
@@ -689,7 +707,7 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
             shadowColor: _teal.withOpacity(0.5),
           ),
           child: prov.isCreating 
-            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+            ? const Center(child: CustomLoader(size: 20, color: Colors.white))
             : const Text('Create Patient Record', style: TextStyle(fontWeight: FontWeight.bold)),
         );
       }),
@@ -870,8 +888,13 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
     return Column(children: [
       _mobileHeader(),
       Expanded(
-        child: _isLoading
-            ? const Center(child: CustomLoader(size: 60))
+        child: (_isLoading || context.watch<MrProvider>().isLoading)
+            ? const Center(
+                child: CustomLoader(
+                  size: 50,
+                  color: _teal,
+                ),
+              )
             : (_patient == null && !_isNewPatient)
             ? _emptyState()
             : SingleChildScrollView(
@@ -957,7 +980,7 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
           decoration: InputDecoration(
             prefixIcon: const Icon(Icons.badge_outlined, color: _teal, size: 20),
             suffixIcon: mr == null 
-              ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: _teal)))
+              ? const Padding(padding: EdgeInsets.all(12), child: CustomLoader(size: 18, color: _teal))
               : const Icon(Icons.lock_outline, color: _textLight, size: 18),
             hintText: 'Auto-allocating...',
             filled: true,
@@ -1082,7 +1105,14 @@ class _SearchResultsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (isSearching) return const Center(child: CustomLoader(size: 40));
+    if (isSearching) {
+      return const Center(
+        child: CustomLoader(
+          size: 50,
+          color: _teal,
+        ),
+      );
+    }
     if (query.length < 2) return const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.search_rounded, size: 40, color: _border), SizedBox(height: 8), Text('Type 2+ characters', style: TextStyle(fontSize: 12, color: _textLight))]));
     if (results.isEmpty) return const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.search_off_rounded, size: 40, color: _border), SizedBox(height: 8), Text('No patients found', style: TextStyle(fontSize: 12, color: _textLight))]));
 

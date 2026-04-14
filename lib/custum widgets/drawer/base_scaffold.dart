@@ -316,7 +316,11 @@ class _BaseScaffoldState extends State<BaseScaffold> {
 
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (_) => screen),
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => screen,
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      ),
     );
   }
 

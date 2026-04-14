@@ -5,6 +5,8 @@ import '../../custum widgets/drawer/base_scaffold.dart';
 import '../../providers/consultant_payments_provider/consultant_payments_provider.dart';
 import '../../models/consultant_payment_model/consultant_payment_model.dart';
 import '../../custum widgets/custom_loader.dart';
+import '../../custum widgets/animations/animations.dart';
+import 'package:animate_do/animate_do.dart';
 
 class ConsultantPaymentsScreen extends StatefulWidget {
   const ConsultantPaymentsScreen({super.key});
@@ -92,34 +94,44 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
       title: 'Consultant Payments',
       drawerIndex: 6,
       showAppBar: false,
-      body: Consumer<ConsultantPaymentsProvider>(
-        builder: (context, provider, _) {
-          return Column(children: [
-            _buildHeader(provider),
-            _buildFiltersAndStats(provider),
-            Expanded(
-              child: provider.isLoading && provider.breakdown.isEmpty
-                  ? const Center(child: CustomLoader(size: 80))
-                  : CustomScrollView(
-                physics: const BouncingScrollPhysics(),
-                slivers: [
-                  SliverPadding(
-                    padding: EdgeInsets.fromLTRB(_pad, 0, _pad, 120),
-                    sliver: SliverList(
-                      delegate: SliverChildListDelegate([
-                        SizedBox(height: _sh * 0.02),
-                        _buildDoctorBreakdown(provider),
-                        SizedBox(height: _sh * 0.03),
-                        _buildRawRecords(provider),
-                        SizedBox(height: _sh * 0.02),
-                      ]),
+      body: CustomPageTransition(
+        child: Consumer<ConsultantPaymentsProvider>(
+          builder: (context, provider, _) {
+            return Column(children: [
+              _buildHeader(provider),
+              _buildFiltersAndStats(provider),
+              Expanded(
+                child: provider.isLoading
+                    ? const Center(
+                        child: CustomLoader(
+                          size: 50,
+                          color: primary,
+                        ),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: () async => _loadData(),
+                        color: primary,
+                        child: CustomScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  slivers: [
+                    SliverPadding(
+                      padding: EdgeInsets.fromLTRB(_pad, 0, _pad, 120),
+                      sliver: SliverList(
+                        delegate: SliverChildListDelegate([
+                          SizedBox(height: _sh * 0.02),
+                          FadeInUp(delay: const Duration(milliseconds: 100), child: _buildDoctorBreakdown(provider)),
+                          SizedBox(height: _sh * 0.03),
+                          FadeInUp(delay: const Duration(milliseconds: 200), child: _buildRawRecords(provider)),
+                          SizedBox(height: _sh * 0.02),
+                        ]),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ]);
-        },
+              )]);
+          },
+        ),
       ),
     );
   }
@@ -176,9 +188,7 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
               color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(_sw * 0.022),
             ),
-            child: provider.isLoading
-                ? const CustomLoader(size: 20, color: Colors.white)
-                : Icon(Icons.refresh_rounded, color: Colors.white, size: _sw * 0.04),
+            child: Icon(Icons.refresh_rounded, color: Colors.white, size: _sw * 0.04),
           ),
         ),
         SizedBox(width: _sw * 0.02),
@@ -210,9 +220,9 @@ class _ConsultantPaymentsScreenState extends State<ConsultantPaymentsScreen> {
       color: bgColor,
       padding: EdgeInsets.fromLTRB(_pad, _sh * 0.015, _pad, _sh * 0.01),
       child: Column(children: [
-        _buildStatsRow(provider.analytics),
+        FadeInUp(delay: const Duration(milliseconds: 50), child: _buildStatsRow(provider.analytics)),
         SizedBox(height: _sh * 0.015),
-        _buildFiltersRow(),
+        FadeInUp(delay: const Duration(milliseconds: 100), child: _buildFiltersRow()),
       ]),
     );
   }

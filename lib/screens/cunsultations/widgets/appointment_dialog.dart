@@ -5,6 +5,8 @@ import '../../../models/consultation_model/appointment_model.dart';
 import '../../../providers/opd/consultation_provider/cunsultation_provider.dart';
 import '../../../providers/mr_provider/mr_provider.dart';
 import '../../../../custum widgets/custom_loader.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../../../global/global_api.dart';
 
 class AppointmentDialog extends StatefulWidget {
   final DoctorInfo doctor;
@@ -607,17 +609,57 @@ class _AppointmentDialogState extends State<AppointmentDialog> {
                                   offset: const Offset(0, 4))
                             ],
                           ),
-                          child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.person_rounded,
-                                    color: Colors.white, size: sw * 0.065),
-                                Text(_initials(widget.doctor.name),
-                                    style: TextStyle(
-                                        color: Colors.white.withOpacity(0.8),
-                                        fontSize: sw * 0.022,
-                                        fontWeight: FontWeight.bold)),
-                              ]),
+                          child: ClipOval(
+                            child: Builder(
+                              builder: (context) {
+                                final url = GlobalApi.getImageUrl(widget.doctor.imageAsset);
+                                if (url != null) {
+                                  return CachedNetworkImage(
+                                    imageUrl: url,
+                                    width: sw * 0.16,
+                                    height: sw * 0.16,
+                                    fit: BoxFit.cover,
+                                    placeholder: (context, _) => Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.person_rounded,
+                                            color: Colors.white, size: sw * 0.065),
+                                        Text(_initials(widget.doctor.name),
+                                            style: TextStyle(
+                                                color: Colors.white.withOpacity(0.8),
+                                                fontSize: sw * 0.022,
+                                                fontWeight: FontWeight.bold)),
+                                      ],
+                                    ),
+                                    errorWidget: (context, _, __) => Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.person_rounded,
+                                            color: Colors.white, size: sw * 0.065),
+                                        Text(_initials(widget.doctor.name),
+                                            style: TextStyle(
+                                                color: Colors.white.withOpacity(0.8),
+                                                fontSize: sw * 0.022,
+                                                fontWeight: FontWeight.bold)),
+                                      ],
+                                    ),
+                                  );
+                                }
+                                return Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.person_rounded,
+                                        color: Colors.white, size: sw * 0.065),
+                                    Text(_initials(widget.doctor.name),
+                                        style: TextStyle(
+                                            color: Colors.white.withOpacity(0.8),
+                                            fontSize: sw * 0.022,
+                                            fontWeight: FontWeight.bold)),
+                                  ],
+                                );
+                              },
+                            ),
+                          ),
                         ),
                       ]),
                 ),

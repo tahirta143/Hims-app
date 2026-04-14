@@ -8,6 +8,10 @@ import '../../providers/mr_provider/mr_provider.dart';
 import '../../core/utils/date_formatter.dart';
 import 'widgets/appointment_dialog.dart';
 import '../../custum widgets/custom_loader.dart';
+import '../../custum widgets/animations/animations.dart';
+import 'package:animate_do/animate_do.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../global/global_api.dart';
 
 const Color _teal = Color(0xFF00B5AD);
 const Color _textDark = Color(0xFF1A202C);
@@ -21,6 +25,19 @@ class ConsultationScreen extends StatefulWidget {
 
 class _ConsultationScreenState extends State<ConsultationScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  @override
+  void initState() {
+    super.initState();
+    final prov = Provider.of<ConsultationProvider>(context, listen: false);
+    prov.resetLoading();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        prov.loadDoctors();
+        prov.loadAppointments();
+      }
+    });
+  }
 
   String _todayLabel() {
     return AppDateFormatter.formatWithDay(DateTime.now());
@@ -40,55 +57,75 @@ class _ConsultationScreenState extends State<ConsultationScreen> {
 
         // ── SCROLLABLE BODY ──
         Expanded(
-          child: prov.isLoading
-              ? const Center(child: CustomLoader(size: 80))
-              : prov.errorMessage != null
-              ? Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.error_outline,
-                    size: sw * 0.15, color: Colors.red.shade300),
-                SizedBox(height: sh * 0.02),
-                Text(prov.errorMessage!,
-                    style: TextStyle(
-                        fontSize: sw * 0.04,
-                        color: Colors.red.shade400)),
-                SizedBox(height: sh * 0.02),
-                ElevatedButton.icon(
-                  onPressed: () => prov.loadDoctors(),
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('Retry'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _teal,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          )
-              : SingleChildScrollView(
+          child: RefreshIndicator(
+            onRefresh: () async {
+              await prov.loadDoctors();
+              await prov.loadAppointments();
+            },
+            color: _teal,
+            child: prov.isLoading
+                ? Center(
+                    child: CustomLoader(
+                      size: 50,
+                      color: _teal,
+                    ),
+                  )
+                : prov.errorMessage != null
+                    ? SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: Center(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: sh * 0.2),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.error_outline,
+                                    size: sw * 0.15, color: Colors.red.shade300),
+                                SizedBox(height: sh * 0.02),
+                                Text(prov.errorMessage!,
+                                    style: TextStyle(
+                                        fontSize: sw * 0.04,
+                                        color: Colors.red.shade400)),
+                                SizedBox(height: sh * 0.02),
+                                ElevatedButton.icon(
+                                  onPressed: () => prov.loadDoctors(),
+                                  icon: const Icon(Icons.refresh_rounded),
+                                  label: const Text('Retry'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _teal,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      )
+                    : SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Summary cards
-                _buildSummary(prov, sw, sh),
+                FadeInUp(delay: const Duration(milliseconds: 100), child: _buildSummary(prov, sw, sh)),
 
                 // Section heading
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                      sw * 0.04, sh * 0.018, sw * 0.04, sh * 0.012),
-                  child: Row(children: [
-                    Icon(Icons.people_alt_rounded,
-                        color: _teal, size: sw * 0.045),
-                    SizedBox(width: sw * 0.02),
-                    Text('Our Consultants',
-                        style: TextStyle(
-                            fontSize: sw * 0.042,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87)),
-                  ]),
+                FadeInUp(
+                  delay: const Duration(milliseconds: 200),
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                        sw * 0.04, sh * 0.018, sw * 0.04, sh * 0.012),
+                    child: Row(children: [
+                      Icon(Icons.people_alt_rounded,
+                          color: _teal, size: sw * 0.045),
+                      SizedBox(width: sw * 0.02),
+                      Text('Our Consultants',
+                          style: TextStyle(
+                              fontSize: sw * 0.042,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87)),
+                    ]),
+                  ),
                 ),
 
                 // Doctor grid — 2 per row, column layout cards
@@ -125,11 +162,14 @@ class _ConsultationScreenState extends State<ConsultationScreen> {
                     itemBuilder: (_, i) {
                       final doctor = prov.doctors[i];
                       final today = DateTime.now();
-                      return _DoctorCard(
-                        doctor: doctor,
-                        bookedSlots: prov.bookedSlots(today, doctor.name).length,
-                        availableSlots: prov.availableSlotsForDoctor(doctor.name, today),
-                        onTap: () => _showDialog(context, prov, doctor, sw, sh),
+                      return FadeInUp(
+                        delay: Duration(milliseconds: 300 + (i * 50)),
+                        child: _DoctorCard(
+                          doctor: doctor,
+                          bookedSlots: prov.bookedSlots(today, doctor.name).length,
+                          availableSlots: prov.availableSlotsForDoctor(doctor.name, today),
+                          onTap: () => _showDialog(context, prov, doctor, sw, sh),
+                        ),
                       );
                     },
                   ),
@@ -140,7 +180,7 @@ class _ConsultationScreenState extends State<ConsultationScreen> {
             ),
           ),
         ),
-      ],
+        )],
     );
 
     if (!widget.useScaffold) return content;
@@ -150,7 +190,9 @@ class _ConsultationScreenState extends State<ConsultationScreen> {
       title: 'Consultations',
       drawerIndex: 1,
       showAppBar: false,
-      body: content,
+      body: CustomPageTransition(
+        child: content,
+      ),
     );
   }
 
@@ -385,11 +427,50 @@ class _DoctorCard extends StatelessWidget {
                         color: doctor.avatarColor.withOpacity(0.4),
                         blurRadius: 10, offset: const Offset(0, 4))],
                   ),
-                  child: Center(
-                    child: Text(_initials(doctor.name),
-                        style: TextStyle(color: Colors.white,
-                            fontSize: avSz * 0.32,
-                            fontWeight: FontWeight.bold)),
+                  child: ClipOval(
+                    child: Builder(
+                      builder: (context) {
+                        final url = GlobalApi.getImageUrl(doctor.imageAsset);
+                        if (url != null) {
+                          return CachedNetworkImage(
+                            imageUrl: url,
+                            width: avSz,
+                            height: avSz,
+                            fit: BoxFit.cover,
+                            placeholder: (context, _) => Center(
+                              child: Text(
+                                _initials(doctor.name),
+                                style: TextStyle(
+                                  color: const Color(0xFF00B5AD),
+                                  fontSize: avSz * 0.4,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            errorWidget: (context, _, __) => Center(
+                              child: Text(
+                                _initials(doctor.name),
+                                style: TextStyle(
+                                  color: const Color(0xFF00B5AD),
+                                  fontSize: avSz * 0.4,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+                        return Center(
+                          child: Text(
+                            _initials(doctor.name),
+                            style: TextStyle(
+                              color: const Color(0xFF00B5AD),
+                              fontSize: avSz * 0.4,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
                 SizedBox(height: cw * 0.03),

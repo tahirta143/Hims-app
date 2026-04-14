@@ -77,9 +77,12 @@ class DashboardProvider extends ChangeNotifier {
   }
 
   Future<void> fetchAvailableShifts(DateTime date) async {
+    _isLoading = true;
     _availableShifts = [];
-    final dateStr = DateFormat('yyyy-MM-dd').format(date);
+    notifyListeners();
     
+    final dateStr = DateFormat('yyyy-MM-dd').format(date);
+     
     try {
       final headers = await _authHeaders();
       // React logic: Derive shifts from patient data to be consistent with records
@@ -249,7 +252,12 @@ class DashboardProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _processData() {
+  void resetLoading() {
+    _isLoading = true;
+    notifyListeners();
+  }
+
+  Future<void> _processData() async {
     // Reset values
     totalOpdRevenue = 0;
     totalConsultRevenue = 0;

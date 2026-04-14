@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:loading_indicator/loading_indicator.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 class CustomLoader extends StatelessWidget {
   final double size;
@@ -16,26 +16,11 @@ class CustomLoader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final primaryColor = color ?? Theme.of(context).colorScheme.primary;
-    
-    // Using ballSpinFadeLoader which matches the dotted circular animation
-    // We can provide a list of colors for a gradient effect or a single color
-    final indicatorColors = colors ?? [
-      primaryColor,
-      primaryColor.withOpacity(0.8),
-      primaryColor.withOpacity(0.6),
-      primaryColor.withOpacity(0.4),
-      primaryColor.withOpacity(0.2),
-    ];
 
     return Center(
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: LoadingIndicator(
-          indicatorType: Indicator.ballSpinFadeLoader,
-          colors: indicatorColors,
-          strokeWidth: 2,
-        ),
+      child: LoadingAnimationWidget.inkDrop(
+        color: primaryColor,
+        size: size,
       ),
     );
   }

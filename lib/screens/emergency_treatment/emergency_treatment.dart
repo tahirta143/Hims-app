@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:animate_do/animate_do.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+
 import '../../custum widgets/drawer/base_scaffold.dart';
 import '../../providers/emergency_treatment_provider/emergency_provider.dart';
-import '../../providers/opd/opd_reciepts/opd_reciepts.dart'; // Import OpdProvider
+import '../../providers/opd/opd_reciepts/opd_reciepts.dart';
+import '../../custum widgets/animations/animations.dart';
+import '../../global/global_api.dart';
 
 class EmergencyTreatmentScreen extends StatefulWidget {
   final bool useScaffold;
@@ -431,7 +436,9 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
           title: 'Emergency Treatment',
           drawerIndex: 5,
           showAppBar: false,
-          body: content,
+          body: CustomPageTransition(
+            child: content,
+          ),
         );
       },
     );
@@ -693,19 +700,19 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
               _wide ? _pad * 0.5 : _pad,
               120),
           sliver: SliverList(delegate: SliverChildListDelegate([
-            _patientInfoCard(prov),
+            FadeInUp(delay: const Duration(milliseconds: 100), child: _patientInfoCard(prov)),
             SizedBox(height: _sh * 0.014),
-            _moCard(),
+            FadeInUp(delay: const Duration(milliseconds: 200), child: _moCard()),
             SizedBox(height: _sh * 0.014),
-            _vitalsCard(),
+            FadeInUp(delay: const Duration(milliseconds: 300), child: _vitalsCard()),
             SizedBox(height: _sh * 0.014),
-            _servicesCard(prov),
+            FadeInUp(delay: const Duration(milliseconds: 400), child: _servicesCard(prov)),
             SizedBox(height: _sh * 0.014),
-            _notesCard(),
+            FadeInUp(delay: const Duration(milliseconds: 500), child: _notesCard()),
             SizedBox(height: _sh * 0.014),
-            _dischargeCard(),
+            FadeInUp(delay: const Duration(milliseconds: 600), child: _dischargeCard()),
             SizedBox(height: _sh * 0.014),
-            _bottomBtns(prov),
+            FadeInUp(delay: const Duration(milliseconds: 700), child: _bottomBtns(prov)),
           ])),
         ),
       ],
@@ -958,185 +965,170 @@ class _EmergencyTreatmentScreenState extends State<EmergencyTreatmentScreen>
     return _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       // Header
       Row(children: [
-        Icon(Icons.emergency_share_rounded, color: danger, size: _sw * 0.042),
-        SizedBox(width: _sw * 0.018),
+        Icon(Icons.emergency_share_rounded, color: danger, size: _sw * 0.04),
+        SizedBox(width: _sw * 0.015),
         Text('Emergency Services',
             style: TextStyle(fontSize: _fs, fontWeight: FontWeight.bold, color: Colors.black87)),
         const Spacer(),
         Consumer<EmergencyProvider>(builder: (_, p, __) => Container(
-          padding: EdgeInsets.symmetric(horizontal: _sw * 0.028, vertical: _sh * 0.005),
+          padding: EdgeInsets.symmetric(horizontal: _sw * 0.02, vertical: _sh * 0.003),
           decoration: BoxDecoration(
-            color: Colors.grey.shade100,
+            color: Colors.grey.shade50,
             borderRadius: BorderRadius.circular(_sw * 0.04),
-            border: Border.all(color: Colors.grey.shade300),
+            border: Border.all(color: Colors.grey.shade200),
           ),
           child: Text('PKR ${p.servicesTotalPrice.toStringAsFixed(0)}',
-              style: TextStyle(fontSize: _fsS, fontWeight: FontWeight.w700, color: Colors.black87)),
+              style: TextStyle(fontSize: _fsS, fontWeight: FontWeight.w800, color: danger)),
         )),
       ]),
-      SizedBox(height: _sh * 0.011),
+      SizedBox(height: _sh * 0.008),
       Divider(height: _sh * 0.001, color: const Color(0xFFEEEEEE)),
-      SizedBox(height: _sh * 0.011),
+      SizedBox(height: _sh * 0.01),
 
       // ── Dropdown to add service ──
-      Row(children: [
-        Expanded(
-          child: Container(
-            padding: EdgeInsets.symmetric(horizontal: _sw * 0.025),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(_sw * 0.022),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<EmergencyService>(
-                isExpanded: true,
-                hint: Text('Select a service to add...',
-                    style: TextStyle(color: Colors.grey.shade400, fontSize: _fs)),
-                value: _selectedDropdownService,
-                style: TextStyle(fontSize: _fs, color: Colors.black87),
-                icon: Icon(Icons.keyboard_arrow_down_rounded, color: Colors.grey, size: _sw * 0.046),
-                items: prov.emergencyServices.map((svc) {
-                  final alreadyAdded = prov.isServiceSelected(svc.id);
-                  return DropdownMenuItem<EmergencyService>(
-                    value: svc,
-                    child: Row(children: [
-                      Container(
-                        width: _sw * 0.08,
-                        height: _sw * 0.08,
-                        decoration: BoxDecoration(
-                          color: svc.color.withOpacity(0.12),
-                          shape: BoxShape.circle,
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: svc.imageUrl != null
-                            ? Image.network(svc.imageUrl!, fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Icon(svc.icon, color: svc.color, size: _sw * 0.045))
-                            : Icon(svc.icon, color: svc.color, size: _sw * 0.045),
+      Container(
+        height: _sh * 0.045,
+        padding: EdgeInsets.symmetric(horizontal: _sw * 0.02),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(_sw * 0.015),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<EmergencyService>(
+            isExpanded: true,
+            menuMaxHeight: 350,
+            hint: Text('Add a service...',
+                style: TextStyle(color: Colors.grey.shade400, fontSize: _fsS)),
+            value: _selectedDropdownService,
+            style: TextStyle(fontSize: _fsS, color: Colors.black87),
+            icon: Icon(Icons.add_circle_outline_rounded, color: danger, size: _sw * 0.04),
+            dropdownColor: Colors.white,
+            borderRadius: BorderRadius.circular(_sw * 0.02),
+            items: prov.emergencyServices.map((svc) {
+              final alreadyAdded = prov.isServiceSelected(svc.id);
+              return DropdownMenuItem<EmergencyService>(
+                value: svc,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(children: [
+                    Container(
+                      width: _sw * 0.05,
+                      height: _sw * 0.05,
+                      margin: EdgeInsets.only(right: _sw * 0.02),
+                      decoration: BoxDecoration(
+                        color: svc.color.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                      SizedBox(width: _sw * 0.018),
-                      Expanded(child: Text(svc.name,
-                          style: TextStyle(
-                            fontSize: _fs,
-                            fontWeight: alreadyAdded ? FontWeight.w700 : FontWeight.normal,
-                            color: alreadyAdded ? svc.color : Colors.black87,
-                          ))),
-                      Text('PKR ${svc.price.toStringAsFixed(0)}',
-                          style: TextStyle(fontSize: _fsS, color: Colors.grey.shade500)),
-                      if (alreadyAdded) ...[
-                        SizedBox(width: _sw * 0.01),
-                        Icon(Icons.check_circle_rounded, color: svc.color, size: _sw * 0.033),
-                      ],
-                    ]),
-                  );
-                }).toList(),
-                onChanged: (svc) {
-                  if (svc == null) return;
-                  prov.toggleService(svc);
-                  setState(() => _selectedDropdownService = null);
-                },
-              ),
-            ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: Builder(
+                          builder: (context) {
+                            if (svc.imageUrl != null) {
+                              return CachedNetworkImage(
+                                imageUrl: svc.imageUrl!,
+                                fit: BoxFit.cover,
+                                placeholder: (context, _) => Icon(svc.icon, color: svc.color.withOpacity(0.5), size: _sw * 0.03),
+                                errorWidget: (context, _, __) => Icon(svc.icon, color: svc.color.withOpacity(0.5), size: _sw * 0.03),
+                              );
+                            }
+                            return Icon(svc.icon, color: alreadyAdded ? svc.color : Colors.grey, size: _sw * 0.035);
+                          },
+                        ),
+                      ),
+                    ),
+                    Expanded(child: Text(svc.name,
+                        style: TextStyle(
+                          fontSize: _fsS,
+                          fontWeight: alreadyAdded ? FontWeight.bold : FontWeight.normal,
+                        ))),
+                    Text('PKR ${svc.price.toStringAsFixed(0)}',
+                        style: TextStyle(fontSize: _fsXS, color: Colors.grey.shade500)),
+                  ]),
+                ),
+              );
+            }).toList(),
+            onChanged: (svc) {
+              if (svc == null) return;
+              prov.toggleService(svc);
+              setState(() => _selectedDropdownService = null);
+            },
           ),
         ),
-      ]),
-      SizedBox(height: _sh * 0.012),
+      ),
+      SizedBox(height: _sh * 0.01),
 
-      // ── Selected services chips ──
+      // ── Selected services list ──
       Consumer<EmergencyProvider>(builder: (_, p, __) {
         if (p.selectedServices.isEmpty) {
-          return Container(
-            padding: EdgeInsets.symmetric(vertical: _sh * 0.018),
-            alignment: Alignment.center,
-            child: Text('No services added yet',
-                style: TextStyle(color: Colors.grey.shade400, fontSize: _fsS,
-                    fontStyle: FontStyle.italic)),
-          );
+          return const SizedBox.shrink();
         }
         return Column(
           children: [
             Wrap(
-              spacing: _sw * 0.02,
-              runSpacing: _sh * 0.008,
+              spacing: _sw * 0.015,
+              runSpacing: _sh * 0.006,
               children: p.selectedServices.map((svc) => Container(
-                padding: EdgeInsets.symmetric(horizontal: _sw * 0.025, vertical: _sh * 0.007),
+                padding: EdgeInsets.symmetric(horizontal: _sw * 0.02, vertical: _sh * 0.005),
                 decoration: BoxDecoration(
-                  color: svc.color.withOpacity(0.09),
-                  borderRadius: BorderRadius.circular(_sw * 0.04),
-                  border: Border.all(color: svc.color.withOpacity(0.4), width: 1.5),
+                  color: svc.color.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(_sw * 0.015),
+                  border: Border.all(color: svc.color.withOpacity(0.25)),
                 ),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   Container(
-                    width: _sw * 0.06,
-                    height: _sw * 0.06,
+                    width: _sw * 0.035,
+                    height: _sw * 0.035,
+                    margin: EdgeInsets.only(right: _sw * 0.015),
                     decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white,
+                      color: svc.color.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(4),
                     ),
-                    clipBehavior: Clip.antiAlias,
-                    child: svc.imageUrl != null
-                        ? Image.network(svc.imageUrl!, fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Icon(svc.icon, color: svc.color, size: _sw * 0.03))
-                        : Icon(svc.icon, color: svc.color, size: _sw * 0.03),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: Builder(
+                        builder: (context) {
+                          if (svc.imageUrl != null) {
+                            return CachedNetworkImage(
+                              imageUrl: svc.imageUrl!,
+                              fit: BoxFit.cover,
+                              placeholder: (context, _) => Icon(svc.icon, color: svc.color, size: _sw * 0.02),
+                              errorWidget: (context, _, __) => Icon(svc.icon, color: svc.color, size: _sw * 0.02),
+                            );
+                          }
+                          return Icon(svc.icon, color: svc.color, size: _sw * 0.025);
+                        },
+                      ),
+                    ),
                   ),
-                  SizedBox(width: _sw * 0.012),
                   Text(svc.name,
-                      style: TextStyle(fontSize: _fsS, fontWeight: FontWeight.w600,
+                      style: TextStyle(fontSize: _fsXS, fontWeight: FontWeight.bold,
                           color: Colors.black87)),
-                  SizedBox(width: _sw * 0.008),
-                  Text('PKR ${svc.price.toStringAsFixed(0)}',
-                      style: TextStyle(fontSize: _fsXS, color: Colors.grey.shade500)),
-                  SizedBox(width: _sw * 0.012),
+                  SizedBox(width: _sw * 0.01),
                   GestureDetector(
                     onTap: () => p.removeSelectedService(svc.id),
-                    child: Container(
-                      padding: EdgeInsets.all(_sw * 0.008),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(Icons.close_rounded, color: Colors.red.shade400, size: _sw * 0.028),
-                    ),
+                    child: Icon(Icons.cancel_rounded, color: svc.color.withOpacity(0.7), size: _sw * 0.035),
                   ),
                 ]),
               )).toList(),
             ),
-            SizedBox(height: _sh * 0.016),
-            // ── Bill Generate Button ──
-            Container(
-              padding: EdgeInsets.all(_sw * 0.03),
-              decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(_sw * 0.025),
-                border: Border.all(color: Colors.green.withOpacity(0.3)),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Total Bill Amount',
-                            style: TextStyle(fontSize: _fsXS, color: Colors.grey.shade600)),
-                        Text('PKR ${p.servicesTotalPrice.toStringAsFixed(0)}',
-                            style: TextStyle(fontSize: _fsL, fontWeight: FontWeight.bold, color: Colors.green.shade700)),
-                      ],
-                    ),
-                  ),
-                  ElevatedButton.icon(
-                    onPressed: () => _handleGenerateBill(p),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green.shade600,
-                      foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(horizontal: _sw * 0.04, vertical: _sh * 0.012),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_sw * 0.02)),
-                      elevation: 0,
-                    ),
-                    icon: Icon(Icons.receipt_long_rounded, size: _sw * 0.042),
-                    label: Text('Generate Bill',
-                        style: TextStyle(fontSize: _fs, fontWeight: FontWeight.bold)),
-                  ),
-                ],
+            SizedBox(height: _sh * 0.012),
+            // ── Compact Bill Generate Button ──
+            SizedBox(
+              width: double.infinity,
+              height: _sh * 0.042,
+              child: ElevatedButton.icon(
+                onPressed: () => _handleGenerateBill(p),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green.shade600,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_sw * 0.015)),
+                  elevation: 0,
+                ),
+                icon: Icon(Icons.receipt_long_rounded, size: _sw * 0.035),
+                label: Text('Generate Bill — PKR ${p.servicesTotalPrice.toStringAsFixed(0)}',
+                    style: TextStyle(fontSize: _fsS, fontWeight: FontWeight.bold)),
               ),
             ),
           ],

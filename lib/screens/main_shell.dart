@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../custum widgets/drawer/base_scaffold.dart';
+import '../providers/dashboard/dashboard_provider.dart';
+import '../providers/opd/consultation_provider/cunsultation_provider.dart';
 import 'dashboard/dashboard.dart';
 import 'emergency_treatment/emergency_treatment.dart';
 import 'cunsultations/cunsultations.dart';
@@ -43,6 +46,16 @@ class _MainShellState extends State<MainShell> {
       drawerIndex: _drawerIndices[_currentBtmIndex],
       showAppBar: _currentBtmIndex != 1 && _currentBtmIndex != 2,
       onBottomNavTap: (index) {
+        if (index == 0) {
+          final prov = context.read<DashboardProvider>();
+          prov.resetLoading();
+          prov.refresh();
+        } else if (index == 2) {
+          final prov = context.read<ConsultationProvider>();
+          prov.resetLoading();
+          prov.loadDoctors();
+          prov.loadAppointments();
+        }
         setState(() {
           _currentBtmIndex = index;
         });

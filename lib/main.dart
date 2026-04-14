@@ -16,6 +16,7 @@ import 'package:hims_app/providers/appointments_provider/appointments_provider.d
 import 'package:hims_app/providers/prescription_provider/prescription_provider.dart';
 import 'package:hims_app/screens/main_shell.dart';
 import 'package:provider/provider.dart';
+import 'package:animations/animations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,6 +57,15 @@ class MyApp extends StatelessWidget {
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1ABC9C)),
           useMaterial3: true,
+          pageTransitionsTheme: const PageTransitionsTheme(
+            builders: {
+              TargetPlatform.android: FadeThroughPageTransitionsBuilder(),
+              TargetPlatform.iOS: FadeThroughPageTransitionsBuilder(),
+              TargetPlatform.windows: FadeThroughPageTransitionsBuilder(),
+              TargetPlatform.macOS: FadeThroughPageTransitionsBuilder(),
+              TargetPlatform.linux: FadeThroughPageTransitionsBuilder(),
+            },
+          ),
         ),
         home: const SplashScreen(),
       ),

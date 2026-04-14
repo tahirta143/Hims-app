@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../global/global_api.dart';
@@ -157,12 +158,6 @@ class _DoctorBookingScreenState extends State<DoctorBookingScreen> {
     );
   }
 
-  String _getFullImageUrl(String? path) {
-    if (path == null || path.isEmpty) return '';
-    if (path.startsWith('http')) return path;
-    final baseUrl = GlobalApi.mobileBaseUrl.replaceAll('/api/mobile', '');
-    return '$baseUrl$path';
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -286,7 +281,6 @@ class _DoctorBookingScreenState extends State<DoctorBookingScreen> {
       ),
       child: Row(
         children: [
-          // Avatar
           Container(
             width: isSmall ? 58 : 66,
             height: isSmall ? 58 : 66,
@@ -296,14 +290,20 @@ class _DoctorBookingScreenState extends State<DoctorBookingScreen> {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
-              child: (widget.doctor['image_url'] != null &&
-                  widget.doctor['image_url'].isNotEmpty)
-                  ? Image.network(
-                _getFullImageUrl(widget.doctor['image_url']),
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _avatarFallback(isSmall),
-              )
-                  : _avatarFallback(isSmall),
+              child: Builder(
+                builder: (context) {
+                  final url = GlobalApi.getImageUrl(widget.doctor['image_url']);
+                  if (url != null) {
+                    return CachedNetworkImage(
+                      imageUrl: url,
+                      fit: BoxFit.cover,
+                      placeholder: (context, _) => _avatarFallback(isSmall),
+                      errorWidget: (context, _, __) => _avatarFallback(isSmall),
+                    );
+                  }
+                  return _avatarFallback(isSmall);
+                },
+              ),
             ),
           ),
           const SizedBox(width: 14),

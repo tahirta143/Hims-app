@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../models/chat_message.dart';
 import '../../global/global_api.dart';
+import '../../core/services/auth_storage_service.dart';
 
 class AiChatProvider extends ChangeNotifier {
   bool _isOpen = false;
@@ -57,16 +58,34 @@ class AiChatProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // 1. Get Token for Authorization
+      final storage = AuthStorageService();
+      final token = await storage.getToken();
+
+      // 2. Prepare History (last 4 messages for context)
+      final history = _messages
+          .where((m) => m != _messages.last) // exclude the one we just added
+          .toList()
+          .reversed
+          .take(4)
+          .toList()
+          .reversed
+          .map((m) => {
+                'role': m.role,
+                'content': m.content,
+              })
+          .toList();
+
       final response = await http.post(
         Uri.parse('${GlobalApi.baseUrl}/ai/query-data'),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          // Add your authorization header here if needed
-          // 'Authorization': 'Bearer $_token',
+          if (token != null) 'Authorization': 'Bearer $token',
         },
         body: jsonEncode({
           'query': query,
+          'history': history,
         }),
       );
 
@@ -76,37 +95,27 @@ class AiChatProvider extends ChangeNotifier {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         
-        // Assuming your API returns something like { "success": true, "answer": "..." }
-        // or just the answer directly. Adjust this depending on your actual API response structure.
-        if (data['success'] == true && data['answer'] != null) {
+        // Match React backend structure: { success: true, answer: "...", extractedEntities: {...} }
+        if (data['success'] == true) {
           _messages.add(ChatMessage(
             role: 'ai',
-            content: data['answer'].toString(),
-          ));
-        } else if (data['message'] != null) {
-          _messages.add(ChatMessage(
-             role: 'ai',
-             content: data['message'].toString(),
-          ));
-        } else if (data['answer'] != null) {
-           _messages.add(ChatMessage(
-             role: 'ai',
-             content: data['answer'].toString(),
+            content: (data['answer'] ?? data['message'] ?? '...').toString(),
+            entities: data['extractedEntities'] as Map<String, dynamic>?,
           ));
         } else {
-           _messages.add(ChatMessage(
+          _messages.add(ChatMessage(
             role: 'ai',
-            content: 'Received an unexpected response format from the server.',
+            content: (data['message'] ?? 'The AI agent encountered an issue.').toString(),
           ));
         }
       } else {
         _messages.add(ChatMessage(
           role: 'ai',
-          content: 'Server error: ${response.statusCode}',
+          content: 'Server error: ${response.statusCode}. Please try again later.',
         ));
       }
     } catch (error) {
-       print('Error calling AI API: $error');
+      print('Error calling AI API: $error');
       _messages.add(ChatMessage(
         role: 'ai',
         content: "Sorry, I couldn't process your request at this time. Please check your internet connection.",
