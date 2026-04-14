@@ -689,7 +689,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
                       trend: '+1.8%',
                       trendUp: true,
                       subtitle:
-                      '${dashboardProv.totalConsultCount} consultants',
+                      '${dashboardProv.totalConsultCount} consultations',
                     ),
                   ),
                   FadeInUp(
@@ -1158,7 +1158,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
         dataSource: [
           ChartDataPoint('OPD', prov.shiftOpdRevenue['Morning'] ?? 0),
           ChartDataPoint(
-              'Consult', prov.shiftConsultRevenue['Morning'] ?? 0)
+              'Consultation', prov.shiftConsultRevenue['Morning'] ?? 0)
         ],
         xValueMapper: (ChartDataPoint d, _) => d.x,
         yValueMapper: (ChartDataPoint d, _) => d.y,
@@ -1171,7 +1171,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
         dataSource: [
           ChartDataPoint('OPD', prov.shiftOpdRevenue['Evening'] ?? 0),
           ChartDataPoint(
-              'Consult', prov.shiftConsultRevenue['Evening'] ?? 0)
+              'Consultation', prov.shiftConsultRevenue['Evening'] ?? 0)
         ],
         xValueMapper: (ChartDataPoint d, _) => d.x,
         yValueMapper: (ChartDataPoint d, _) => d.y,
@@ -1183,7 +1183,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
         name: 'Night',
         dataSource: [
           ChartDataPoint('OPD', prov.shiftOpdRevenue['Night'] ?? 0),
-          ChartDataPoint('Consult', prov.shiftConsultRevenue['Night'] ?? 0)
+          ChartDataPoint('Consultation', prov.shiftConsultRevenue['Night'] ?? 0)
         ],
         xValueMapper: (ChartDataPoint d, _) => d.x,
         yValueMapper: (ChartDataPoint d, _) => d.y,
@@ -1211,7 +1211,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
         padding: const EdgeInsets.only(bottom: 8.0),
         child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: ['Shift', 'Pts', 'Rev']
+            children: ['Shift', 'Pts', 'Consults', 'Rev']
                 .map((h) => Text(h.toUpperCase(),
                 style: TextStyle(
                     fontSize: 9,
@@ -1240,6 +1240,9 @@ class _DashboardBodyState extends State<_DashboardBody> {
                     fontSize: 12, fontWeight: FontWeight.w600)),
           ]),
           Text(pts.toString(),
+              style: const TextStyle(
+                  fontSize: 12, fontFamily: 'monospace')),
+          Text((prov.shiftConsultCount[shift] ?? 0).toString(),
               style: const TextStyle(
                   fontSize: 12, fontFamily: 'monospace')),
           Text(NumberFormat.compact().format(rev),

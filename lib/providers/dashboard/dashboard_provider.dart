@@ -46,6 +46,7 @@ class DashboardProvider extends ChangeNotifier {
   Map<String, double> shiftOpdRevenue = {'Morning': 0, 'Evening': 0, 'Night': 0};
   Map<String, double> shiftConsultRevenue = {'Morning': 0, 'Evening': 0, 'Night': 0};
   Map<String, int> shiftPatientCount = {'Morning': 0, 'Evening': 0, 'Night': 0};
+  Map<String, int> shiftConsultCount = {'Morning': 0, 'Evening': 0, 'Night': 0};
   List<ChartDataPoint> trendData = [];
 
   DashboardProvider() {
@@ -267,6 +268,7 @@ class DashboardProvider extends ChangeNotifier {
     shiftOpdRevenue = {'Morning': 0, 'Evening': 0, 'Night': 0};
     shiftConsultRevenue = {'Morning': 0, 'Evening': 0, 'Night': 0};
     shiftPatientCount = {'Morning': 0, 'Evening': 0, 'Night': 0};
+    shiftConsultCount = {'Morning': 0, 'Evening': 0, 'Night': 0};
     Map<String, double> hourMap = {};
 
     // Process OPD
@@ -283,12 +285,13 @@ class DashboardProvider extends ChangeNotifier {
       shiftOpdRevenue[shift] = (shiftOpdRevenue[shift] ?? 0) + amount;
       shiftPatientCount[shift] = (shiftPatientCount[shift] ?? 0) + 1;
 
-      // Identify consultation exactly like React: String(r.opd_service || "").trim() === "Consultation"
-      final serviceName = (r['opd_service'] ?? r['service_name'] ?? '').toString().trim();
-      if (serviceName == 'Consultation') {
+      // Identify consultation strictly like React: String(r.opd_service || "").trim() === "Consultation"
+      final opdService = (r['opd_service'] ?? '').toString().trim();
+      if (opdService == 'Consultation') {
         totalConsultRevenue += amount;
         totalConsultCount += 1;
         shiftConsultRevenue[shift] = (shiftConsultRevenue[shift] ?? 0) + amount;
+        shiftConsultCount[shift] = (shiftConsultCount[shift] ?? 0) + 1;
       }
 
       // Trend data: group by hour
@@ -306,16 +309,6 @@ class DashboardProvider extends ChangeNotifier {
            hourMap[hourKey] = (hourMap[hourKey] ?? 0) + amount;
         }
       } catch (_) {}
-
-      // Identify consultation correctly
-      // final serviceName = (r['opd_service'] ?? r['service_name'] ?? '').toString().toLowerCase();
-      if (serviceName.contains('consultation')) {
-        totalConsultRevenue += amount;
-        totalConsultCount += 1;
-        if (shiftConsultRevenue.containsKey(shift)) {
-          shiftConsultRevenue[shift] = shiftConsultRevenue[shift]! + amount;
-        }
-      }
     }
 
     // Process Expenses
