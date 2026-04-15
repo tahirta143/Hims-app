@@ -293,6 +293,10 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
   double get _amountPaidVal => double.tryParse(_amountPaidCtrl.text) ?? 0;
 
   void _onDiscountChanged() {
+    _updateAmountPaid();
+  }
+
+  void _updateAmountPaid() {
     final prov = Provider.of<OpdProvider>(context, listen: false);
     final total = prov.servicesTotal;
     final discount = _discountVal;
@@ -1580,6 +1584,8 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
                     );
                     if (!prov.isSelected('EMERGENCY')) {
                       prov.addService(emergencySvc);
+                      // Auto-update amount paid when emergency service is added
+                      _updateAmountPaid();
                     }
                     setState(() {
                       _activeCat = id;
@@ -1705,6 +1711,8 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
         } else {
           prov.addService(svc);
         }
+        // Auto-update amount paid when services change
+        _updateAmountPaid();
       },
       child: Container(
         padding: const EdgeInsets.all(12),
@@ -2570,6 +2578,8 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
         } else {
           prov.addService(svc);
         }
+        // Auto-update amount paid when services change
+        _updateAmountPaid();
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),

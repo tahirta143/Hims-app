@@ -27,8 +27,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
   static const List<int> _opdIndices = [1, 3, 4, 6, 7, 10];
   // Reports dropdown indices: 11
   static const List<int> _reportsIndices = [11];
-  // Prescription dropdown indices: 9, 12, 13
-  static const List<int> _prescriptionIndices = [9, 12, 13];
+  // Prescription dropdown indices: 9, 12, 13, 14
+  static const List<int> _prescriptionIndices = [9, 12, 13, 14];
 
   late bool _opdExpanded;
   late bool _reportsExpanded;
@@ -139,6 +139,12 @@ class _CustomDrawerState extends State<CustomDrawer> {
           icon: Icons.monitor_heart_outlined,
           title: 'Patient Vitals',
           index: 13,
+        ),
+      if (perm.canAny([Perm.mrRead, Perm.mrCreate]))
+        const _DrawerItemData(
+          icon: Icons.biotech_outlined,
+          title: 'Lab Values',
+          index: 14,
         ),
     ];
 

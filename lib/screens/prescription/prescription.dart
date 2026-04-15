@@ -10,6 +10,7 @@ import '../../core/utils/date_formatter.dart';
 import '../../custum widgets/custom_loader.dart';
 import '../../custum widgets/animations/animations.dart';
 import 'package:animate_do/animate_do.dart';
+import 'widgets/lab_values_sheet.dart';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const kTeal = Color(0xFF00B5AD);
@@ -35,7 +36,7 @@ class _PrescriptionScreenState extends State<PrescriptionScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: 7, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         final provider = context.read<PrescriptionProvider>();
@@ -188,7 +189,7 @@ class _ConsultationSidebarState extends State<_ConsultationSidebar> {
           ),
           Expanded(
             child: provider.isLoadingPatients
-                ? const Center(child: CircularProgressIndicator(strokeWidth: 2, color: kTeal))
+                ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
                 : provider.consultationPatients.isEmpty
                     ? const _SidebarPlaceholder(icon: Icons.history, message: 'No consultations today')
                     : ListView.separated(
@@ -916,6 +917,7 @@ class _TabSection extends StatelessWidget {
     [Icons.medication_outlined, 'Medicines'],
     [Icons.assignment_outlined, 'Instructions'],
     [Icons.history_outlined, 'Old Visits'],
+    [Icons.biotech_outlined, 'Lab Values'],
     // [Icons.people_outline, 'Waiting List'],
   ];
 
@@ -1028,6 +1030,14 @@ class _TabViewBodyState extends State<_TabViewBody> {
           3 => _MedicinesTab(isTablet: widget.isTablet, provider: widget.provider),
           4 => _InstructionsTab(isTablet: widget.isTablet, provider: widget.provider),
           5 => _OldVisitsTab(isTablet: widget.isTablet, provider: widget.provider),
+          6 => Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: LabValuesSheet(
+                  mrNumber: widget.provider.currentPatient?.mrNumber ?? '',
+                  receiptId: widget.provider.receiptId,
+                  readOnly: true,
+                ),
+              ),
           _ => const SizedBox.shrink(),
         };
       },

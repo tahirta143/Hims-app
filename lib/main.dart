@@ -5,6 +5,7 @@ import 'package:hims_app/providers/emergency_treatment_provider/emergency_provid
 import 'package:hims_app/providers/mr_provider/mr_provider.dart';
 import 'package:hims_app/providers/opd/consultation_provider/cunsultation_provider.dart';
 import 'package:hims_app/providers/opd/opd_reciepts/opd_reciepts.dart';
+import 'package:hims_app/providers/prescription_provider/lab_values_provider.dart';
 import 'package:hims_app/providers/shift_management/shift_management.dart';
 import 'package:hims_app/providers/consultant_payments_provider/consultant_payments_provider.dart';
 import 'package:hims_app/providers/vitals_provider/vitals_provider.dart';
@@ -50,6 +51,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AppointmentsProvider()),
         ChangeNotifierProvider(create: (_) => PrescriptionProvider()),
         ChangeNotifierProvider(create: (_) => VitalsProvider()),
+        ChangeNotifierProvider(create: (_) => LabValuesProvider()),
       ],
       child: MaterialApp(
         title: 'HIMS',

@@ -19,6 +19,7 @@ import '../../core/utils/date_formatter.dart';
 import '../../screens/prescription/prescription.dart';
 import '../../screens/prescription/eye_prescription.dart';
 import '../../screens/prescription/vitals.dart';
+import '../../screens/prescription/lab_values.dart';
 import 'drawer.dart';
 import '../../custum widgets/ai_chat_widget.dart';
 
@@ -306,6 +307,9 @@ class _BaseScaffoldState extends State<BaseScaffold> {
         break;
       case 13:
         screen = const VitalsScreen();
+        break;
+      case 14:
+        screen = const LabValuesScreen();
         break;
       case -1:
         _showLogoutDialog(context);
