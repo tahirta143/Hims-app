@@ -13,7 +13,9 @@ import '../../providers/shift_management/shift_management.dart';
 import '../../providers/voucher_provider/voucher.dart';
 import '../../providers/emergency_treatment_provider/emergency_provider.dart';
 import '../../providers/appointments_provider/appointments_provider.dart';
+import '../../providers/dashboard/dashboard_provider.dart';
 import '../../core/services/opd_receipt_api_service.dart';
+import '../../core/services/usb_thermal_printer_service.dart';
 import '../../models/opd_model/opd_receipt_model.dart';
 import 'package:intl/intl.dart';
 import '../../models/voucher_model/voucher_model.dart';
@@ -22,6 +24,7 @@ import '../../custum widgets/custom_loader.dart';
 import '../../core/utils/thermal_receipt_helper.dart';
 import '../../custum widgets/animations/animations.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:unified_esc_pos_printer/unified_esc_pos_printer.dart';
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -51,6 +54,7 @@ class OpdReceiptScreen extends StatefulWidget {
 class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final ScrollController _scrollController = ScrollController();
+  final UsbThermalPrinterService _usbPrinter = UsbThermalPrinterService();
 
   // ── controllers ──
   final _mrNoCtrl = TextEditingController();
@@ -347,6 +351,11 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
       // Success: refresh MR sequence in case we created a new patient
       context.read<MrProvider>().fetchNextMR();
 
+      // Refresh dashboard so amounts update immediately
+      context.read<DashboardProvider>().fetchAvailableShifts(
+        context.read<DashboardProvider>().selectedDate,
+      );
+
       // Success Dialog with Print Option
       showDialog(
         context: context,
@@ -370,13 +379,29 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
             ElevatedButton.icon(
               onPressed: () async {
                 Navigator.pop(ctx);
+                // A4 / normal printers (Android system print dialog)
                 await _printThermalReceiptFromPatient(prov, patient);
                 _clearAll();
               },
               icon: const Icon(Icons.print_rounded, size: 18),
-              label: const Text('Print Now'),
+              label: const Text('Print A4'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _teal,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+            ElevatedButton.icon(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                // USB Thermal printer (BC-88AC via OTG)
+                await _printThermalUsbReceipt(prov, patient);
+                _clearAll();
+              },
+              icon: const Icon(Icons.usb_rounded, size: 18),
+              label: const Text('Print Thermal (USB)'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepOrange,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
@@ -388,31 +413,158 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
   }
 
   Future<void> _printThermalReceiptFromPatient(OpdProvider prov, OpdPatient patient) async {
+    // Use saved receipt data since selectedServices is cleared after save
+    final savedServices = prov.lastSavedReceiptServices ?? [];
+    final savedTotal = prov.lastSavedReceiptTotal ?? 0.0;
+    final savedDiscount = prov.lastSavedReceiptDiscount ?? 0.0;
     final pdfBytes = await ThermalReceiptHelper.generateReceipt(
       hospitalName: 'HIMS Hospital',
-      receiptId: 'PENDING',
+      receiptId: prov.lastSavedReceiptId ?? 'PENDING',
       mrNumber: patient.mrNo,
       patientName: patient.fullName,
       age: patient.age,
       gender: patient.gender,
       date: DateFormat('dd MMM yy').format(DateTime.now()),
       time: DateFormat('hh:mm a').format(DateTime.now()),
-      items: prov.selectedServices.map((s) => {
-        'name': s.service.name,
-        'rate': s.service.price,
-        'qty': s.quantity,
+      items: savedServices.map((s) => {
+        'name': s['name'] ?? '',
+        'rate': s['rate'] ?? 0.0,
+        'qty': s['quantity'] ?? 1,
       }).toList(),
-      total: prov.servicesTotal,
-      discount: _discountVal,
-      payable: prov.servicesTotal - _discountVal,
+      total: savedTotal,
+      discount: savedDiscount,
+      payable: savedTotal - savedDiscount,
       cashier: 'RECEPTION',
-      qrData: '${GlobalApi.baseUrl}/receipts/pending',
+      qrData:
+          '${GlobalApi.baseUrl}/receipts/${prov.lastSavedReceiptId ?? 'pending'}',
     );
 
+    // Always open system print UI (also allows "Save as PDF")
     await Printing.layoutPdf(
-      onLayout: (format) async => pdfBytes,
-      name: 'Receipt_${patient.mrNo}',
+      onLayout: (_) async => pdfBytes,
+      name: 'Receipt_${prov.lastSavedReceiptId ?? patient.mrNo}',
     );
+  }
+
+  Future<void> _printThermalUsbReceipt(OpdProvider prov, OpdPatient patient) async {
+    final devices = await _usbPrinter.scanUsbPrinters();
+    if (!mounted) return;
+    if (devices.isEmpty) {
+      _snack('No USB thermal printer found. Connect BC-88AC via OTG.', err: true);
+      return;
+    }
+
+    final selected = await showModalBottomSheet<PrinterDevice>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            const ListTile(
+              title: Text('Select USB Thermal Printer'),
+              subtitle: Text('Make sure OTG is connected'),
+            ),
+            ...devices.map((d) => ListTile(
+                  leading: const Icon(Icons.usb_rounded),
+                  title: Text(d.name),
+                  subtitle: Text(d.runtimeType.toString()),
+                  onTap: () => Navigator.pop(context, d),
+                )),
+          ],
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+    if (selected == null) return;
+
+    final ticket = await Ticket.create(PaperSize.mm80);
+    ticket
+      ..text(
+        'HIMS HOSPITAL',
+        align: PrintAlign.center,
+        style: const PrintTextStyle(
+          bold: true,
+          height: TextSize.size2,
+          width: TextSize.size2,
+        ),
+      )
+      ..text('OPD RECEIPT', align: PrintAlign.center)
+      ..separator()
+      ..row([
+        PrintColumn(text: 'MR: ${patient.mrNo}', flex: 2, style: const PrintTextStyle(bold: true)),
+        PrintColumn(text: prov.lastSavedReceiptId ?? '', flex: 1, align: PrintAlign.right),
+      ])
+      ..text(patient.fullName, style: const PrintTextStyle(bold: true))
+      ..row([
+        PrintColumn(text: '${patient.age} Y / ${patient.gender}', flex: 2),
+        PrintColumn(
+          text: DateFormat('dd MMM yy hh:mm a').format(DateTime.now()),
+          flex: 1,
+          align: PrintAlign.right,
+        ),
+      ])
+      ..separator();
+
+    // Use saved receipt data since selectedServices is cleared after save
+    final savedServices = prov.lastSavedReceiptServices ?? [];
+    final savedTotal = prov.lastSavedReceiptTotal ?? 0.0;
+    final savedDiscount = prov.lastSavedReceiptDiscount ?? 0.0;
+
+    for (final s in savedServices) {
+      ticket.row([
+        PrintColumn(text: s['name'] ?? '', flex: 2),
+        PrintColumn(
+          text: ((s['rate'] ?? 0.0) as double).toStringAsFixed(0),
+          flex: 1,
+          align: PrintAlign.right,
+        ),
+      ]);
+    }
+
+    final total = savedTotal;
+    final discount = savedDiscount;
+    final payable = (total - discount).clamp(0.0, double.infinity);
+    ticket
+      ..separator()
+      ..row([
+        PrintColumn(text: 'Total', flex: 2, style: const PrintTextStyle(bold: true)),
+        PrintColumn(
+          text: total.toStringAsFixed(0),
+          flex: 1,
+          align: PrintAlign.right,
+          style: const PrintTextStyle(bold: true),
+        ),
+      ]);
+    if (discount > 0) {
+      ticket.row([
+        PrintColumn(text: 'Discount', flex: 2),
+        PrintColumn(
+          text: '-${discount.toStringAsFixed(0)}',
+          flex: 1,
+          align: PrintAlign.right,
+        ),
+      ]);
+    }
+    ticket.row([
+      PrintColumn(text: 'Payable', flex: 2, style: const PrintTextStyle(bold: true)),
+      PrintColumn(
+        text: payable.toStringAsFixed(0),
+        flex: 1,
+        align: PrintAlign.right,
+        style: const PrintTextStyle(bold: true),
+      ),
+    ]);
+    ticket
+      ..feed(1)
+      ..text('Thank you for visiting', align: PrintAlign.center, style: const PrintTextStyle(bold: true))
+      ..feed(2)
+      ..cut();
+
+    final ok = await _usbPrinter.printReceipt(printer: selected, ticket: ticket);
+    if (!mounted) return;
+    _snack(ok ? 'Thermal print sent to printer' : 'Thermal print failed', err: !ok);
   }
 
 
@@ -1658,7 +1810,6 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
                   textAlign: TextAlign.right,
                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                   onChanged: (_) => _onDiscountChanged(),
-                  onTap: _scrollToTop,
                   decoration: InputDecoration(
                     prefixText: 'PKR ',
                     prefixStyle: const TextStyle(fontSize: 12, color: _textLight),
@@ -1706,7 +1857,6 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
                 textAlign: TextAlign.right,
                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                 onChanged: (_) => setState(() {}),
-                onTap: _scrollToTop,
                 decoration: InputDecoration(
                   prefixText: 'PKR ',
                   prefixStyle: const TextStyle(fontSize: 12, color: _textLight),

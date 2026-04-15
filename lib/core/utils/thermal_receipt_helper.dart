@@ -20,163 +20,182 @@ class ThermalReceiptHelper {
     String? qrData,
   }) async {
     final pdf = pw.Document();
+    final mono = pw.Font.courier();
 
     pdf.addPage(
       pw.Page(
         pageFormat: const PdfPageFormat(
           72 * PdfPageFormat.mm,
           double.infinity,
-          marginAll: 5 * PdfPageFormat.mm,
+          marginAll: 4 * PdfPageFormat.mm,
         ),
         build: (pw.Context context) {
+          final base = pw.TextStyle(font: mono, fontSize: 10);
+          final small = base.copyWith(fontSize: 9);
+          final bold = base.copyWith(fontWeight: pw.FontWeight.bold);
+          final amountInWords = numberToWordsPKR(payable.toInt());
+
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              // Header
-              pw.Center(
-                child: pw.Column(
-                  children: [
-                    pw.Text(
-                      hospitalName.toUpperCase(),
-                      style: pw.TextStyle(
-                        fontSize: 14,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                      textAlign: pw.TextAlign.center,
+              // Header (aligned like React thermal template)
+              pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
+                children: [
+                  pw.Container(width: 24, height: 24),
+                  pw.SizedBox(width: 6),
+                  pw.Expanded(
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          hospitalName.toUpperCase(),
+                          style: base.copyWith(
+                            fontSize: 13,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                        pw.Text('OPD Receipt', style: small.copyWith(fontSize: 10)),
+                      ],
                     ),
-                    pw.Text(
-                      'OPD RECEIPT',
-                      style: pw.TextStyle(fontSize: 10),
-                    ),
-                  ],
-                ),
+                  )
+                ],
               ),
-              pw.SizedBox(height: 5),
+              pw.SizedBox(height: 4),
               pw.Divider(thickness: 1, color: PdfColors.black),
-              
+
               // MR and Receipt ID
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
-                  pw.Text('MR: $mrNumber',
-                      style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
-                  pw.Text(receiptId, style: const pw.TextStyle(fontSize: 9)),
+                  pw.RichText(
+                    text: pw.TextSpan(
+                      children: [
+                        pw.TextSpan(text: 'MR: ', style: small),
+                        pw.TextSpan(text: mrNumber.isEmpty ? '-' : mrNumber, style: small.copyWith(fontWeight: pw.FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                  pw.Text(receiptId, style: small.copyWith(fontWeight: pw.FontWeight.bold)),
                 ],
               ),
               pw.SizedBox(height: 2),
-              // Patient Name
-              pw.Text(patientName,
-                  style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
+
+              // Patient name
+              pw.Text(
+                patientName.isEmpty ? '-' : patientName,
+                style: base.copyWith(fontSize: 11, fontWeight: pw.FontWeight.bold),
+              ),
               pw.SizedBox(height: 2),
-              // Age/Gender and Date/Time
+
+              // Age/Gender and Date/Time (same order as React)
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
-                  pw.Text('$age Y / $gender', style: const pw.TextStyle(fontSize: 9)),
-                  pw.Text('$date $time', style: const pw.TextStyle(fontSize: 8)),
+                  pw.Text(
+                    '${age.isEmpty ? '-' : age}y · ${gender.isEmpty ? '-' : gender}',
+                    style: small,
+                  ),
+                  pw.Text('$date $time', style: small),
                 ],
               ),
-              pw.SizedBox(height: 5),
-              pw.Divider(thickness: 0.5, color: PdfColors.black),
+              pw.SizedBox(height: 4),
+              pw.Divider(thickness: 1, color: PdfColors.black),
 
-              // Items Header
-              pw.Row(
-                children: [
-                  pw.Expanded(
-                      flex: 3,
-                      child: pw.Text('Service',
-                          style: pw.TextStyle(
-                              fontSize: 9, fontWeight: pw.FontWeight.bold))),
-                  pw.Expanded(
-                      flex: 1,
-                      child: pw.Text('Qty',
-                          textAlign: pw.TextAlign.center,
-                          style: pw.TextStyle(
-                              fontSize: 9, fontWeight: pw.FontWeight.bold))),
-                  pw.Expanded(
-                      flex: 1,
-                      child: pw.Text('Rate',
-                          textAlign: pw.TextAlign.right,
-                          style: pw.TextStyle(
-                              fontSize: 9, fontWeight: pw.FontWeight.bold))),
-                ],
-              ),
-              pw.SizedBox(height: 2),
-              
-              // Items List
+              // Services (React uses name + line total only)
               ...items.map((item) => pw.Padding(
-                    padding: const pw.EdgeInsets.symmetric(vertical: 1),
+                    padding: const pw.EdgeInsets.symmetric(vertical: 1.5),
                     child: pw.Row(
                       children: [
                         pw.Expanded(
-                            flex: 3,
-                            child: pw.Text(item['name'] ?? '',
-                                style: const pw.TextStyle(fontSize: 9))),
+                          child: pw.Text('${item['name'] ?? ''}', style: base),
+                        ),
                         pw.Expanded(
-                            flex: 1,
-                            child: pw.Text('${item['qty'] ?? 1}',
-                                textAlign: pw.TextAlign.center,
-                                style: const pw.TextStyle(fontSize: 9))),
-                        pw.Expanded(
-                            flex: 1,
-                            child: pw.Text('${(item['rate'] ?? 0).toInt()}',
-                                textAlign: pw.TextAlign.right,
-                                style: const pw.TextStyle(fontSize: 9))),
+                          child: pw.Text(
+                            _money(((item['rate'] ?? 0) as num).toDouble() *
+                                ((item['qty'] ?? 1) as num).toDouble()),
+                            textAlign: pw.TextAlign.right,
+                            style: bold,
+                          ),
+                        ),
                       ],
                     ),
                   )),
-              
-              pw.SizedBox(height: 5),
-              pw.Divider(thickness: 0.5, color: PdfColors.black),
+              pw.SizedBox(height: 4),
+              pw.Divider(thickness: 1, color: PdfColors.black),
 
               // Totals
               if (discount > 0) ...[
-                _buildTotalRow('Subtotal', total),
-                _buildTotalRow('Discount', discount, isNegative: true),
+                _buildTotalRow('Subtotal', total, baseStyle: base, valuePrefix: 'PKR '),
+                _buildTotalRow('Discount', discount, baseStyle: base, isNegative: true),
               ],
-              _buildTotalRow('Grand Total', payable, isBold: true),
-              
-              pw.SizedBox(height: 5),
-              // Amount in words
-              pw.Text(
-                'Amount in words: ${numberToWordsPKR(payable.toInt())} Rupees Only',
-                style: pw.TextStyle(fontSize: 8, fontStyle: pw.FontStyle.italic),
+              pw.Container(
+                decoration: const pw.BoxDecoration(
+                  border: pw.Border(
+                    top: pw.BorderSide(color: PdfColors.black, width: 1),
+                  ),
+                ),
+                padding: const pw.EdgeInsets.only(top: 2),
+                child: _buildTotalRow(
+                  'Total',
+                  payable,
+                  baseStyle: base.copyWith(fontSize: 13),
+                  valuePrefix: 'PKR ',
+                  isBold: true,
+                ),
               ),
-              
-              pw.SizedBox(height: 5),
-              pw.Divider(thickness: 0.5, color: PdfColors.black),
-              pw.SizedBox(height: 2),
-              pw.Text('Cashier: $cashier', style: const pw.TextStyle(fontSize: 9)),
-              
+
+              pw.SizedBox(height: 3),
+              pw.Container(
+                decoration: const pw.BoxDecoration(
+                  border: pw.Border(
+                    top: pw.BorderSide(color: PdfColors.black, width: 0.5),
+                  ),
+                ),
+                padding: const pw.EdgeInsets.only(top: 3),
+                child: pw.Text(
+                  '$amountInWords Rupees Only',
+                  style: small.copyWith(fontStyle: pw.FontStyle.italic),
+                ),
+              ),
+
+              pw.SizedBox(height: 4),
+              pw.Divider(thickness: 1, color: PdfColors.black),
+              pw.Text(
+                'Cashier: ${cashier.isEmpty ? 'STAFF' : cashier}',
+                style: small.copyWith(fontWeight: pw.FontWeight.bold),
+              ),
+
               if (qrData != null) ...[
-                pw.SizedBox(height: 10),
+                pw.SizedBox(height: 4),
+                pw.Divider(thickness: 1, color: PdfColors.black),
+                pw.SizedBox(height: 3),
                 pw.Center(
                   child: pw.Column(
                     children: [
                       pw.Container(
-                        width: 100,
-                        height: 100,
-                        child: pw.BarcodeWidget(
+                        width: 90,
+                        height: 90,
+                        child: pw.BarcodeWidget( // ignore: deprecated_member_use
                           barcode: pw.Barcode.qrCode(),
                           data: qrData,
                         ),
                       ),
                       pw.SizedBox(height: 2),
-                      pw.Text('Scan to verify receipt',
-                          style: const pw.TextStyle(fontSize: 7)),
+                      pw.Text('Scan to view receipt', style: small.copyWith(fontSize: 8)),
                     ],
                   ),
                 ),
               ],
-              
-              pw.SizedBox(height: 10),
+
+              pw.SizedBox(height: 6),
               pw.Center(
                 child: pw.Text(
                   'Thank you for visiting',
-                  style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold),
+                  style: small.copyWith(fontSize: 10),
                 ),
               ),
-              pw.SizedBox(height: 10),
+              pw.SizedBox(height: 6),
             ],
           );
         },
@@ -186,26 +205,41 @@ class ThermalReceiptHelper {
     return pdf.save();
   }
 
-  static pw.Widget _buildTotalRow(String label, double value,
-      {bool isBold = false, bool isNegative = false}) {
+  static pw.Widget _buildTotalRow(
+    String label,
+    double value, {
+    required pw.TextStyle baseStyle,
+    String valuePrefix = '',
+    bool isBold = false,
+    bool isNegative = false,
+  }) {
+    final style = isBold
+        ? baseStyle.copyWith(fontWeight: pw.FontWeight.bold)
+        : baseStyle;
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(vertical: 1),
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: [
-          pw.Text(label,
-              style: pw.TextStyle(
-                  fontSize: 10,
-                  fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal)),
+          pw.Text(label, style: style),
           pw.Text(
-            '${isNegative ? "- " : ""}PKR ${value.toInt()}',
-            style: pw.TextStyle(
-                fontSize: 10,
-                fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal),
+            '${isNegative ? "- " : ""}$valuePrefix${_money(value)}',
+            style: style,
           ),
         ],
       ),
     );
+  }
+
+  static String _money(double value) {
+    final s = value.round().toString();
+    final chars = s.split('').reversed.toList();
+    final out = <String>[];
+    for (var i = 0; i < chars.length; i++) {
+      if (i > 0 && i % 3 == 0) out.add(',');
+      out.add(chars[i]);
+    }
+    return out.reversed.join();
   }
 
   static String numberToWordsPKR(int n) {
@@ -216,11 +250,11 @@ class ThermalReceiptHelper {
     
     String convert(int n) {
       if (n < 20) return units[n];
-      if (n < 100) return tens[n ~/ 10] + (n % 10 != 0 ? ' ' + units[n % 10] : '');
-      if (n < 1000) return units[n ~/ 100] + ' Hundred' + (n % 100 != 0 ? ' ' + convert(n % 100) : '');
-      if (n < 100000) return convert(n ~/ 1000) + ' Thousand' + (n % 1000 != 0 ? ' ' + convert(n % 1000) : '');
-      if (n < 10000000) return convert(n ~/ 100000) + ' Lakh' + (n % 100000 != 0 ? ' ' + convert(n % 100000) : '');
-      return convert(n ~/ 10000000) + ' Crore' + (n % 10000000 != 0 ? ' ' + convert(n % 10000000) : '');
+      if (n < 100) return '${tens[n ~/ 10]}${n % 10 != 0 ? ' ${units[n % 10]}' : ''}';
+      if (n < 1000) return '${units[n ~/ 100]} Hundred${n % 100 != 0 ? ' ${convert(n % 100)}' : ''}';
+      if (n < 100000) return '${convert(n ~/ 1000)} Thousand${n % 1000 != 0 ? ' ${convert(n % 1000)}' : ''}';
+      if (n < 10000000) return '${convert(n ~/ 100000)} Lakh${n % 100000 != 0 ? ' ${convert(n % 100000)}' : ''}';
+      return '${convert(n ~/ 10000000)} Crore${n % 10000000 != 0 ? ' ${convert(n % 10000000)}' : ''}';
     }
     
     return convert(n);

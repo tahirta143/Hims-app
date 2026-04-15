@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Allow scanning/connecting USB (OTG) thermal printers -->
+    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
     <application
         android:label="hims_app"
         android:name="${applicationName}"

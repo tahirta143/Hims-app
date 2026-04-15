@@ -90,6 +90,10 @@ class OpdProvider extends ChangeNotifier {
   bool _loadingReceipts = false;
   bool _isDisposed = false; // ← CRASH FIX: track disposal
   String? _errorMessage;
+  String? _lastSavedReceiptId;
+  List<Map<String, dynamic>>? _lastSavedReceiptServices;
+  double? _lastSavedReceiptTotal;
+  double? _lastSavedReceiptDiscount;
 
   bool get isLoadingServices => _loadingServices;
   bool get isLoadingReceipts => _loadingReceipts;
@@ -97,6 +101,10 @@ class OpdProvider extends ChangeNotifier {
   bool get hasMorePages => _currentPage <= _totalPages;
   int get totalReceiptsCount => _totalCount;
   String? get errorMessage => _errorMessage;
+  String? get lastSavedReceiptId => _lastSavedReceiptId;
+  List<Map<String, dynamic>>? get lastSavedReceiptServices => _lastSavedReceiptServices;
+  double? get lastSavedReceiptTotal => _lastSavedReceiptTotal;
+  double? get lastSavedReceiptDiscount => _lastSavedReceiptDiscount;
   bool _isLoading = false;
   bool _isSaving = false;
 
@@ -383,7 +391,7 @@ class OpdProvider extends ChangeNotifier {
           } else if (testCatRaw.contains('mri')) {
             category = 'mri'; color = const Color(0xFF00ACC1); icon = Icons.blur_circular_rounded;
           } else if (testCatRaw.contains('ultrasound')) {
-            category = 'ultrasound'; color = const Color(0xFF43A047); icon = Icons.sensors_rounded;
+            category = 'ultrasound'; color = const Color(0xFF43A047); icon: Icons.sensors_rounded;
           }
 
           final service = OpdService(
@@ -714,7 +722,7 @@ class OpdProvider extends ChangeNotifier {
       _selectedServices.any((s) => s.service.id == serviceId);
 
   double get servicesTotal =>
-      _selectedServices.fold(0.0, (sum, s) => sum + s.service.price);
+      _selectedServices.fold(0.0, (sum, s) => sum + (s.service.price * s.quantity));
 
   void clearServices() {
     _selectedServices.clear();
@@ -759,12 +767,32 @@ class OpdProvider extends ChangeNotifier {
     final timeStr =
         '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
 
-    final double totalAmount = services.fold(0.0, (sum, s) => sum + s.service.price);
+    final double totalAmount = services.fold(0.0, (sum, s) => sum + (s.service.price * s.quantity));
     final double payableAmount = (totalAmount - discount).clamp(0.0, double.infinity);
     final double balanceAmount = (payableAmount - amountPaid).clamp(0.0, double.infinity);
 
-    final servicesHeads = services.map((s) => s.service.category).toSet().toList();
-    final detailsList = services.map((s) => s.service.name).toList();
+    // Map category keys to display labels matching React's OPDReceipt.jsx logic
+    String _categoryToLabel(String category, OpdSelectedService svc) {
+      switch (category) {
+        case 'consultation': return 'Consultation';
+        case 'laboratory':   return 'Laboratory';
+        case 'xray':         return 'X-Ray';
+        case 'ctscan':       return 'CT-Scan';
+        case 'mri':          return 'MRI';
+        case 'ultrasound':   return 'Ultrasound';
+        case 'emergency':    return 'Emergency';
+        default:            return svc.service.name;
+      }
+    }
+
+    final servicesHeads = services.map((s) => _categoryToLabel(s.service.category, s)).toSet().toList();
+    // React prefixes consultation details with "Dr. Name"
+    final detailsList = services.map((s) {
+      if (s.service.category == 'consultation' && s.doctorName != null && s.doctorName!.isNotEmpty) {
+        return 'Dr. ${s.doctorName}';
+      }
+      return s.service.name;
+    }).toList();
 
     String? firstDoctorId;
     final consSvc = services.where((s) => s.service.category == 'consultation').toList();
@@ -775,11 +803,12 @@ class OpdProvider extends ChangeNotifier {
 
     final serviceDetails = services.map((s) {
       double drShare = 0;
-      if (s.service.category == 'consultation') drShare = s.service.price;
+      final lineTotal = s.service.price * s.quantity;
+      if (s.service.category == 'consultation') drShare = lineTotal;
       totalDrShare += drShare;
       return {
         'id': s.service.id, 'name': s.service.name,
-        'rate': s.service.price, 'qty': 1, 'total': s.service.price,
+        'rate': s.service.price, 'quantity': s.quantity, 'total': lineTotal,
         'type': s.service.category, 'drShare': drShare > 0 ? 100 : 0,
       };
     }).toList();
@@ -829,6 +858,11 @@ class OpdProvider extends ChangeNotifier {
       _safeNotify();
       return false;
     }
+
+    _lastSavedReceiptId = apiResult.receipt?.receiptId;
+    _lastSavedReceiptServices = List<Map<String, dynamic>>.from(serviceDetails);
+    _lastSavedReceiptTotal = totalAmount;
+    _lastSavedReceiptDiscount = discount;
 
     // Post-save cleanup logic removed (MR incrementing handled by MrProvider + UI)
 

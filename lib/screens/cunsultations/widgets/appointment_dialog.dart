@@ -366,6 +366,7 @@ class _AppointmentDialogState extends State<AppointmentDialog> {
   }
 
   void _snack(String msg, {required bool err}) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg, style: const TextStyle(color: Colors.white)),
       backgroundColor: err ? Colors.red.shade400 : primary,
