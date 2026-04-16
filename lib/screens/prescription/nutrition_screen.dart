@@ -8,6 +8,7 @@ import '../../core/providers/permission_provider.dart';
 import '../../models/mr_model/mr_patient_model.dart';
 import '../../models/vitals_model/vitals_model.dart';
 import '../../core/services/pdf_nutrition_service.dart';
+import '../../custum widgets/custom_loader.dart';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const kTeal = Color(0xFF00B5AD);
@@ -393,7 +394,7 @@ class _SavePrintButton extends StatelessWidget {
       child: ElevatedButton.icon(
         onPressed: (isLoading || !isEnabled) ? null : onPressed,
         icon: isLoading 
-            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+            ? const SizedBox(width: 18, height: 18, child: CustomLoader(size: 18, color: kWhite))
             : const Icon(Icons.save_outlined, size: 18),
         label: Text(
           isLoading ? 'Saving...' : 'Save & Print',
@@ -498,7 +499,7 @@ class _PatientInfoCard extends StatelessWidget {
                 Text('Patient Information', style: TextStyle(color: kTextDark, fontWeight: FontWeight.bold, fontSize: isTablet ? 14 : 13)),
                 const Spacer(),
                 if (provider.isLoading)
-                  const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: kTeal)),
+                  const SizedBox(width: 14, height: 14, child: CustomLoader(size: 14, color: kTeal)),
               ],
             ),
           ),

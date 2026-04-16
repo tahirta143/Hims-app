@@ -43,6 +43,7 @@ class PrescriptionProvider extends ChangeNotifier {
 
   String? get receiptId => _receiptId;
   String? get doctorName => _doctorName;
+  int? get doctorSrlNo => _doctorSrlNo;
   String get medMode => _medMode;
   String get inputLang => _inputLang;
   List<dynamic> get medicineSearchResults => _medicineSearchResults;
