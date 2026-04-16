@@ -400,6 +400,43 @@ class _AppointmentDialogState extends State<AppointmentDialog> {
     return '${wdays[d.weekday - 1]}, ${d.day} ${months[d.month - 1]} ${d.year}';
   }
 
+  Widget _buildFeeInfo(String label, String value, IconData icon, double fsS) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 14, color: primary),
+            const SizedBox(width: 4),
+            Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(value, style: TextStyle(fontSize: fsS, fontWeight: FontWeight.bold, color: const Color(0xFF2D3748))),
+      ],
+    );
+  }
+
+  Widget _buildPlaceholder(double sw) {
+    return Container(
+      color: Colors.grey.shade100,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.person_rounded, color: Colors.grey.shade400, size: sw * 0.12),
+          Text(
+            _initials(widget.doctor.name),
+            style: TextStyle(
+              color: Colors.grey.shade500,
+              fontSize: sw * 0.03,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final sw = MediaQuery.of(context).size.width;
@@ -530,139 +567,134 @@ class _AppointmentDialogState extends State<AppointmentDialog> {
                 ),
                 SizedBox(height: sw * 0.03),
                 Container(
+                  padding: EdgeInsets.all(sw * 0.035),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(sw * 0.03),
-                    border: Border(
-                        left: BorderSide(
-                            color: widget.doctor.avatarColor, width: 4)),
+                    borderRadius: BorderRadius.circular(sw * 0.04),
                     boxShadow: [
                       BoxShadow(
-                          color: Colors.black.withOpacity(0.04), blurRadius: 8)
+                        color: Colors.black.withOpacity(0.06),
+                        blurRadius: 15,
+                        offset: const Offset(0, 5),
+                      )
                     ],
                   ),
-                  padding: EdgeInsets.all(sw * 0.035),
                   child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                            child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                              Text(widget.doctor.name,
-                                  style: TextStyle(
-                                      fontSize: sw * 0.038,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black87)),
-                              SizedBox(height: sh * 0.004),
-                              Container(
-                                padding: EdgeInsets.symmetric(
-                                    horizontal: sw * 0.02,
-                                    vertical: sh * 0.003),
-                                decoration: BoxDecoration(
-                                  color: widget.doctor.avatarColor
-                                      .withOpacity(0.12),
-                                  borderRadius: BorderRadius.circular(sw * 0.04),
-                                ),
-                                child: Text(widget.doctor.specialty,
-                                    style: TextStyle(
-                                        fontSize: fsS,
-                                        color: widget.doctor.avatarColor,
-                                        fontWeight: FontWeight.w700)),
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Left: Doctor Info
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.doctor.name,
+                              style: TextStyle(
+                                fontSize: sw * 0.042,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF2D3748),
+                                letterSpacing: -0.5,
                               ),
-                              SizedBox(height: sh * 0.008),
-                              Wrap(
-                                  spacing: sw * 0.015,
-                                  runSpacing: sh * 0.005,
-                                  children: widget.doctor.availableDays
-                                      .map((d) => Container(
-                                            padding: EdgeInsets.symmetric(
-                                                horizontal: sw * 0.022,
-                                                vertical: sh * 0.003),
-                                            decoration: BoxDecoration(
-                                              color: widget.doctor.avatarColor
-                                                  .withOpacity(0.12),
-                                              borderRadius:
-                                                  BorderRadius.circular(
-                                                      sw * 0.04),
-                                            ),
-                                            child: Text(d,
-                                                style: TextStyle(
-                                                    fontSize: fsXS,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: widget
-                                                        .doctor.avatarColor)),
-                                          ))
-                                      .toList()),
-                            ])),
-                        SizedBox(width: sw * 0.025),
-                        Container(
-                          width: sw * 0.16,
-                          height: sw * 0.16,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              widget.doctor.specialty.toUpperCase(),
+                              style: TextStyle(
+                                fontSize: fsXS,
+                                color: primary.withOpacity(0.8),
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Icon(Icons.location_on_rounded, size: fs, color: primary.withOpacity(0.6)),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    widget.doctor.hospital,
+                                    style: TextStyle(
+                                      fontSize: fsXS,
+                                      color: Colors.grey.shade600,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                _buildFeeInfo('Cons.', 'Rs. ${widget.doctor.consultationFee}', Icons.payments_outlined, fsS),
+                                const SizedBox(width: 12),
+                                _buildFeeInfo('F.Up', 'Rs. ${widget.doctor.followUpCharges}', Icons.history_rounded, fsS),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: widget.doctor.availableDays.map((day) => Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade50,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: Colors.grey.shade200),
+                                ),
+                                child: Text(
+                                  day,
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    color: Colors.grey.shade800,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              )).toList(),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Right: Large Image
+                      Hero(
+                        tag: 'doctor_img_${widget.doctor.id}',
+                        child: Container(
+                          width: sw * 0.3,
+                          height: sw * 0.4,
                           decoration: BoxDecoration(
-                            color: widget.doctor.avatarColor,
-                            shape: BoxShape.circle,
+                            borderRadius: BorderRadius.circular(sw * 0.03),
                             boxShadow: [
-                              BoxShadow(
-                                  color: widget.doctor.avatarColor
-                                      .withOpacity(0.35),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4))
+                              // BoxShadow(
+                              //   color: Colors.black.withOpacity(0.08),
+                              //   blurRadius: 10,
+                              //   offset: const Offset(4, 4),
+                              // )
                             ],
                           ),
-                          child: ClipOval(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(sw * 0.03),
                             child: Builder(
                               builder: (context) {
                                 final url = GlobalApi.getImageUrl(widget.doctor.imageAsset);
-                                if (url != null) {
+                                if (url != null && url.isNotEmpty) {
                                   return CachedNetworkImage(
                                     imageUrl: url,
-                                    width: sw * 0.16,
-                                    height: sw * 0.16,
                                     fit: BoxFit.cover,
-                                    placeholder: (context, _) => Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.person_rounded,
-                                            color: Colors.white, size: sw * 0.065),
-                                        Text(_initials(widget.doctor.name),
-                                            style: TextStyle(
-                                                color: Colors.white.withOpacity(0.8),
-                                                fontSize: sw * 0.022,
-                                                fontWeight: FontWeight.bold)),
-                                      ],
-                                    ),
-                                    errorWidget: (context, _, __) => Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.person_rounded,
-                                            color: Colors.white, size: sw * 0.065),
-                                        Text(_initials(widget.doctor.name),
-                                            style: TextStyle(
-                                                color: Colors.white.withOpacity(0.8),
-                                                fontSize: sw * 0.022,
-                                                fontWeight: FontWeight.bold)),
-                                      ],
-                                    ),
+                                    placeholder: (context, _) => _buildPlaceholder(sw),
+                                    errorWidget: (context, _, __) => _buildPlaceholder(sw),
                                   );
                                 }
-                                return Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.person_rounded,
-                                        color: Colors.white, size: sw * 0.065),
-                                    Text(_initials(widget.doctor.name),
-                                        style: TextStyle(
-                                            color: Colors.white.withOpacity(0.8),
-                                            fontSize: sw * 0.022,
-                                            fontWeight: FontWeight.bold)),
-                                  ],
-                                );
+                                return _buildPlaceholder(sw);
                               },
                             ),
                           ),
                         ),
-                      ]),
+                      ),
+                    ],
+                  ),
                 ),
                 SizedBox(height: sw * 0.03),
                 Container(

@@ -52,6 +52,8 @@ class PrescriptionProvider extends ChangeNotifier {
   String get ultrasoundSearch => _ultrasoundSearch;
   String get ctSearch => _ctSearch;
 
+  bool get isAdmissionReferral => noteControllers['referTo']!.text.trim().toLowerCase().contains('admission');
+
   // ─── Patient State ────────────────────────────────────────────────
   PatientModel? _currentPatient;
   PatientModel? get currentPatient => _currentPatient;
@@ -331,6 +333,20 @@ class PrescriptionProvider extends ChangeNotifier {
 
   void setDiagnosisAnswer(int questionId, dynamic value) {
     _diagnosisAnswers[questionId] = value;
+    notifyListeners();
+  }
+
+  void setAdmissionReferral(bool value) {
+    final controller = noteControllers['referTo']!;
+    if (value) {
+      if (controller.text.trim().isEmpty || controller.text.trim().toLowerCase() != 'admission') {
+        controller.text = 'Admission';
+      }
+    } else {
+      if (controller.text.trim().toLowerCase() == 'admission') {
+        controller.text = '';
+      }
+    }
     notifyListeners();
   }
 

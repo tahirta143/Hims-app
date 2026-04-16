@@ -315,142 +315,158 @@ class _DoctorCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        width: cardWidth,
-        margin: EdgeInsets.only(bottom: screenSize.height * 0.015),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(screenSize.width * 0.04),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.topRight,
+        children: [
+          // ── Main Card Container ───────────────────────────────────────────
+          Container(
+            width: cardWidth,
+            margin: EdgeInsets.only(
+              top: screenSize.height * 0.02,
+              bottom: screenSize.height * 0.015,
             ),
-          ],
-        ),
-        child: Padding(
-          padding: EdgeInsets.all(horizontalPadding),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(screenSize.width * 0.04),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: EdgeInsets.all(horizontalPadding),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    flex: 2,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          doctor.name,
-                          style: TextStyle(
-                            fontSize: screenSize.width * 0.045,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        SizedBox(height: screenSize.height * 0.003),
-                        Text(
-                          doctor.specialty,
-                          style: TextStyle(
-                            fontSize: screenSize.width * 0.035,
-                            color: Colors.grey.shade600,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        SizedBox(height: screenSize.height * 0.008),
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: screenSize.width * 0.02,
-                            vertical: screenSize.height * 0.004,
-                          ),
-                          decoration: BoxDecoration(
-                            color: primaryColor.withOpacity(0.1),
-                            borderRadius:
-                            BorderRadius.circular(screenSize.width * 0.02),
-                          ),
-                          child: Text(
-                            'Rs. ${doctor.consultationFee}',
-                            style: TextStyle(
-                              fontSize: screenSize.width * 0.04,
-                              fontWeight: FontWeight.bold,
-                              color: primaryColor,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              doctor.name,
+                              style: TextStyle(
+                                fontSize: screenSize.width * 0.045,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
+                            SizedBox(height: screenSize.height * 0.003),
+                            Text(
+                              doctor.specialty,
+                              style: TextStyle(
+                                fontSize: screenSize.width * 0.035,
+                                color: Colors.grey.shade600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            SizedBox(height: screenSize.height * 0.008),
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: screenSize.width * 0.02,
+                                vertical: screenSize.height * 0.004,
+                              ),
+                              decoration: BoxDecoration(
+                                color: primaryColor.withOpacity(0.1),
+                                borderRadius:
+                                BorderRadius.circular(screenSize.width * 0.02),
+                              ),
+                              child: Text(
+                                'Rs. ${doctor.consultationFee}',
+                                style: TextStyle(
+                                  fontSize: screenSize.width * 0.04,
+                                  fontWeight: FontWeight.bold,
+                                  color: primaryColor,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                      // Reserve space for the absolute positioned image
+                      SizedBox(width: screenSize.width * 0.28),
+                    ],
                   ),
-                  SizedBox(width: screenSize.width * 0.03),
-                  ClipRRect(
-                    borderRadius:
-                    BorderRadius.circular(screenSize.width * 0.05),
-                    child: Builder(
-                      builder: (context) {
-                        final url = GlobalApi.getImageUrl(doctor.imageAsset);
-                        if (url != null) {
-                          return CachedNetworkImage(
-                            imageUrl: url,
-                            width: screenSize.width * 0.28,
-                            height: screenSize.width * 0.28,
-                            fit: BoxFit.cover,
-                            placeholder: (context, _) => _buildAvatarFallback(screenSize),
-                            errorWidget: (context, _, __) => _buildAvatarFallback(screenSize),
-                          );
-                        }
-                        return _buildAvatarFallback(screenSize);
-                      },
-                    ),
+                  SizedBox(height: screenSize.height * 0.015),
+                  Row(
+                    children: [
+                      Icon(Icons.access_time,
+                          size: screenSize.width * 0.035, color: Colors.green),
+                      SizedBox(width: screenSize.width * 0.01),
+                      Text(
+                        '$availableSlots Slots Available',
+                        style: TextStyle(
+                          fontSize: screenSize.width * 0.03,
+                          color: Colors.green,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: screenSize.height * 0.01),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildDayChip(
+                          'Mon', screenSize, doctor.availableDays.contains('Mon')),
+                      _buildDayChip(
+                          'Tue', screenSize, doctor.availableDays.contains('Tue')),
+                      _buildDayChip(
+                          'Wed', screenSize, doctor.availableDays.contains('Wed')),
+                      _buildDayChip(
+                          'Thu', screenSize, doctor.availableDays.contains('Thu')),
+                      _buildDayChip(
+                          'Fri', screenSize, doctor.availableDays.contains('Fri')),
+                      _buildDayChip(
+                          'Sat', screenSize, doctor.availableDays.contains('Sat')),
+                    ],
                   ),
                 ],
               ),
-              SizedBox(height: screenSize.height * 0.015),
-              Row(
-                children: [
-                  Icon(Icons.access_time,
-                      size: screenSize.width * 0.035, color: Colors.green),
-                  SizedBox(width: screenSize.width * 0.01),
-                  Text(
-                    '$availableSlots Slots Available',
-                    style: TextStyle(
-                      fontSize: screenSize.width * 0.03,
-                      color: Colors.green,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: screenSize.height * 0.01),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _buildDayChip(
-                      'Mon', screenSize, doctor.availableDays.contains('Mon')),
-                  _buildDayChip(
-                      'Tue', screenSize, doctor.availableDays.contains('Tue')),
-                  _buildDayChip(
-                      'Wed', screenSize, doctor.availableDays.contains('Wed')),
-                  _buildDayChip(
-                      'Thu', screenSize, doctor.availableDays.contains('Thu')),
-                  _buildDayChip(
-                      'Fri', screenSize, doctor.availableDays.contains('Fri')),
-                  _buildDayChip(
-                      'Sat', screenSize, doctor.availableDays.contains('Sat')),
-                ],
-              ),
-            ],
+            ),
           ),
-        ),
+
+          // ── Absolute Positioned Doctor Image ──────────────────────────────
+          Positioned(
+            top: -screenSize.height * 0.015, // Moves the image HIGHER to ensure it pops out
+            right: horizontalPadding,
+            child: SizedBox(
+              width: screenSize.width * 0.32,
+              height: screenSize.width * 0.4, // Taller box for the pop-out effect
+              child: Builder(
+                builder: (context) {
+                  final url = GlobalApi.getImageUrl(doctor.imageAsset);
+                  if (url != null) {
+                    return CachedNetworkImage(
+                      imageUrl: url,
+                      fit: BoxFit.contain,
+                      alignment: Alignment.bottomCenter,
+                      placeholder: (context, _) => _buildAvatarFallback(screenSize, isChild: true),
+                      errorWidget: (context, _, __) => _buildAvatarFallback(screenSize, isChild: true),
+                    );
+                  }
+                  return _buildAvatarFallback(screenSize, isChild: true);
+                },
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildAvatarFallback(Size screenSize) {
-    return Container(
+  Widget _buildAvatarFallback(Size screenSize, {bool isChild = false}) {
+    final avatar = Container(
       width: screenSize.width * 0.28,
       height: screenSize.width * 0.28,
       decoration: BoxDecoration(
@@ -473,6 +489,12 @@ class _DoctorCard extends StatelessWidget {
         ),
       ),
     );
+
+    if (isChild) {
+      // Use Align bottom to ensure it sits on the base line but sticks out if the parent is tall
+      return Align(alignment: Alignment.bottomCenter, child: avatar);
+    }
+    return avatar;
   }
 
   Widget _buildDayChip(String day, Size screenSize, bool isAvailable) {

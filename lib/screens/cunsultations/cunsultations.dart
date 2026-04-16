@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import 'package:provider/provider.dart';
 import '../../custum widgets/drawer/base_scaffold.dart';
 import '../../models/consultation_model/appointment_model.dart';
@@ -139,40 +140,28 @@ class _ConsultationScreenState extends State<ConsultationScreen> {
                             color: Colors.grey.shade500)),
                   ),
                 )
-                    : Padding(
-                  padding: EdgeInsets.symmetric(
-                      horizontal: sw * 0.04),
-                  child: GridView.builder(
-                    shrinkWrap: true,
-                    physics:
-                    const NeverScrollableScrollPhysics(),
-                    itemCount: prov.doctors.length,
-                    gridDelegate:
-                    SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: sw * 0.03,
-                      mainAxisSpacing: sw * 0.03,
-                      // Column layout is taller — lower ratio = taller cells
-                      childAspectRatio: sw >= 600
-                          ? 0.72
-                          : sw >= 400
-                          ? 0.68
-                          : 0.65,
-                    ),
-                    itemBuilder: (_, i) {
-                      final doctor = prov.doctors[i];
-                      final today = DateTime.now();
-                      return FadeInUp(
-                        delay: Duration(milliseconds: 300 + (i * 50)),
+                    : ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: EdgeInsets.zero,
+                  clipBehavior: Clip.none, // Allow pop-outs to overflow list boundaries
+                  itemCount: prov.doctors.length,
+                  itemBuilder: (_, i) {
+                    final doctor = prov.doctors[i];
+                    final today = DateTime.now();
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 20, bottom: 20, left: 16, right: 16),
+                      child: FadeInUp(
+                        delay: Duration(milliseconds: 100 + (i * 50)),
                         child: _DoctorCard(
                           doctor: doctor,
                           bookedSlots: prov.bookedSlots(today, doctor.name).length,
                           availableSlots: prov.availableSlotsForDoctor(doctor.name, today),
                           onTap: () => _showDialog(context, prov, doctor, sw, sh),
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    );
+                  },
                 ),
 
                 const SizedBox(height: 120),
@@ -369,174 +358,179 @@ class _DoctorCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (ctx, constraints) {
-      final cw   = constraints.maxWidth;
-      final pad  = cw * 0.06;
-      final avSz = cw * 0.30; // avatar diameter
-      String _formatTo12Hour(String timeRange) {
-        try {
-          final parts = timeRange.split('-');
+      final cw = constraints.maxWidth;
+      final Color baseColor = doctor.avatarColor;
 
-          String convert(String time) {
-            final t = time.trim().split(':');
-            int hour = int.parse(t[0]);
-            String minute = t[1];
+      // Extract current dates for the schedule highlight
+      final now = DateTime.now();
+      final List<DateTime> weekDates = List.generate(7, (i) => now.add(Duration(days: i)));
+      final List<String> shortDayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-            String period = hour >= 12 ? 'PM' : 'AM';
-            hour = hour % 12;
-            if (hour == 0) hour = 12;
-
-            return '$hour:$minute $period';
-          }
-
-          return '${convert(parts[0])} - ${convert(parts[1])}';
-        } catch (e) {
-          return timeRange;
-        }
-      }
       return GestureDetector(
         onTap: onTap,
         child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(cw * 0.06),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.07),
-                blurRadius: 14, offset: const Offset(0, 4))],
-          ),
-          child: Column(children: [
-
-            // ── Colored top band: avatar + name + specialty ──
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.fromLTRB(pad, pad, pad, pad * 0.8),
-              decoration: BoxDecoration(
-                color: doctor.avatarColor.withOpacity(0.09),
-                borderRadius: BorderRadius.only(
-                  topLeft:  Radius.circular(cw * 0.06),
-                  topRight: Radius.circular(cw * 0.06),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // ── Main Card Body ──
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    )
+                  ],
+                  border: Border.all(color: Colors.grey.shade100),
                 ),
-              ),
-              child: Column(children: [
-                // Avatar circle
-                Container(
-                  width: avSz, height: avSz,
-                  decoration: BoxDecoration(
-                    color: doctor.avatarColor,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 3),
-                    boxShadow: [BoxShadow(
-                        color: doctor.avatarColor.withOpacity(0.4),
-                        blurRadius: 10, offset: const Offset(0, 4))],
-                  ),
-                  child: ClipOval(
-                    child: Builder(
-                      builder: (context) {
-                        final url = GlobalApi.getImageUrl(doctor.imageAsset);
-                        if (url != null) {
-                          return CachedNetworkImage(
-                            imageUrl: url,
-                            width: avSz,
-                            height: avSz,
-                            fit: BoxFit.cover,
-                            placeholder: (context, _) => Center(
-                              child: Text(
-                                _initials(doctor.name),
-                                style: TextStyle(
-                                  color: const Color(0xFF00B5AD),
-                                  fontSize: avSz * 0.4,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            errorWidget: (context, _, __) => Center(
-                              child: Text(
-                                _initials(doctor.name),
-                                style: TextStyle(
-                                  color: const Color(0xFF00B5AD),
-                                  fontSize: avSz * 0.4,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          );
-                        }
-                        return Center(
-                          child: Text(
-                            _initials(doctor.name),
-                            style: TextStyle(
-                              color: const Color(0xFF00B5AD),
-                              fontSize: avSz * 0.4,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(130, 16, 16, 16), // Large left pad for image
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            doctor.name,
+                            style: const TextStyle(
+                              color: Color(0xFF1A1A1A),
+                              fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                        );
-                      },
+                          const SizedBox(height: 4),
+                          Text(
+                            doctor.specialty,
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Consultation Fee',
+                                    style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+                                  ),
+                                  Text(
+                                    'PKR ${doctor.consultationFee}',
+                                    style: const TextStyle(
+                                      color: Color(0xFF1A1A1A),
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const Spacer(),
+                              const Icon(Icons.call_made_rounded, color: Color(0xFF1A1A1A), size: 18),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ),
-                SizedBox(height: cw * 0.03),
-
-                // Doctor name
-                Text(doctor.name,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: cw * 0.073,
-                        fontWeight: FontWeight.bold, color: Colors.black87),
-                    maxLines: 2, overflow: TextOverflow.ellipsis),
-                SizedBox(height: cw * 0.022),
-
-                // Specialty badge
-                Container(
-                  padding: EdgeInsets.symmetric(
-                      horizontal: cw * 0.04, vertical: cw * 0.018),
-                  decoration: BoxDecoration(
-                    color: doctor.avatarColor,
-                    borderRadius: BorderRadius.circular(cw * 0.07),
-                  ),
-                  child: Text(doctor.specialty,
-                      style: TextStyle(fontSize: cw * 0.054,
-                          fontWeight: FontWeight.w700, color: Colors.white),
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
-                ),
-              ]),
-            ),
-
-            // ── Details section ──
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                    horizontal: pad * 0.9, vertical: pad * 0.5),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _detailRow(Icons.local_hospital_rounded,
-                        doctor.hospital, cw, doctor),
-                    _detailRow(Icons.payments_rounded,
-                        'PKR ${doctor.consultationFee}', cw, doctor),
-                    // _detailRow(Icons.repeat_rounded,
-                    //     'F/U: PKR ${doctor.followUpCharges}', cw),
-                    _detailRow(
-                      Icons.access_time_rounded,
-                      _formatTo12Hour(doctor.timings),
-                      cw,
-                      doctor,
+                    // ── Bottom Section: Schedule ──
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: const BorderRadius.only(
+                          bottomLeft: Radius.circular(20),
+                          bottomRight: Radius.circular(20),
+                        ),
+                        border: Border(top: BorderSide(color: Colors.grey.shade100)),
+                      ),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Container(
+                          constraints: BoxConstraints(minWidth: cw - 32),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'Schedule',
+                                style: TextStyle(
+                                  color: Colors.grey.shade400,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              ...weekDates.map((date) {
+                                final dayName = shortDayNames[date.weekday - 1];
+                                final isAvailable = doctor.availableDays.contains(dayName);
+                                return Container(
+                                  width: 28,
+                                  height: 28,
+                                  margin: const EdgeInsets.only(right: 6),
+                                  decoration: BoxDecoration(
+                                    color: isAvailable ? const Color(0xFF00B5AD) : Colors.white,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: isAvailable ? const Color(0xFF00B5AD) : Colors.grey.shade200),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    '${date.day}',
+                                    style: TextStyle(
+                                      color: isAvailable ? Colors.white : Colors.grey.shade400,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
-
-                    // Stats
-                    Divider(height: cw * 0.04, color: Colors.grey.shade100),
-                    Row(children: [
-                      Expanded(child: _miniStat(
-                          bookedSlots.toString(),
-                          'Booked', _textDark, cw)),
-                      Container(width: 1, height: cw * 0.1,
-                          color: Colors.grey.shade200),
-                      Expanded(child: _miniStat(
-                          availableSlots.toString(),
-                          'Free', const Color(0xFF43A047), cw)),
-                    ]),
                   ],
                 ),
               ),
-            ),
-          ]),
+
+              // ── Popping Doctor Image ──
+              Positioned(
+                left: 16,
+                top: -15, 
+                bottom: 53, // Touches the schedule section top border
+                child: Hero(
+                  tag: 'doc_${doctor.id}',
+                  child: Container(
+                    width: 100,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: Builder(
+                        builder: (context) {
+                          final url = GlobalApi.getImageUrl(doctor.imageAsset);
+                          if (url != null) {
+                            return CachedNetworkImage(
+                              imageUrl: url,
+                              fit: BoxFit.cover,
+                              alignment: Alignment.topCenter,
+                              placeholder: (_, __) => Center(child: CircularProgressIndicator(strokeWidth: 2, color: baseColor)),
+                              errorWidget: (_, __, ___) => Icon(Icons.person, size: 50, color: baseColor),
+                            );
+                          }
+                          return Icon(Icons.person, size: 50, color: baseColor);
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     });

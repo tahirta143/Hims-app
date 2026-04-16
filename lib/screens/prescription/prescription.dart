@@ -1987,7 +1987,7 @@ class _NotesTab extends StatelessWidget {
           SizedBox(height: gap),
           _TextAreaField(label: 'Remarks', hint: 'Remarks...', controller: provider.noteControllers['remarks']!),
           SizedBox(height: gap),
-          _ReferToField(isTablet: isTablet, controller: provider.noteControllers['referTo']!),
+          _ReferToField(isTablet: isTablet, controller: provider.noteControllers['referTo']!, provider: provider),
         ],
       ),
     );
@@ -2049,7 +2049,8 @@ class _TextAreaField extends StatelessWidget {
 class _ReferToField extends StatelessWidget {
   final bool isTablet;
   final TextEditingController controller;
-  const _ReferToField({required this.isTablet, required this.controller});
+  final PrescriptionProvider provider;
+  const _ReferToField({required this.isTablet, required this.controller, required this.provider});
 
   @override
   Widget build(BuildContext context) {
@@ -2071,6 +2072,7 @@ class _ReferToField extends StatelessWidget {
           child: TextField(
             controller: controller,
             style: TextStyle(fontSize: fontSize, color: kTextDark),
+            onChanged: (_) => provider.notifyListeners(), // Refresh checkbox on manual type
             decoration: InputDecoration(
               hintText: 'Refer to...',
               hintStyle: TextStyle(
@@ -2090,6 +2092,39 @@ class _ReferToField extends StatelessWidget {
               filled: true,
               fillColor: kWhite,
               isDense: true,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: () => provider.setAdmissionReferral(!provider.isAdmissionReferral),
+          borderRadius: BorderRadius.circular(4),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: Checkbox(
+                    value: provider.isAdmissionReferral,
+                    onChanged: (val) => provider.setAdmissionReferral(val ?? false),
+                    activeColor: kTeal,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    side: const BorderSide(color: kBorder, width: 1.5),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Refer patient to Admission',
+                  style: TextStyle(
+                    color: kTextMid,
+                    fontSize: fontSize - 1,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
