@@ -29,10 +29,13 @@ class _CustomDrawerState extends State<CustomDrawer> {
   static const List<int> _reportsIndices = [11];
   // Prescription dropdown indices: 9, 12, 13, 14, 15, 16
   static const List<int> _prescriptionIndices = [9, 12, 13, 14, 15, 16];
+  // Pharmacy dropdown indices: 17, 18, 19, 20
+  static const List<int> _pharmacyIndices = [17, 18, 19, 20];
 
   late bool _opdExpanded;
   late bool _reportsExpanded;
   late bool _prescriptionExpanded;
+  late bool _pharmacyExpanded;
 
   @override
   void initState() {
@@ -41,6 +44,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
     _opdExpanded = _opdIndices.contains(widget.selectedIndex);
     _reportsExpanded = _reportsIndices.contains(widget.selectedIndex);
     _prescriptionExpanded = _prescriptionIndices.contains(widget.selectedIndex);
+    _pharmacyExpanded = _pharmacyIndices.contains(widget.selectedIndex);
   }
 
   Future<void> _handleLogout(BuildContext context) async {
@@ -156,6 +160,30 @@ class _CustomDrawerState extends State<CustomDrawer> {
           title: 'Fundus Examination',
           index: 16,
         ),
+    ];
+
+    // ── Visible Pharmacy sub-items ───────────────────────────────────────────
+    final List<_DrawerItemData> pharmacyItems = [
+      const _DrawerItemData(
+        icon: Icons.medical_services_outlined,
+        title: 'Add / Modify Medicines',
+        index: 17,
+      ),
+      const _DrawerItemData(
+        icon: Icons.inventory_2_outlined,
+        title: 'Opening Balances',
+        index: 18,
+      ),
+      const _DrawerItemData(
+        icon: Icons.shopping_cart_outlined,
+        title: 'Purchase Posting',
+        index: 19,
+      ),
+      const _DrawerItemData(
+        icon: Icons.receipt_long_outlined,
+        title: 'Sales Invoice',
+        index: 20,
+      ),
     ];
 
     return Drawer(
@@ -279,6 +307,26 @@ class _CustomDrawerState extends State<CustomDrawer> {
                     ),
                   if (_opdExpanded)
                     ...opdItems.map(
+                      (item) => _buildSubDrawerItem(
+                        icon: item.icon,
+                        title: item.title,
+                        index: item.index,
+                      ),
+                    ),
+
+                  // ── Pharmacy Dropdown ──────────────────────────────────────────────
+                  if (pharmacyItems.isNotEmpty)
+                    _buildGroupHeader(
+                      icon: Icons.local_pharmacy_outlined,
+                      title: 'Pharmacy',
+                      isExpanded: _pharmacyExpanded,
+                      hasActiveChild: _pharmacyIndices.contains(
+                        widget.selectedIndex,
+                      ),
+                      onTap: () => setState(() => _pharmacyExpanded = !_pharmacyExpanded),
+                    ),
+                  if (_pharmacyExpanded)
+                    ...pharmacyItems.map(
                       (item) => _buildSubDrawerItem(
                         icon: item.icon,
                         title: item.title,

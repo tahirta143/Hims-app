@@ -17,6 +17,7 @@ import 'package:hims_app/providers/appointments_provider/appointments_provider.d
 import 'package:hims_app/providers/prescription_provider/prescription_provider.dart';
 import 'package:hims_app/providers/nutrition_provider/nutrition_provider.dart';
 import 'package:hims_app/providers/eye_provider/fundus_provider.dart';
+import 'package:hims_app/providers/pharmacy_provider/pharmacy_provider.dart';
 import 'package:hims_app/screens/main_shell.dart';
 import 'package:provider/provider.dart';
 import 'package:animations/animations.dart';
@@ -28,6 +29,7 @@ void main() async {
 
 // In your main.dart or a separate file
 final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
+final GlobalKey<ScaffoldMessengerState> snackbarKey = GlobalKey<ScaffoldMessengerState>();
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -56,9 +58,11 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => LabValuesProvider()),
         ChangeNotifierProvider(create: (_) => NutritionProvider()),
         ChangeNotifierProvider(create: (_) => FundusProvider()),
+        ChangeNotifierProvider(create: (_) => PharmacyProvider()),
       ],
       child: MaterialApp(
         title: 'HIMS',
+        scaffoldMessengerKey: snackbarKey,
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1ABC9C)),

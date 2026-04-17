@@ -19,9 +19,14 @@ import '../../core/utils/date_formatter.dart';
 import '../../screens/prescription/fundus_examination_screen.dart';
 import '../../screens/prescription/nutrition_screen.dart';
 import '../../screens/prescription/prescription.dart';
+import '../../screens/prescription/lab_values.dart';
 import '../../screens/prescription/eye_prescription.dart';
 import '../../screens/prescription/vitals.dart';
 import '../../screens/prescription/lab_values.dart';
+import '../../screens/pharmacy_screens/add_modify_medicines_screen.dart';
+import '../../screens/pharmacy_screens/opening_balances_screen.dart';
+import '../../screens/pharmacy_screens/purchase_posting_screen.dart';
+import '../../screens/pharmacy_screens/sales_invoice_screen.dart';
 import 'drawer.dart';
 import '../../custum widgets/ai_chat_widget.dart';
 
@@ -318,6 +323,18 @@ class _BaseScaffoldState extends State<BaseScaffold> {
         break;
       case 16:
         screen = const FundusExaminationScreen();
+        break;
+      case 17:
+        screen = const AddModifyMedicinesScreen();
+        break;
+      case 18:
+        screen = const OpeningBalancesScreen();
+        break;
+      case 19:
+        screen = const PurchasePostingScreen();
+        break;
+      case 20:
+        screen = const SalesInvoiceScreen();
         break;
       case -1:
         _showLogoutDialog(context);
