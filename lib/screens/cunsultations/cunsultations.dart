@@ -31,9 +31,9 @@ class _ConsultationScreenState extends State<ConsultationScreen> {
   void initState() {
     super.initState();
     final prov = Provider.of<ConsultationProvider>(context, listen: false);
-    prov.resetLoading();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        prov.resetLoading();
         prov.loadDoctors();
         prov.loadAppointments();
       }

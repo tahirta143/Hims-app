@@ -48,6 +48,7 @@ class _MainShellState extends State<MainShell> {
       onBottomNavTap: (index) {
         if (index == 0) {
           final prov = context.read<DashboardProvider>();
+          prov.resetToToday();
           prov.resetLoading();
           prov.refresh();
         } else if (index == 2) {

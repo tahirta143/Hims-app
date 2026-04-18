@@ -208,27 +208,22 @@ class _AddModifyMedicinesScreenState extends State<AddModifyMedicinesScreen> {
       ],
       body: prov.isLoading && prov.medicines.isEmpty
           ? const CustomLoader(color: kTeal)
-          : Column(
-              children: [
-                // ─── UPPER PART: COMPACT FORM (SCROLLABLE) ──────────────────
-                // Using Flexible with a weight so it gives room to the table
-                Flexible(
-                  flex: 3, 
-                  child: SingleChildScrollView(
+          : SingleChildScrollView(
+              child: Column(
+                children: [
+                  // ─── UPPER PART: COMPACT FORM (NATURAL HEIGHT) ──────────────
+                  Padding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                     child: _buildCompactForm(prov, isMobile),
                   ),
-                ),
-                
-                // ─── LOWER PART: EXPANDED DIRECTORY (LIKE OPENING BALANCES) ──
-                Expanded(
-                  flex: 4, // Tables usually need more space
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  
+                  // ─── LOWER PART: EXPANDED DIRECTORY (BOUNDED HEIGHT) ─────────
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 100), // Larger bottom padding for bottom nav space
                     child: _buildDirectorySheet(prov),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
     );
   }
@@ -382,17 +377,20 @@ class _AddModifyMedicinesScreenState extends State<AddModifyMedicinesScreen> {
         child: Column(
           children: [
             _buildSearchHeader(prov),
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: SizedBox(
-                  width: isMobile ? 650 : size.width - 32, // Further decreased from 700 for exact column tightness
-                  child: Column(
-                    children: [
-                      _buildTableHeader(),
-                      const Divider(height: 1, color: kBorder),
-                      Expanded(child: _buildMedicineList(prov)),
-                    ],
+            SizedBox(
+              height: 500, // Fixed height for total directory area
+              child: Scrollbar(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                    width: isMobile ? 650 : size.width - 32,
+                    child: Column(
+                      children: [
+                        _buildTableHeader(),
+                        const Divider(height: 1, color: kBorder),
+                        Expanded(child: _buildMedicineList(prov)),
+                      ],
+                    ),
                   ),
                 ),
               ),

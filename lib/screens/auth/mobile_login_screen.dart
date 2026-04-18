@@ -191,6 +191,7 @@ import 'package:provider/provider.dart';
 import '../../providers/mobile_auth_provider.dart';
 import '../../custum widgets/custom_loader.dart';
 import '../dashboard/dashboard.dart';
+
 import '../patient/patient_dashboard.dart';
 import '../doctor/mobile_doctor_dashboard.dart';
 import 'mobile_sign_up_screen.dart';

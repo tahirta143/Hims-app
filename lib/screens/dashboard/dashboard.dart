@@ -537,11 +537,13 @@ class _DashboardBodyState extends State<_DashboardBody> {
   void initState() {
     super.initState();
     final prov = Provider.of<DashboardProvider>(context, listen: false);
-    // Set loading immediately to avoid showing old data for 1 frame
-    prov.resetLoading();
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      // Ensure we start with today's date and 'All' shifts
+      prov.resetToToday();
+      // Set loading immediately to avoid showing old data for 1 frame
+      prov.resetLoading();
       prov.fetchAvailableShifts(prov.selectedDate);
       prov.fetchCalendarData(prov.selectedDate);
     });

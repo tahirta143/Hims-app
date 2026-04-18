@@ -77,6 +77,12 @@ class DashboardProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void resetToToday() {
+    _selectedDate = DateTime.now();
+    _selectedShiftType = 'All';
+    notifyListeners();
+  }
+
   Future<void> fetchAvailableShifts(DateTime date) async {
     _isLoading = true;
     _availableShifts = [];
