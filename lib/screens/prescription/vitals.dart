@@ -114,6 +114,31 @@ class _HeaderCard extends StatelessWidget {
                 const Icon(Icons.person_pin_outlined, color: kTeal, size: 18),
                 const SizedBox(width: 8),
                 const Text('PATIENT INFORMATION', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: kTextDark, letterSpacing: 0.5)),
+                if (provider.tokenNumber != null) ...[
+                  const SizedBox(width: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: kTealLight,
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(color: kTeal.withOpacity(0.5)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.confirmation_number_outlined, size: 12, color: kTeal),
+                        const SizedBox(width: 4),
+                        Text(
+                          'T-${provider.tokenNumber}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: kTeal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 if (provider.isLoading) ...[
                   const Spacer(),
                   const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: kTeal)),
@@ -565,14 +590,32 @@ class _ConsultationSidebar extends StatelessWidget {
                       final cp = provider.consultationPatients[i];
                       final isSel = provider.currentPatient?.mrNumber == cp['patient_mr_number'];
                       return ListTile(
-                        onTap: () => provider.searchPatient(cp['patient_mr_number'].toString(), customReceiptId: cp['receipt_id'], customDoctor: cp['doctor_name']),
+                        onTap: () => provider.searchPatient(cp['patient_mr_number'].toString(), customReceiptId: cp['receipt_id'], customDoctor: cp['doctor_name'], tokenNumber: cp['token_number']?.toString()),
                         tileColor: isSel ? kTeal.withOpacity(0.05) : null,
                         leading: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(color: isSel ? kTeal : kTealLight, borderRadius: BorderRadius.circular(6)),
                           child: Text(cp['patient_mr_number'].toString(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: isSel ? kWhite : kTeal)),
                         ),
-                        title: Text(cp['patient_name'] ?? 'Unknown', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: kTextDark)),
+                        title: Row(
+                          children: [
+                            Expanded(child: Text(cp['patient_name'] ?? 'Unknown', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: kTextDark))),
+                            if (cp['token_number'] != null) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: kTealLight,
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: kTeal.withOpacity(0.3)),
+                                ),
+                                child: Text(
+                                  'T-${cp['token_number']}',
+                                  style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: kTeal),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
                         subtitle: Text('Dr. ${cp['doctor_name']}\n${cp['service_detail']}', style: const TextStyle(fontSize: 10, color: kTextMid)),
                         trailing: isSel ? const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: kTeal) : null,
                       );
@@ -613,14 +656,33 @@ class _MobileConsultationBar extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(cp['patient_name'] ?? 'Unknown', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  Row(
+                    children: [
+                      Text(cp['patient_name'] ?? 'Unknown', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      if (cp['token_number'] != null) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: kTealLight,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: kTeal.withOpacity(0.3)),
+                          ),
+                          child: Text(
+                            'T-${cp['token_number']}',
+                            style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: kTeal),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                   Text('${cp['patient_mr_number']} | ${cp['service_detail']}', style: const TextStyle(fontSize: 10, color: kTextMid)),
                 ],
               )
             );
           }).toList(),
           onChanged: (v) {
-            if (v != null) provider.searchPatient(v['patient_mr_number'].toString(), customReceiptId: v['receipt_id'], customDoctor: v['doctor_name']);
+            if (v != null) provider.searchPatient(v['patient_mr_number'].toString(), customReceiptId: v['receipt_id'], customDoctor: v['doctor_name'], tokenNumber: v['token_number']?.toString());
           },
         ),
       ),

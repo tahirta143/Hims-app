@@ -1138,13 +1138,34 @@ class _DashboardBodyState extends State<_DashboardBody> {
                                 12)),
                         child: Row(children: [
                           Expanded(
-                              child: Text(
-                                  appt['patient_name'] ??
-                                      'Unknown',
-                                  style: const TextStyle(
-                                      fontSize: 13),
-                                  overflow: TextOverflow
-                                      .ellipsis)),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                        appt['patient_name'] ??
+                                            'Unknown',
+                                        style: const TextStyle(
+                                            fontSize: 13),
+                                        overflow: TextOverflow
+                                            .ellipsis),
+                                  ),
+                                  if (appt['token_number'] != null) ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: _teal.withOpacity(0.08),
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(color: _teal.withOpacity(0.3)),
+                                      ),
+                                      child: Text(
+                                        'T-${appt['token_number']}',
+                                        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: _teal),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              )),
                           const SizedBox(width: 12),
                           Text(
                               (appt['slot_time'] ?? '')

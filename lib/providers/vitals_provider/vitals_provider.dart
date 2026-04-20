@@ -16,6 +16,7 @@ class VitalsProvider extends ChangeNotifier {
   String? _errorMessage;
   PatientModel? _currentPatient;
   String? _receiptId;
+  String? _tokenNumber;
   String? _doctorName;
 
   List<dynamic> _consultationPatients = [];
@@ -47,6 +48,7 @@ class VitalsProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   PatientModel? get currentPatient => _currentPatient;
   String? get receiptId => _receiptId;
+  String? get tokenNumber => _tokenNumber;
   String? get doctorName => _doctorName;
   List<dynamic> get consultationPatients => _consultationPatients;
   
@@ -72,11 +74,12 @@ class VitalsProvider extends ChangeNotifier {
   }
 
   // ─── Patient Search ──────────────────────────────────────────────────
-  Future<void> searchPatient(String mrNumber, {String? customReceiptId, String? customDoctor}) async {
+  Future<void> searchPatient(String mrNumber, {String? customReceiptId, String? customDoctor, String? tokenNumber}) async {
     _isLoading = true;
     _errorMessage = null;
     _currentPatient = null;
     _receiptId = customReceiptId;
+    _tokenNumber = tokenNumber;
     _doctorName = customDoctor;
     notifyListeners();
 

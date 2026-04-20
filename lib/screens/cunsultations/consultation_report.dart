@@ -918,14 +918,14 @@ class _TableHeader extends StatelessWidget {
       child: Row(children: [
         _th('SR#', w: 40),
         _th('DATE', w: 100),
+        _th('TOKEN', w: 70),
         _th('SLOT', w: 90),
         _th('MR NO', w: 80),
         _th('PATIENT', w: 130),
         _th('CONTACT', w: 110),
-        // _th('ADDRESS', w: 160),
         _th('CONSULTANT', w: 110),
         _th('SPECIALIZATION', w: 110),
-        // _th('TYPE', w: 90),
+        _th('TYPE', w: 90),
         _th('FEE', w: 120),
         _th('STATUS', w: 90),
         _th('ACTIONS', w: 120),
@@ -1013,6 +1013,31 @@ class _AppointmentRow extends StatelessWidget {
           ),
           // DATE
           _cell(appt.formattedDate, w: 100),
+          SizedBox(
+            width: 70,
+            child: Center(
+              child: Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00B5AD).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                      color: const Color(0xFF00B5AD).withOpacity(0.2)),
+                ),
+                child: Center(
+                  child: Text(
+                    appt.tokenNumber != null ? '#${appt.tokenNumber}' : '-',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF00B5AD),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
           // SLOT
           SizedBox(
             width: 90,
@@ -1067,24 +1092,28 @@ class _AppointmentRow extends StatelessWidget {
             ),
           ),
           // TYPE
-          /* SizedBox(
+          SizedBox(
             width: 90,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF48BB78).withOpacity(0.12),
+                  color: (appt.isFirstVisit ? Colors.green : Colors.blue)
+                      .withOpacity(0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(appt.visitType,
-                    style: const TextStyle(
-                        fontSize: 11,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        fontSize: 10,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF276749))),
+                        color: appt.isFirstVisit
+                            ? Colors.green[700]
+                            : Colors.blue[700])),
               ),
             ),
-          ), */
+          ),
           // FEE
           _cell(appt.formattedFee, w: 120, bold: true),
           // STATUS

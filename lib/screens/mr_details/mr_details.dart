@@ -58,6 +58,7 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
     with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _mrFocusNode = FocusNode();
+  final _ageFocusNode = FocusNode();
   final _mrCtrl = TextEditingController();
   final _searchCtrl = TextEditingController();
   
@@ -116,6 +117,28 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _autoPopulateNextMr();
     });
+
+    // Add listener for age -> dob (approximate)
+    _ageCtrl.addListener(_onAgeChange);
+  }
+
+  void _onAgeChange() {
+    if (!_ageFocusNode.hasFocus) return; // Only if user is editing age manually
+    final val = _ageCtrl.text.trim();
+    if (val.isEmpty) return;
+    final age = int.tryParse(val);
+    if (age != null && age >= 0) {
+      final now = DateTime.now();
+      final approxYear = now.year - age;
+      // If age was just changed, we set DOB to Jan 1st of that calculated year
+      // This is common for patients who don't know exact DOB
+      final newDob = DateTime(approxYear, 1, 1);
+      if (_dob == null || _dob!.year != approxYear) {
+        setState(() {
+          _dob = newDob;
+        });
+      }
+    }
   }
 
   void _autoPopulateNextMr() {
@@ -148,6 +171,7 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
     _debounce?.cancel();
     _tabController.dispose();
     _mrFocusNode.dispose();
+    _ageFocusNode.dispose();
     _mrCtrl.dispose();
     _searchCtrl.dispose();
     
@@ -285,10 +309,16 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
 
     if (patient != null) {
       _snack('Patient Registered Successfully!');
-      setState(() {
-        _patient = patient;
-        _isNewPatient = false;
-      });
+      
+      // Auto-refresh for NEXT patient if this was a new registration
+      if (_isNewPatient) {
+        _clearPatient(); // This will fetchNextMR and clear fields
+      } else {
+        setState(() {
+          _patient = patient;
+          _isNewPatient = false;
+        });
+      }
     } else {
       _snack(prov.errorMessage ?? 'Failed to register patient');
     }
@@ -590,7 +620,7 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
               ], isMobile),
               const SizedBox(height: 16),
               _responsiveGrid([
-                _f(ctrl: _ageCtrl, label: 'Age', icon: Icons.numbers, type: TextInputType.number),
+                _f(ctrl: _ageCtrl, label: 'Age', icon: Icons.numbers, type: TextInputType.number, focusNode: _ageFocusNode),
                 _dd(label: 'Blood Group', value: _bloodGroup.isEmpty ? null : _bloodGroup, items: _bloodGroups, hint: 'Select', onChanged: (v) => setState(() => _bloodGroup = v ?? '')),
               ], isMobile),
               const SizedBox(height: 16),
@@ -631,7 +661,6 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
   }
 
   Widget _formHeader() {
-    final nextMr = context.watch<MrProvider>().nextMrNumber;
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Row(
@@ -972,28 +1001,27 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
           padding: EdgeInsets.only(left: 4, bottom: 6),
           child: Text('Next Assigned MR Number (Auto)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _textMid)),
         ),
-        TextFormField(
-          initialValue: mr ?? 'Fetching...',
-          readOnly: true,
-          enabled: false, // Prevents focus and shows as disabled
-          style: const TextStyle(fontSize: 16, color: _tealDark, fontWeight: FontWeight.bold, letterSpacing: 1),
+        InputDecorator(
           decoration: InputDecoration(
             prefixIcon: const Icon(Icons.badge_outlined, color: _teal, size: 20),
             suffixIcon: mr == null 
               ? const Padding(padding: EdgeInsets.all(12), child: CustomLoader(size: 18, color: _teal))
               : const Icon(Icons.lock_outline, color: _textLight, size: 18),
-            hintText: 'Auto-allocating...',
             filled: true,
-            fillColor: const Color(0xFFF1F5F9), // Subtle disabled background
+            fillColor: const Color(0xFFF1F5F9),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: _border)),
             disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: _border.withOpacity(0.5))),
+          ),
+          child: Text(
+            mr ?? 'Fetching...',
+             style: const TextStyle(fontSize: 16, color: _tealDark, fontWeight: FontWeight.bold, letterSpacing: 1),
           ),
         ),
       ],
     );
   }
 
-  Widget _f({required TextEditingController ctrl, required String label, IconData? icon, bool required = false, TextInputType type = TextInputType.text}) {
+  Widget _f({required TextEditingController ctrl, required String label, IconData? icon, bool required = false, TextInputType type = TextInputType.text, FocusNode? focusNode}) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Padding(
         padding: const EdgeInsets.only(left: 4, bottom: 6),
@@ -1001,6 +1029,7 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
       ),
       TextFormField(
         controller: ctrl,
+        focusNode: focusNode,
         keyboardType: type,
         style: const TextStyle(fontSize: 14, color: _textDark, fontWeight: FontWeight.w500),
         validator: required ? (v) => v?.isEmpty ?? true ? 'Required' : null : null,
@@ -1050,8 +1079,25 @@ class _MrDetailsBodyState extends State<_MrDetailsBody>
       const Padding(padding: EdgeInsets.only(left: 4, bottom: 6), child: Text('Date of Birth', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _textMid))),
       GestureDetector(
         onTap: () async {
-          final p = await showDatePicker(context: context, initialDate: DateTime(2000), firstDate: DateTime(1900), lastDate: DateTime.now(), builder: (ctx, child) => Theme(data: Theme.of(ctx).copyWith(colorScheme: const ColorScheme.light(primary: _teal)), child: child!));
-          if (p != null) setState(() { _dob = p; _ageCtrl.text = (DateTime.now().year - p.year).toString(); });
+          final p = await showDatePicker(
+            context: context, 
+            initialDate: _dob ?? DateTime(2000), 
+            firstDate: DateTime(1900), 
+            lastDate: DateTime.now(), 
+            builder: (ctx, child) => Theme(data: Theme.of(ctx).copyWith(colorScheme: const ColorScheme.light(primary: _teal)), child: child!)
+          );
+          if (p != null) {
+            setState(() { 
+              _dob = p; 
+              // Precise calculation matching React
+              final today = DateTime.now();
+              int age = today.year - p.year;
+              if (today.month < p.month || (today.month == p.month && today.day < p.day)) {
+                age--;
+              }
+              _ageCtrl.text = age >= 0 ? age.toString() : '0';
+            });
+          }
         },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),

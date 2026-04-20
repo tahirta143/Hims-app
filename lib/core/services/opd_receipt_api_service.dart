@@ -270,6 +270,7 @@ class OpdReceiptApiService {
             success: true,
             message: data['message'] as String? ?? 'OPD receipt created successfully',
             receipt: rec,
+            tokens: data['tokens'] as Map<String, dynamic>?,
           );
         }
       }
@@ -520,11 +521,13 @@ class CreateOpdReceiptResult {
   final bool success;
   final String? message;
   final OpdReceiptApiModel? receipt;
+  final Map<String, dynamic>? tokens;
 
   CreateOpdReceiptResult({
     required this.success,
     this.message,
     this.receipt,
+    this.tokens,
   });
 }
 

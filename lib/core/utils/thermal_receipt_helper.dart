@@ -17,6 +17,7 @@ class ThermalReceiptHelper {
     required double discount,
     required double payable,
     required String cashier,
+    Map<String, dynamic>? tokens,
     String? qrData,
   }) async {
     final pdf = pw.Document();
@@ -108,7 +109,30 @@ class ThermalReceiptHelper {
                     child: pw.Row(
                       children: [
                         pw.Expanded(
-                          child: pw.Text('${item['name'] ?? ''}', style: base),
+                          child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text('${item['name'] ?? ''}', style: base),
+                            if (tokens != null &&
+                                tokens.containsKey(item['id']?.toString())) ...[
+                              pw.SizedBox(height: 2),
+                              pw.Container(
+                                padding: const pw.EdgeInsets.symmetric(
+                                    horizontal: 4, vertical: 1),
+                                decoration: const pw.BoxDecoration(
+                                  color: PdfColors.black,
+                                  borderRadius: pw.BorderRadius.all(
+                                      pw.Radius.circular(2)),
+                                ),
+                                child: pw.Text(
+                                  'Token # ${tokens[item['id'].toString()]}',
+                                  style: bold.copyWith(
+                                      fontSize: 8, color: PdfColors.white),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
                         ),
                         pw.Expanded(
                           child: pw.Text(

@@ -6,6 +6,8 @@ import '../../../core/services/consultant_payments_api_service.dart';
 import '../../../global/global_api.dart';
 import '../../shift_management/shift_management.dart';
 import '../../../models/consultation_model/doctor_model.dart';
+import '../../../models/consultation_model/appointment_model.dart';
+
 
 class OpdPatient {
   final String mrNo;
@@ -76,7 +78,17 @@ class OpdProvider extends ChangeNotifier {
   final ConsultantPaymentsApiService _paymentApiService =
   ConsultantPaymentsApiService();
 
+  final ConsultationApiService _consultationApi = ConsultationApiService();
+
   List<DoctorModel> _availableDoctorModels = [];
+  List<AppointmentModel> _upcomingAppointments = [];
+  List<AppointmentModel> get upcomingAppointments => _upcomingAppointments;
+  bool _isLoadingAppointments = false;
+  bool get isLoadingAppointments => _isLoadingAppointments;
+
+  Map<String, dynamic>? _lastSavedReceiptTokens;
+  Map<String, dynamic>? get lastSavedReceiptTokens => _lastSavedReceiptTokens;
+
 
   // ── Pagination State ──
   static const int _pageSize = 50;
@@ -422,8 +434,6 @@ class OpdProvider extends ChangeNotifier {
   }
 
   // ── Load Doctors ──
-  final ConsultationApiService _consultationApi = ConsultationApiService();
-
   Future<void> loadDoctors() async {
     try {
       final result = await _consultationApi.fetchDoctors();
@@ -466,6 +476,35 @@ class OpdProvider extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('❌ Error loading doctors: $e');
+    }
+  }
+
+  // ── Fetch Upcoming Appointments ──
+  Future<void> fetchUpcomingAppointments(String mrNumber) async {
+    if (mrNumber.isEmpty) {
+      _upcomingAppointments = [];
+      _safeNotify();
+      return;
+    }
+    _isLoadingAppointments = true;
+    _safeNotify();
+    try {
+      final res = await _consultationApi.fetchAppointmentsByMr(mrNumber);
+      if (res.success) {
+        final todayStr = DateTime.now().toIso8601String().split('T')[0];
+        _upcomingAppointments = res.appointments.where((a) {
+          final aDate = a.appointmentDate?.split('T')[0];
+          return aDate == todayStr && a.status?.toLowerCase() != 'cancelled';
+        }).toList();
+      } else {
+        _upcomingAppointments = [];
+      }
+    } catch (e) {
+      _upcomingAppointments = [];
+      debugPrint('Error fetching appointments: $e');
+    } finally {
+      _isLoadingAppointments = false;
+      _safeNotify();
     }
   }
 
@@ -771,6 +810,33 @@ class OpdProvider extends ChangeNotifier {
     final double payableAmount = (totalAmount - discount).clamp(0.0, double.infinity);
     final double balanceAmount = (payableAmount - amountPaid).clamp(0.0, double.infinity);
 
+    // --- Token Flow Sync (React Parity) ---
+    final Map<String, dynamic> appointmentTokens = {};
+    final List<int> appointmentIds = [];
+
+    for (var svc in services) {
+      if (svc.service.category == 'consultation' &&
+          svc.doctorSrlNo != null &&
+          svc.doctorSrlNo!.isNotEmpty) {
+        // Try to find matching appointment in today's upcoming appointments
+        try {
+          final matchingAppt = _upcomingAppointments.firstWhere((a) {
+            final drId = a.doctorSrlNo.toString();
+            final patientMr = a.mrNumber;
+            // Parity Fix: Compare against doctorSrlNo, not service.id
+            return drId == svc.doctorSrlNo && patientMr == patient.mrNo;
+          });
+
+          if (matchingAppt.tokenNumber != null) {
+            appointmentTokens[svc.doctorSrlNo!] = matchingAppt.tokenNumber;
+          }
+          appointmentIds.add(matchingAppt.id);
+        } catch (_) {
+          // No match found in upcoming appointments
+        }
+      }
+    }
+
     // Map category keys to display labels matching React's OPDReceipt.jsx logic
     String _categoryToLabel(String category, OpdSelectedService svc) {
       switch (category) {
@@ -810,6 +876,9 @@ class OpdProvider extends ChangeNotifier {
         'id': s.service.id, 'name': s.service.name,
         'rate': s.service.price, 'quantity': s.quantity, 'total': lineTotal,
         'type': s.service.category, 'drShare': drShare > 0 ? 100 : 0,
+        'doctorSrlNo': s.doctorSrlNo,
+        'doctorName': s.doctorName,
+        'department': s.doctorDepartment,
       };
     }).toList();
 
@@ -835,7 +904,10 @@ class OpdProvider extends ChangeNotifier {
       'hospital_share': totalAmount - totalDrShare,
       'opd_discount': discount > 0, 'discount_amount': discount,
       'discount_reason': null, 'discount_id': null,
-      'patient_token_appointment': false, 'patient_checked': false,
+      'patient_token_appointment': appointmentIds.isNotEmpty,
+      'appointment_tokens': appointmentTokens,
+      'appointment_ids': appointmentIds,
+      'patient_checked': false,
       'patient_requested_discount': discount > 0,
       'status': 'Active', 'payment_mode': 'Cash', 'receipt_type': 'Small',
       'shift_id': currentShift?.shiftId ?? 0,
@@ -860,6 +932,7 @@ class OpdProvider extends ChangeNotifier {
     }
 
     _lastSavedReceiptId = apiResult.receipt?.receiptId;
+    _lastSavedReceiptTokens = apiResult.tokens ?? apiResult.receipt?.tokens;
     _lastSavedReceiptServices = List<Map<String, dynamic>>.from(serviceDetails);
     _lastSavedReceiptTotal = totalAmount;
     _lastSavedReceiptDiscount = discount;

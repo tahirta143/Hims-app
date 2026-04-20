@@ -20,6 +20,7 @@ class OpdReceiptApiModel {
   final String status;
   final bool? opdCancelled; // Make optional
   final bool? paidToDoctor; // Make optional
+  final Map<String, dynamic>? tokens;
 
   OpdReceiptApiModel({
     required this.srlNo,
@@ -41,6 +42,7 @@ class OpdReceiptApiModel {
     required this.status,
     this.opdCancelled, // Now optional
     this.paidToDoctor, // Now optional
+    this.tokens,
   });
 
   factory OpdReceiptApiModel.fromJson(Map<String, dynamic> json) {
@@ -101,6 +103,7 @@ class OpdReceiptApiModel {
       status: json['status'] as String? ?? 'Active',
       opdCancelled: _toBool(json['opd_cancelled']),
       paidToDoctor: _toBool(json['paid_to_doctor']),
+      tokens: json['tokens'] as Map<String, dynamic>?,
     );
   }
 }

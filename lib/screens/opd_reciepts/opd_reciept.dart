@@ -109,8 +109,13 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
     Provider.of<EmergencyProvider>(context, listen: false).loadQueue();
 
     if (!isGlobalOnly && _mrNoCtrl.text.isNotEmpty) {
+      final mrNo = _mrNoCtrl.text;
+      
       // 2. Refresh Appointments/Tokens (Patient Specific)
       Provider.of<AppointmentsProvider>(context, listen: false).fetchAppointments();
+      
+      // 2b. Sync Upward Data for Token Flow (OpdProvider integration)
+      Provider.of<OpdProvider>(context, listen: false).fetchUpcomingAppointments(mrNo);
 
       // 3. Refresh Discount Vouchers (Patient Specific)
       Provider.of<VoucherProvider>(context, listen: false).loadData();
@@ -371,7 +376,42 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
             SizedBox(width: 8),
             Text('Success'),
           ]),
-          content: const Text('OPD Receipt has been saved successfully. Would you like to print it?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('OPD Receipt has been saved successfully.'),
+              if (prov.lastSavedReceiptTokens != null && prov.lastSavedReceiptTokens!.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Text('Generated Tokens:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: prov.lastSavedReceiptTokens!.entries.map((e) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: _tealLight,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: _teal.withOpacity(0.3)),
+                      ),
+                      child: Text(
+                        'T-${e.value}',
+                        style: const TextStyle(
+                          color: _teal,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+              const SizedBox(height: 16),
+              const Text('Would you like to print it?'),
+            ],
+          ),
           actions: [
             TextButton(
               onPressed: () {
@@ -431,6 +471,7 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
       date: DateFormat('dd MMM yy').format(DateTime.now()),
       time: DateFormat('hh:mm a').format(DateTime.now()),
       items: savedServices.map((s) => {
+        'id': s['id']?.toString() ?? '',
         'name': s['name'] ?? '',
         'rate': s['rate'] ?? 0.0,
         'qty': s['quantity'] ?? 1,
@@ -439,6 +480,7 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
       discount: savedDiscount,
       payable: savedTotal - savedDiscount,
       cashier: 'RECEPTION',
+      tokens: prov.lastSavedReceiptTokens,
       qrData:
           '${GlobalApi.baseUrl}/receipts/${prov.lastSavedReceiptId ?? 'pending'}',
     );
@@ -517,14 +559,25 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
     final savedDiscount = prov.lastSavedReceiptDiscount ?? 0.0;
 
     for (final s in savedServices) {
+      final serviceId = s['id']?.toString() ?? '';
+      final tokenNum = prov.lastSavedReceiptTokens?[serviceId];
+
       ticket.row([
-        PrintColumn(text: s['name'] ?? '', flex: 2),
+        PrintColumn(
+          text: s['name'] ?? '',
+          flex: 2,
+        ),
         PrintColumn(
           text: ((s['rate'] ?? 0.0) as double).toStringAsFixed(0),
           flex: 1,
           align: PrintAlign.right,
         ),
       ]);
+
+      if (tokenNum != null) {
+        ticket.text('Token # $tokenNum',
+            style: const PrintTextStyle(bold: true));
+      }
     }
 
     final total = savedTotal;
@@ -641,7 +694,41 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
                   const Tab(text: 'OPD'),
                   const Tab(text: 'Emergency'),
                   const Tab(text: 'IPD'),
-                  const Tab(text: 'Tokens'),
+                  Tab(
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Text('Tokens'),
+                      Consumer2<AppointmentsProvider, OpdProvider>(
+                        builder: (context, apptProv, opdProv, _) {
+                          final mr = _mrNoCtrl.text;
+                          final consultantInCart = opdProv.selectedServices
+                              .where((s) => s.service.category == 'consultation')
+                              .firstOrNull;
+                          final showingDoctor = (!_patientFound) && consultantInCart != null;
+
+                          int tokenCount = 0;
+                          if (showingDoctor) {
+                             final docSrl = int.tryParse(consultantInCart.doctorSrlNo ?? '0') ?? 0;
+                             tokenCount = apptProv.filtered.where((a) => a.doctorSrlNo == docSrl).length;
+                          } else if (mr.isNotEmpty) {
+                             tokenCount = apptProv.filtered.where((a) => a.mrNumber == mr).length;
+                          }
+
+                          if (tokenCount > 0) {
+                            return Container(
+                              margin: const EdgeInsets.only(left: 4),
+                              width: 6,
+                              height: 6,
+                              decoration: const BoxDecoration(
+                                color: _green,
+                                shape: BoxShape.circle,
+                              ),
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        },
+                      ),
+                    ]),
+                  ),
                   const Tab(text: 'History'),
                   Tab(
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -2935,17 +3022,38 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
   }
 
   Widget _buildTokensTabContent(MrProvider mrProv) {
-    return Consumer<AppointmentsProvider>(
-      builder: (context, apptProv, _) {
+    return Consumer2<AppointmentsProvider, OpdProvider>(
+      builder: (context, apptProv, opdProv, _) {
         final mr = _mrNoCtrl.text;
-        if (mr.isEmpty) {
-          return _buildPlaceholderTab('Enter MR to view tokens');
+        
+        // Match React logic: if no valid patient is found but a doctor is in cart, show doctor's tokens
+        final consultantInCart = opdProv.selectedServices
+            .where((s) => s.service.category == 'consultation')
+            .firstOrNull;
+        final showingDoctor = (!_patientFound) && consultantInCart != null;
+
+        if (mr.isEmpty && !showingDoctor) {
+          return _buildPlaceholderTab('Enter MR or select a Consultant to view tokens');
         }
-        final mine =
-            apptProv.filtered.where((a) => a.mrNumber == mr).toList();
+        
+        final Iterable<AppointmentModel> rawMine;
+        String emptyMessage;
+
+        if (showingDoctor) {
+          final docSrl = int.tryParse(consultantInCart.doctorSrlNo ?? '0') ?? 0;
+          rawMine = apptProv.filtered.where((a) => a.doctorSrlNo == docSrl);
+          emptyMessage = 'No upcoming tokens for this consultant';
+        } else {
+          rawMine = apptProv.filtered.where((a) => a.mrNumber == mr);
+          emptyMessage = 'No tokens for this patient today';
+        }
+
+        final mine = rawMine.toList();
+
         if (mine.isEmpty) {
-          return _buildPlaceholderTab('No tokens for this patient');
+          return _buildPlaceholderTab(emptyMessage);
         }
+
         return ListView.builder(
           padding: const EdgeInsets.all(12),
           itemCount: mine.length,
@@ -2958,16 +3066,51 @@ class _OpdReceiptScreenState extends State<OpdReceiptScreen> {
                   borderRadius: BorderRadius.circular(10),
                   side: const BorderSide(color: _border)),
               child: ListTile(
-                title: Text(a.doctorName,
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: _teal)),
-                subtitle: Text('${a.appointmentDate} • ${a.slotTime}',
-                    style: const TextStyle(fontSize: 11)),
+                title: Text(
+                  showingDoctor
+                      ? (a.patientName.isNotEmpty ? a.patientName : 'MR: ${a.mrNumber}')
+                      : (a.doctorName.isNotEmpty ? 'Dr. ${a.doctorName}' : 'Consultant'),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: _teal,
+                  ),
+                ),
+                subtitle: Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${a.appointmentDate} • ${a.slotTime}',
+                          style: const TextStyle(fontSize: 11)),
+                      Text(
+                        showingDoctor
+                            ? (a.doctorName.isNotEmpty ? 'Dr. ${a.doctorName}' : '---')
+                            : (a.doctorSpecialization.isNotEmpty ? a.doctorSpecialization : '---'),
+                        style: const TextStyle(fontSize: 10, color: _textMid),
+                      ),
+                    ],
+                  ),
+                ),
+                isThreeLine: true,
                 trailing: a.tokenNumber != null
-                    ? _chip('Token #${a.tokenNumber}', _green,
-                        _green.withOpacity(0.1))
+                    ? Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: _teal.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: _teal.withOpacity(0.3)),
+                        ),
+                        child: Text(
+                          'T-${a.tokenNumber}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            color: _teal,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      )
                     : null,
               ),
             );

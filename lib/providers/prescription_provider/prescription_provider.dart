@@ -21,6 +21,7 @@ class PrescriptionProvider extends ChangeNotifier {
 
   // New Alignment State
   String? _receiptId;
+  String? _tokenNumber;
   String? _doctorName;
   int? _doctorSrlNo;
   String _medMode = 'medicine'; // 'medicine' or 'formula'
@@ -42,6 +43,7 @@ class PrescriptionProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
 
   String? get receiptId => _receiptId;
+  String? get tokenNumber => _tokenNumber;
   String? get doctorName => _doctorName;
   int? get doctorSrlNo => _doctorSrlNo;
   String get medMode => _medMode;
@@ -171,6 +173,7 @@ class PrescriptionProvider extends ChangeNotifier {
     final mr = patient['patient_mr_number']?.toString() ?? '';
     final paddedMr = mr.padLeft(5, '0');
     _receiptId = patient['receipt_id']?.toString();
+    _tokenNumber = patient['token_number']?.toString();
     _doctorSrlNo = int.tryParse(patient['doctor_srl_no']?.toString() ?? '');
     _doctorName = patient['doctor_name']?.toString();
     
@@ -474,6 +477,7 @@ class PrescriptionProvider extends ChangeNotifier {
     _diagnosisAnswers = {};
     _currentPatient = null;
     _receiptId = null;
+    _tokenNumber = null;
     _doctorName = null;
     _doctorSrlNo = null;
     _medMode = 'medicine';
