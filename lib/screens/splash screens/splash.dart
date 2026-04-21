@@ -3,6 +3,10 @@ import 'package:provider/provider.dart';
 import 'package:hims_app/core/providers/permission_provider.dart';
 import 'package:hims_app/core/services/auth_storage_service.dart';
 import '../../providers/mobile_auth_provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../core/services/company_settings_service.dart';
+import '../../global/global_api.dart';
+import 'package:animate_do/animate_do.dart';
 import '../main_shell.dart';
 import '../patient/patient_dashboard.dart';
 import '../doctor/mobile_doctor_dashboard.dart';
@@ -21,6 +25,10 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
   late Animation<double> _circleAnimation;
+
+  String? _companyName;
+  String? _logoUrl;
+  bool _isLoadingCache = true;
 
   @override
   void initState() {
@@ -41,7 +49,31 @@ class _SplashScreenState extends State<SplashScreen>
             curve: const Interval(0.5, 1.0, curve: Curves.easeIn)));
     _controller.forward();
 
+    _initSettings();
     _checkAuth();
+  }
+
+  Future<void> _initSettings() async {
+    final service = CompanySettingsService();
+    // 1. Load from cache immediately
+    final cached = await service.getCachedSettings();
+    if (mounted) {
+      setState(() {
+        _companyName = cached['company_name'];
+        _logoUrl = cached['logo_url'];
+        _isLoadingCache = false;
+      });
+    }
+
+    // 2. Fetch from API to get fresh data in background
+    await service.fetchAndCacheSettings();
+    final fresh = await service.getCachedSettings();
+    if (mounted) {
+      setState(() {
+        _companyName = fresh['company_name'] ?? _companyName;
+        _logoUrl = fresh['logo_url'] ?? _logoUrl;
+      });
+    }
   }
 
   Future<void> _checkAuth() async {
@@ -149,25 +181,54 @@ class _SplashScreenState extends State<SplashScreen>
                     child: Center(
                       child: Transform.scale(
                         scale: _scaleAnimation.value,
-                        child: const Icon(Icons.emergency_outlined,
-                            size: 70, color: Colors.white),
+                        child: Pulse(
+                          infinite: true,
+                          duration: const Duration(milliseconds: 2000),
+                          child: _isLoadingCache 
+                              ? const SizedBox(height: 70, width: 70)
+                              : _logoUrl != null && _logoUrl!.isNotEmpty
+                                  ? CachedNetworkImage(
+                                      imageUrl: GlobalApi.getImageUrl(_logoUrl)!,
+                                      height: 70,
+                                      width: 70,
+                                      fit: BoxFit.contain,
+                                      errorWidget: (context, url, error) => const Icon(
+                                          Icons.emergency_outlined,
+                                          size: 70, color: Colors.white),
+                                    )
+                                  : const Icon(Icons.emergency_outlined,
+                                      size: 70, color: Colors.white),
+                        ),
                       ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 24),
-                FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: const Text(
-                    'HIMS',
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      letterSpacing: 1.2,
-                    ),
+                if (_isLoadingCache)
+                  const SizedBox(height: 38)
+                else
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    children: (_companyName?.isNotEmpty == true ? _companyName! : 'HIMS')
+                        .split('')
+                        .asMap()
+                        .entries
+                        .map((entry) {
+                      return FadeInRight(
+                        duration: const Duration(milliseconds: 300),
+                        delay: Duration(milliseconds: 300 + (entry.key * 70)),
+                        child: Text(
+                          entry.value == ' ' ? '\u00A0' : entry.value,
+                          style: const TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      );
+                    }).toList(),
                   ),
-                ),
               ],
             );
           },
